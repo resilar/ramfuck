@@ -3,6 +3,7 @@
 
 #include "value.h"
 
+#include <stddef.h>
 #include <stdio.h>
 
 /*
@@ -63,12 +64,6 @@ int ast_is_type(struct ast *ast, enum ast_type node_type);
  */
 struct ast_operations {
     void (*delete)(struct ast *this);
-
-    /*
-     * Print AST node and its children in postix order (reverse polish
-     * notation).
-     */
-    void (*print)(struct ast *this, FILE *out);
 
     /*
      * Evaluate AST.
@@ -165,16 +160,20 @@ struct ast *ast_cond_new(enum ast_type node_type,
  */
 #define ast_delete(ast) ((ast)->vtable->delete((ast)))
 
-/*
- * Print text presentation of an AST and its children in postfix order, i.e.,
- * reverse polish notation.
- */
-#define ast_print(ast) ((ast)->vtable->print((ast), stdout))
-#define ast_fprint(ast, file) ((ast)->vtable->print((ast), (file)))
+size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *out, size_t size);
 
 /*
- * Optimize AST.
+ * Write a textual representation of an AST node to a string buffer.
+ *
+ * Behaves similarly to snprintf(3), i.e., truncates the output to `size` bytes
+ * and returns the number of characters needed to write the entire text.
  */
-struct ast *ast_optimize(struct ast *ast);
+#define ast_snprint(ast, out, size) \
+    (ast_snprint_funcs[(ast)->node_type]((ast), (out), (size)))
+
+/*
+ * Print a text of an AST node to standard output.
+ */
+void ast_print(struct ast *ast);
 
 #endif

@@ -220,4 +220,3 @@ struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *this) = {
     /* AST_AND_COND */ ast_and_cond_optimize,
     /* AST_OR_COND  */ ast_or_cond_optimize
 };
-

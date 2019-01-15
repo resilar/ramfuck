@@ -1,7 +1,11 @@
+#define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "ast.h"
+#include "ramfuck.h"
+
 #include "eval.h"
 #include "opt.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -10,105 +14,71 @@ static void ast_leaf_delete(struct ast *this);
 static void ast_binop_delete(struct ast *this);
 static void ast_unop_delete(struct ast *this);
 
-static void ast_int_print(struct ast *this, FILE *out);
-static void ast_uint_print(struct ast *this, FILE *out);
-static void ast_float_print(struct ast *this, FILE *out);
-static void ast_value_print(struct ast *this, FILE *out);
-static void ast_var_print(struct ast *this, FILE *out);
-
-static void ast_add_print(struct ast *this, FILE *out);
-static void ast_sub_print(struct ast *this, FILE *out);
-static void ast_mul_print(struct ast *this, FILE *out);
-static void ast_div_print(struct ast *this, FILE *out);
-static void ast_mod_print(struct ast *this, FILE *out);
-
-static void ast_and_print(struct ast *this, FILE *out);
-static void ast_xor_print(struct ast *this, FILE *out);
-static void ast_or_print(struct ast *this, FILE *out);
-static void ast_shl_print(struct ast *this, FILE *out);
-static void ast_shr_print(struct ast *this, FILE *out);
-
-static void ast_cast_print(struct ast *this, FILE *out);
-static void ast_uadd_print(struct ast *this, FILE *out);
-static void ast_usub_print(struct ast *this, FILE *out);
-static void ast_not_print(struct ast *this, FILE *out);
-static void ast_compl_print(struct ast *this, FILE *out);
-
-static void ast_eq_print(struct ast *this, FILE *out);
-static void ast_neq_print(struct ast *this, FILE *out);
-static void ast_lt_print(struct ast *this, FILE *out);
-static void ast_gt_print(struct ast *this, FILE *out);
-static void ast_le_print(struct ast *this, FILE *out);
-static void ast_ge_print(struct ast *this, FILE *out);
-
-static void ast_and_cond_print(struct ast *this, FILE *out);
-static void ast_or_cond_print(struct ast *this, FILE *out);
-
 /* Vtables for AST nodes */
 static const struct ast_operations vtables[AST_TYPES] = {
-    /* free, print, evaluate, optimize */
+    /* free, evaluate */
 
     /* AST_INT   */
-    {ast_leaf_delete, ast_int_print, ast_int_evaluate},
+    {ast_leaf_delete, ast_int_evaluate},
     /* AST_UINT  */
-    {ast_leaf_delete, ast_uint_print, ast_uint_evaluate},
+    {ast_leaf_delete, ast_uint_evaluate},
     /* AST_FLOAT */
-    {ast_leaf_delete, ast_float_print, ast_float_evaluate},
+    {ast_leaf_delete, ast_float_evaluate},
     /* AST_VALUE */
-    {ast_leaf_delete, ast_value_print, ast_value_evaluate},
+    {ast_leaf_delete, ast_value_evaluate},
     /* AST_VAR   */
-    {ast_leaf_delete, ast_var_print, ast_var_evaluate},
+    {ast_leaf_delete, ast_var_evaluate},
 
     /* AST_ADD */
-    {ast_binop_delete, ast_add_print, ast_add_evaluate},
+    {ast_binop_delete, ast_add_evaluate},
     /* AST_SUB */
-    {ast_binop_delete, ast_sub_print, ast_sub_evaluate},
+    {ast_binop_delete, ast_sub_evaluate},
     /* AST_MUL */
-    {ast_binop_delete, ast_mul_print, ast_mul_evaluate},
+    {ast_binop_delete, ast_mul_evaluate},
     /* AST_DIV */
-    {ast_binop_delete, ast_div_print, ast_div_evaluate},
+    {ast_binop_delete, ast_div_evaluate},
     /* AST_MOD */
-    {ast_binop_delete, ast_mod_print, ast_mod_evaluate},
+    {ast_binop_delete, ast_mod_evaluate},
 
     /* AST_AND */
-    {ast_binop_delete, ast_and_print, ast_and_evaluate},
+    {ast_binop_delete, ast_and_evaluate},
     /* AST_XOR */
-    {ast_binop_delete, ast_xor_print, ast_xor_evaluate},
+    {ast_binop_delete, ast_xor_evaluate},
     /* AST_OR  */
-    {ast_binop_delete, ast_or_print, ast_or_evaluate},
+    {ast_binop_delete, ast_or_evaluate},
     /* AST_SHL */
-    {ast_binop_delete, ast_shl_print, ast_shl_evaluate},
+    {ast_binop_delete, ast_shl_evaluate},
     /* AST_SHR */
-    {ast_binop_delete, ast_shr_print, ast_shr_evaluate},
+    {ast_binop_delete, ast_shr_evaluate},
 
     /* AST_CAST  */
-    {ast_unop_delete, ast_cast_print, ast_cast_evaluate},
+    {ast_unop_delete, ast_cast_evaluate},
     /* AST_UADD  */
-    {ast_unop_delete, ast_uadd_print, ast_uadd_evaluate},
+    {ast_unop_delete, ast_uadd_evaluate},
     /* AST_USUB  */
-    {ast_unop_delete, ast_usub_print, ast_usub_evaluate},
+    {ast_unop_delete, ast_usub_evaluate},
     /* AST_NOT   */
-    {ast_unop_delete, ast_not_print, ast_not_evaluate},
+    {ast_unop_delete, ast_not_evaluate},
     /* AST_COMPL */
-    {ast_unop_delete, ast_compl_print, ast_compl_evaluate},
+    {ast_unop_delete, ast_compl_evaluate},
 
     /* AST_EQ  */
-    {ast_binop_delete, ast_eq_print, ast_eq_evaluate},
+    {ast_binop_delete, ast_eq_evaluate},
     /* AST_NEQ */
-    {ast_binop_delete, ast_neq_print, ast_neq_evaluate},
+    {ast_binop_delete, ast_neq_evaluate},
     /* AST_LT  */
-    {ast_binop_delete, ast_lt_print, ast_lt_evaluate},
+    {ast_binop_delete, ast_lt_evaluate},
     /* AST_GT  */
-    {ast_binop_delete, ast_gt_print, ast_gt_evaluate},
+    {ast_binop_delete, ast_gt_evaluate},
     /* AST_LE  */
-    {ast_binop_delete, ast_le_print, ast_le_evaluate},
+    {ast_binop_delete, ast_le_evaluate},
     /* AST_GE  */
-    {ast_binop_delete, ast_ge_print, ast_ge_evaluate},
+    {ast_binop_delete, ast_ge_evaluate},
 
     /* AST_AND_COND */
-    {ast_binop_delete, ast_and_cond_print, ast_and_cond_evaluate},
+    {ast_binop_delete, ast_and_cond_evaluate},
     /* AST_OR_COND  */
-    {ast_binop_delete, ast_or_cond_print, ast_or_cond_evaluate}
+    {ast_binop_delete, ast_or_cond_evaluate}
 };
 
 int ast_is_type(struct ast *ast, enum ast_type node_type)
@@ -257,189 +227,271 @@ static void ast_unop_delete(struct ast *this)
 }
 
 /*
- * Print.
+ * AST printing.
  */
-static void ast_binop_print(struct ast *this, FILE *out)
+void ast_print(struct ast *ast)
 {
-    struct ast *left, *right;
-    left = ((struct ast_binop *)this)->left;
-    right = ((struct ast_binop *)this)->right;
-    left->vtable->print(left, out);
-    fputc(' ', out);
-    right->vtable->print(right, out);
-    fputc(' ', out);
+    char buf[BUFSIZ];
+    size_t len = ast_snprint(ast, buf, sizeof(buf));
+    if (len < sizeof(buf)) {
+        fwrite(buf, sizeof(char), len, stdout);
+    } else {
+        char *p = malloc(len+1);
+        if (p) {
+            if (ast_snprint(ast, p, len+1) <= len) {
+                fwrite(p, sizeof(char), len, stdout);
+            } else {
+                errf("ast: inconsistent ast_snprint() results");
+            }
+            free(p);
+        } else {
+            errf("ast: out-of-memory");
+        }
+    }
 }
 
-static void ast_unop_print(struct ast *this, FILE *out)
+static size_t ast_binop_snprint(struct ast *this, const char *op,
+                                char *out, size_t size)
 {
-    struct ast *child;
-    child = ((struct ast_unop *)this)->child;
-    child->vtable->print(child, out);
-    fputc(' ', out);
+    size_t len = 0;
+    struct ast *left = ((struct ast_binop *)this)->left;
+    struct ast *right = ((struct ast_binop *)this)->right;
+
+    if (size && len < size-1)
+        len += ast_snprint(left, out, size);
+    else len += ast_snprint(left, NULL, 0);
+
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, " ");
+    else len += snprintf(NULL, 0, " ");
+
+    if (size && len < size-1)
+        len += ast_snprint(right, out+len, size-len);
+    else len += ast_snprint(right, NULL, 0);
+
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, " %s", op);
+    else len += snprintf(NULL, 0, " %s", op);
+
+    return len;
 }
 
-static void ast_int_print(struct ast *this, FILE *out)
+static size_t ast_unop_snprint(struct ast *this, const char *op,
+                               char *out, size_t size)
 {
-    fprintf(out, "%ld", (long int)((struct ast_int *)this)->value);
+    size_t len = 0;
+    struct ast *child = ((struct ast_unop *)this)->child;
+    if (size && len < size-1) {
+        len += ast_snprint(child, out, size);
+    } else len += ast_snprint(child, NULL, 0);
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, " %s", op);
+    else len += snprintf(NULL, 0, " %s", op);
+    return len;
 }
 
-static void ast_uint_print(struct ast *this, FILE *out)
+static size_t ast_int_snprint(struct ast *this, char *out, size_t size)
 {
-    fprintf(out, "%lu", (unsigned long int)((struct ast_uint *)this)->value);
+    return snprintf(out, size, "%ld", (long)((struct ast_int *)this)->value);
 }
 
-static void ast_float_print(struct ast *this, FILE *out)
+static size_t ast_uint_snprint(struct ast *this, char *out, size_t size)
 {
-    fprintf(out, "%f", ((struct ast_float *)this)->value);
+    return snprintf(out, size, "%lu",
+                    (unsigned long)((struct ast_uint *)this)->value);
 }
 
-static void ast_value_print(struct ast *this, FILE *out)
+static size_t ast_float_snprint(struct ast *this, char *out, size_t size)
 {
-    char node_type[32], value[32];
-    value_type_to_string_r(this->value_type, node_type);
-    value_to_string_r(&((struct ast_value *)this)->value, value);
-    fprintf(out, "(%s)%s", node_type, value);
+    return snprintf(out, size, "%f", ((struct ast_float *)this)->value);
 }
 
-static void ast_var_print(struct ast *this, FILE *out)
+static size_t ast_value_snprint(struct ast *this, char *out, size_t size)
 {
-    fprintf(out, "%s", ((struct ast_var *)this)->identifier);
+    size_t len = 0;
+    struct value *value = &((struct ast_value *)this)->value;
+
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, "(");
+    else len += snprintf(NULL, 0, "(");
+
+    if (size && len < size-1)
+        len += value_type_to_string_r(this->value_type, out+len, size-len);
+    else len += value_type_to_string_r(this->value_type, NULL, 0);
+
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, ")");
+    else len += snprintf(NULL, 0, ")");
+
+    if (size && len < size-1)
+        len += value_to_string_r(value, out+len, size-len);
+    else len += value_to_string_r(value, NULL, 0);
+
+    return len;
 }
 
-static void ast_add_print(struct ast *this, FILE *out)
+static size_t ast_var_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('+', out);
+    return snprintf(out, size, "%s", ((struct ast_var *)this)->identifier);
 }
 
-static void ast_sub_print(struct ast *this, FILE *out)
+static size_t ast_add_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('-', out);
+    return ast_binop_snprint(this, "+", out, size);
 }
 
-static void ast_mul_print(struct ast *this, FILE *out)
+static size_t ast_sub_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('*', out);
+    return ast_binop_snprint(this, "-", out, size);
 }
 
-static void ast_div_print(struct ast *this, FILE *out)
+static size_t ast_mul_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('/', out);
+    return ast_binop_snprint(this, "*", out, size);
 }
 
-static void ast_mod_print(struct ast *this, FILE *out)
+static size_t ast_div_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('%', out);
+    return ast_binop_snprint(this, "/", out, size);
 }
 
-static void ast_and_print(struct ast *this, FILE *out)
+static size_t ast_mod_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "&");
+    return ast_binop_snprint(this, "%", out, size);
 }
 
-static void ast_xor_print(struct ast *this, FILE *out)
+static size_t ast_and_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "^");
+    return ast_binop_snprint(this, "&", out, size);
 }
 
-static void ast_or_print(struct ast *this, FILE *out)
+static size_t ast_xor_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "|");
+    return ast_binop_snprint(this, "^", out, size);
 }
 
-static void ast_shl_print(struct ast *this, FILE *out)
+static size_t ast_or_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "<<");
+    return ast_binop_snprint(this, "|", out, size);
 }
 
-static void ast_shr_print(struct ast *this, FILE *out)
+static size_t ast_shl_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, ">>");
+    return ast_binop_snprint(this, "<<", out, size);
 }
 
-static void ast_cast_print(struct ast *this, FILE *out)
+static size_t ast_shr_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_unop_print(this, out);
-    fprintf(out, "(T)");
+    return ast_binop_snprint(this, ">>", out, size);
 }
 
-static void ast_uadd_print(struct ast *this, FILE *out)
+static size_t ast_cast_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_unop_print(this, out);
-    fprintf(out, "u+");
+    size_t len = ast_unop_snprint(this, "(", out, size);
+
+    if (size && len < size-1)
+        len += value_type_to_string_r(this->value_type, out+len, size-len);
+    else len += value_type_to_string_r(this->value_type, NULL, 0);
+
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, ")");
+    else len += snprintf(NULL, 0, ")");
+
+    return len;
 }
 
-static void ast_usub_print(struct ast *this, FILE *out)
+static size_t ast_uadd_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_unop_print(this, out);
-    fprintf(out, "u-");
+    return ast_unop_snprint(this, "u+", out, size);
 }
 
-static void ast_not_print(struct ast *this, FILE *out)
+static size_t ast_usub_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_unop_print(this, out);
-    fputc('!', out);
+    return ast_unop_snprint(this, "u-", out, size);
 }
 
-static void ast_compl_print(struct ast *this, FILE *out)
+static size_t ast_not_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_unop_print(this, out);
-    fputc('~', out);
+    return ast_unop_snprint(this, "!", out, size);
 }
 
-static void ast_eq_print(struct ast *this, FILE *out)
+static size_t ast_compl_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "==");
+    return ast_unop_snprint(this, "~", out, size);
 }
 
-static void ast_neq_print(struct ast *this, FILE *out)
+static size_t ast_eq_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "!=");
+    return ast_binop_snprint(this, "==", out, size);
 }
 
-static void ast_lt_print(struct ast *this, FILE *out)
+static size_t ast_neq_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('<', out);
+    return ast_binop_snprint(this, "!=", out, size);
 }
 
-static void ast_gt_print(struct ast *this, FILE *out)
+static size_t ast_lt_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fputc('>', out);
+    return ast_binop_snprint(this, "<", out, size);
 }
 
-static void ast_le_print(struct ast *this, FILE *out)
+static size_t ast_gt_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "<=");
+    return ast_binop_snprint(this, ">", out, size);
 }
 
-static void ast_ge_print(struct ast *this, FILE *out)
+static size_t ast_le_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, ">=");
+    return ast_binop_snprint(this, "<=", out, size);
 }
 
-static void ast_and_cond_print(struct ast *this, FILE *out)
+static size_t ast_ge_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "&&");
+    return ast_binop_snprint(this, ">=", out, size);
 }
 
-static void ast_or_cond_print(struct ast *this, FILE *out)
+static size_t ast_and_cond_snprint(struct ast *this, char *out, size_t size)
 {
-    ast_binop_print(this, out);
-    fprintf(out, "||");
+    return ast_binop_snprint(this, "&&", out, size);
 }
+
+static size_t ast_or_cond_snprint(struct ast *this, char *out, size_t size)
+{
+    return ast_binop_snprint(this, "||", out, size);
+}
+
+size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *out, size_t size) = {
+    /* AST_INT   */ ast_int_snprint,
+    /* AST_UINT  */ ast_uint_snprint,
+    /* AST_FLOAT */ ast_float_snprint,
+    /* AST_VALUE */ ast_value_snprint,
+    /* AST_VAR   */ ast_var_snprint,
+
+    /* AST_ADD */ ast_add_snprint,
+    /* AST_SUB */ ast_sub_snprint,
+    /* AST_MUL */ ast_mul_snprint,
+    /* AST_DIV */ ast_div_snprint,
+    /* AST_MOD */ ast_mod_snprint,
+
+    /* AST_AND */ ast_and_snprint,
+    /* AST_XOR */ ast_xor_snprint,
+    /* AST_OR  */ ast_or_snprint,
+    /* AST_SHL */ ast_shl_snprint,
+    /* AST_SHR */ ast_shr_snprint,
+
+    /* AST_CAST  */ ast_cast_snprint,
+    /* AST_UADD  */ ast_uadd_snprint,
+    /* AST_USUB  */ ast_usub_snprint,
+    /* AST_NOT   */ ast_not_snprint,
+    /* AST_COMPL */ ast_compl_snprint,
+
+    /* AST_EQ  */ ast_eq_snprint,
+    /* AST_NEQ */ ast_neq_snprint,
+    /* AST_LT  */ ast_lt_snprint,
+    /* AST_GT  */ ast_gt_snprint,
+    /* AST_LE  */ ast_le_snprint,
+    /* AST_GE  */ ast_ge_snprint,
+
+    /* AST_AND_COND */ ast_and_cond_snprint,
+    /* AST_OR_COND  */ ast_or_cond_snprint
+};

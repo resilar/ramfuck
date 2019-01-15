@@ -2,6 +2,7 @@
 #define VALUE_H_INCLUDED
 
 #include <stdint.h>
+#include <stddef.h>
 
 /*
  * Value types are defined so that t1 < t2 implies rank(t1) < rank(t2).
@@ -153,7 +154,7 @@ int value_is_zero(struct value *dest);
  * buffer must be at least 32 bytes.
  */
 char *value_type_to_string(enum value_type type);
-char *value_type_to_string_r(enum value_type type, char *out);
+size_t value_type_to_string_r(enum value_type type, char *out, size_t size);
 
 /*
  * Produce a string representation of a value.
@@ -162,7 +163,7 @@ char *value_type_to_string_r(enum value_type type, char *out);
  * buffer must be at least 32 bytes.
  */
 char *value_to_string(struct value *value);
-char *value_to_string_r(struct value *value, char *out);
+size_t value_to_string_r(struct value *value, char *out, size_t size);
 
 /*
  * Inverse of value_type_to_string.

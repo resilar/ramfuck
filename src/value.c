@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "value.h"
 
 #include <memory.h>
@@ -506,70 +507,62 @@ int value_is_zero(struct value *dest)
 char *value_type_to_string(enum value_type type)
 {
     static char buf[32];
-    return value_type_to_string_r(type, buf);
+    value_type_to_string_r(type, buf, sizeof(buf));
+    return buf;
 }
 
-char *value_type_to_string_r(enum value_type type, char *out)
+size_t value_type_to_string_r(enum value_type type, char *out, size_t size)
 {
     switch (type)
     {
-    case SINT: sprintf(out, "sint"); break;
-    case S8:   sprintf(out, "s8");   break;
-    case S16:  sprintf(out, "s16");  break;
-    case S32:  sprintf(out, "s32");  break;
-    case S64:  sprintf(out, "s64");  break;
+    case SINT: return snprintf(out, size, "sint");
+    case S8:   return snprintf(out, size, "s8");
+    case S16:  return snprintf(out, size, "s16");
+    case S32:  return snprintf(out, size, "s32");
+    case S64:  return snprintf(out, size, "s64");
 
-    case UINT: sprintf(out, "uint"); break;
-    case U8:   sprintf(out, "u8");   break;
-    case U16:  sprintf(out, "u16");  break;
-    case U32:  sprintf(out, "u32");  break;
-    case U64:  sprintf(out, "u64");  break;
+    case UINT: return snprintf(out, size, "uint");
+    case U8:   return snprintf(out, size, "u8");
+    case U16:  return snprintf(out, size, "u16");
+    case U32:  return snprintf(out, size, "u32");
+    case U64:  return snprintf(out, size, "u64");
 
-    case FPU: sprintf(out, "fpu"); break;
-    case FLOAT:  sprintf(out, "f32"); break;
-    case DOUBLE: sprintf(out, "f64"); break;
+    case FPU:    return snprintf(out, size, "fpu");
+    case FLOAT:  return snprintf(out, size, "f32");
+    case DOUBLE: return snprintf(out, size, "f64");
 
-    default:
-        sprintf(out, "???");
-        break;
+    default: break;
     }
-
-    return out;
+    return snprintf(out, size, "???");
 }
 
 char *value_to_string(struct value *value)
 {
     static char buf[256];
-    return value_to_string_r(value, buf);
+    value_to_string_r(value, buf, sizeof(buf));
+    return buf;
 }
 
-char *value_to_string_r(struct value *value, char *out)
+size_t value_to_string_r(struct value *value, char *out, size_t size)
 {
     switch (value->type)
     {
-    case S8:  sprintf(out, "%ld", (long)value->data.s8);  break;
-    case S16: sprintf(out, "%ld", (long)value->data.s16); break;
-    case S32: sprintf(out, "%ld", (long)value->data.s32); break;
-    case S64: sprintf(out, "%ld", (long)value->data.s64); break;
+    case S8:  return snprintf(out, size, "%ld", (long)value->data.s8);
+    case S16: return snprintf(out, size, "%ld", (long)value->data.s16);
+    case S32: return snprintf(out, size, "%ld", (long)value->data.s32);
+    case S64: return snprintf(out, size, "%ld", (long)value->data.s64);
 
-    case U8:  sprintf(out, "%lu", (unsigned long)value->data.u8);  break;
-    case U16: sprintf(out, "%lu", (unsigned long)value->data.u16); break;
-    case U32: sprintf(out, "%lu", (unsigned long)value->data.u32); break;
-    case U64: sprintf(out, "%lu", (unsigned long)value->data.u64); break;
+    case U8:  return snprintf(out, size, "%lu", (unsigned long)value->data.u8);
+    case U16: return snprintf(out, size, "%lu", (unsigned long)value->data.u16);
+    case U32: return snprintf(out, size, "%lu", (unsigned long)value->data.u32);
+    case U64: return snprintf(out, size, "%lu", (unsigned long)value->data.u64);
 
-    case FLOAT:
-        sprintf(out, "%g", value->data.float_val);
-        break;
-    case DOUBLE:
-        sprintf(out, "%g", value->data.double_val);
-        break;
+    case FLOAT:  return snprintf(out, size, "%g", value->data.float_val);
+    case DOUBLE: return snprintf(out, size, "%g", value->data.double_val);
 
-    default:
-        sprintf(out, "???");
-        break;
+    default: break;
     }
-
-    return out;
+    return snprintf(out, size, "???");
 }
 
 enum value_type value_type_from_string(const char *type)
