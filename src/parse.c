@@ -48,11 +48,14 @@ static int accept(struct parser *p, enum lex_token_type sym)
 
 static int expect(struct parser *p, enum lex_token_type sym)
 {
-    if (accept(p, sym))
-        return 1;
-    p->errors++;
-    errf("parse: unexpected symbol '%s'", lex_token_to_string(p->symbol));
-    return 0;
+    if (!accept(p, sym)) {
+        char symstr[64];
+        lex_token_to_string(p->symbol, symstr, sizeof(symstr));
+        errf("parse: unexpected symbol '%s'", symstr);
+        p->errors++;
+        return 0;
+    }
+    return 1;
 }
 
 void parser_init(struct parser *p, struct symbol_table *symtab, const char *in)
@@ -464,9 +467,9 @@ static struct ast *factor(struct parser *p)
             root = ast_var_new(sym->name, &sym->value);
             root->value_type = sym->value.type;
         } else {
-            root = NULL;
-            p->errors++;
             errf("parse: unknown identifier '%.*s'", (int)len, name);
+            p->errors++;
+            root = NULL;
         }
     } else if (accept(p, LEX_INTEGER)) {
         root = ast_int_new(p->accepted->value.integer);
@@ -481,11 +484,12 @@ static struct ast *factor(struct parser *p)
         root = expression(p);
         expect(p, LEX_RIGHT_PARENTHESE);
     } else {
-        p->errors++;
         if (p->symbol->type != LEX_EOL) {
-            errf("parse: expected a factor but got '%s'",
-                 lex_token_to_string(p->symbol));
+            char symstr[64];
+            lex_token_to_string(p->symbol, symstr, sizeof(symstr));
+            errf("parse: expected a factor but got '%s'", symstr);
         } else errf("parse: expected a factor");
+        p->errors++;
         root = NULL;
     }
 

@@ -1,12 +1,11 @@
 #ifndef LEX_H_INCLUDED
 #define LEX_H_INCLUDED
 
+#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 
 enum lex_token_type {
     LEX_EOL = 1, LEX_LEFT_PARENTHESE, LEX_RIGHT_PARENTHESE,
-
 
     LEX_INTEGER, LEX_UINTEGER, LEX_FLOATING_POINT, LEX_IDENTIFIER,
 
@@ -50,16 +49,6 @@ struct lex_token {
  */
 struct lex_token *lexer(const char **pin, struct lex_token *out);
 
-/**
- * Create a shorter string representation of a token or it's value.
- * E.g. "123", "<" or "+".
- * 
- * Returns a pointer to a static buffer or fills a buffer pointed by out. The
- * buffer must be at least 32 bytes.
- */
-char *lex_token_to_string(struct lex_token *t);
-char *lex_token_to_string_r(struct lex_token *t, char *out);
-char *lex_token_type_to_string(enum lex_token_type id);
-char *lex_token_type_to_string_r(enum lex_token_type id, char *out);
+size_t lex_token_to_string(struct lex_token *t, char *out, size_t size);
 
 #endif

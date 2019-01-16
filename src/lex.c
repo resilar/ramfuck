@@ -1,9 +1,11 @@
+#define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "lex.h"
 #include "ramfuck.h"
 
 #include <ctype.h>
 #include <math.h>
 #include <memory.h>
+#include <stdio.h>
 
 static const char get(const char **pin)
 {
@@ -230,77 +232,49 @@ struct lex_token *lexer(const char **pin, struct lex_token *out)
     return out;
 }
 
-char *lex_token_to_string(struct lex_token *t)
-{
-    static char buf[32];
-    return lex_token_to_string_r(t, buf);
-}
-
-char *lex_token_to_string_r(struct lex_token *t, char *out)
+size_t lex_token_to_string(struct lex_token *t, char *out, size_t size)
 {
     switch (t->type) {
+    case LEX_EOL: return snprintf(out, size, "EOL");
+    case LEX_LEFT_PARENTHESE: return snprintf(out, size, "(");
+    case LEX_RIGHT_PARENTHESE: return snprintf(out, size, ")");
+
     case LEX_INTEGER:
-        sprintf(out, "%ld", (long int)t->value.integer);
-        break;
+        return snprintf(out, size, "%ld", (long int)t->value.integer);
     case LEX_UINTEGER:
-        sprintf(out, "%luu", (unsigned long int)t->value.integer);
-        break;
+        return snprintf(out, size, "%luu", (unsigned long)t->value.integer);
     case LEX_FLOATING_POINT:
-        sprintf(out, "%g", t->value.fp);
+        return snprintf(out, size, "%g", t->value.fp);
+
+    case LEX_ADD: return snprintf(out, size, "+");
+    case LEX_SUB: return snprintf(out, size, "-");
+    case LEX_MUL: return snprintf(out, size, "*");
+    case LEX_DIV: return snprintf(out, size, "/");
+    case LEX_MOD: return snprintf(out, size, "%%");
+
+    case LEX_AND: return snprintf(out, size, "&");
+    case LEX_XOR: return snprintf(out, size, "^");
+    case LEX_OR:  return snprintf(out, size, "|");
+    case LEX_SHL: return snprintf(out, size, "<<");
+    case LEX_SHR: return snprintf(out, size, ">>");
+
+    case LEX_NOT: return snprintf(out, size, "!");
+    case LEX_COMPL: return snprintf(out, size, "~");
+    case LEX_CAST: return snprintf(out, size, "(T)");
+
+    case LEX_EQ: return snprintf(out, size, "==");
+    case LEX_NEQ: return snprintf(out, size, "!=");
+    case LEX_LT: return snprintf(out, size, "<");
+    case LEX_GT: return snprintf(out, size, ">");
+    case LEX_LE: return snprintf(out, size, "<=");
+    case LEX_GE: return snprintf(out, size, ">=");
+
+    case LEX_AND_COND: return snprintf(out, size, "&&");
+    case LEX_OR_COND: return snprintf(out, size, "||");
+
+    default:
         break;
-
-    default: lex_token_type_to_string_r(t->type, out); break;
     }
 
-    return out;
-}
-
-char *lex_token_type_to_string(enum lex_token_type id)
-{
-    static char buf[32];
-    return lex_token_type_to_string_r(id, buf);
-}
-
-char *lex_token_type_to_string_r(enum lex_token_type id, char *out)
-{
-    switch (id) {
-    case LEX_LEFT_PARENTHESE:  sprintf(out, "("); break;
-    case LEX_RIGHT_PARENTHESE: sprintf(out, ")"); break;
-
-    case LEX_INTEGER: sprintf(out, "integer"); break;
-    case LEX_FLOATING_POINT: sprintf(out, "fpuval"); break;
-    case LEX_IDENTIFIER: sprintf(out, "identifier"); break;
-
-    case LEX_ADD: sprintf(out, "+"); break;
-    case LEX_SUB: sprintf(out, "-"); break;
-    case LEX_MUL: sprintf(out, "*"); break;
-    case LEX_DIV: sprintf(out, "/"); break;
-    case LEX_MOD: sprintf(out, "%%"); break;
-
-    case LEX_AND: sprintf(out, "&"); break;
-    case LEX_XOR: sprintf(out, "^"); break;
-    case LEX_OR:  sprintf(out, "|"); break;
-    case LEX_SHL: sprintf(out, "<<"); break;
-    case LEX_SHR: sprintf(out, ">>"); break;
-
-    case LEX_NOT: sprintf(out, "!"); break;
-    case LEX_COMPL: sprintf(out, "~"); break;
-    case LEX_CAST: sprintf(out, "(T)"); break;
-
-    case LEX_EQ:  sprintf(out, "=="); break;
-    case LEX_NEQ: sprintf(out, "!="); break;
-    case LEX_LT:  sprintf(out, "<"); break;
-    case LEX_GT:  sprintf(out, ">"); break;
-    case LEX_LE:  sprintf(out, "<="); break;
-    case LEX_GE:  sprintf(out, ">="); break;
-
-    case LEX_AND_COND: sprintf(out, "&&"); break;
-    case LEX_OR_COND:  sprintf(out, "||"); break;
-
-    case LEX_EOL: sprintf(out, "EOL"); break;
-
-    default: sprintf(out, "???"); break;
-    }
-
-    return out;
+    return snprintf(out, size, "???");
 }

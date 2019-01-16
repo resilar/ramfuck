@@ -1918,7 +1918,6 @@ static int float_ge(struct value *op1, struct value *op2, struct value *out)
     return value_vtable(out)->ge(out, op2, out);
 }
 
-
 /*
  * double routines.
  */
