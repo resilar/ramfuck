@@ -1,8 +1,6 @@
 #include "opt.h"
 #include "eval.h"
 
-#include <string.h>
-
 static struct ast *ast_binop_optimize(enum ast_type type, struct ast *this)
 {
     struct ast *left = ast_optimize(((struct ast_binop *)this)->left);
@@ -185,7 +183,7 @@ static struct ast *ast_or_cond_optimize(struct ast *this)
     return ast_binop_optimize(AST_OR_COND, this);
 }
 
-struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *this) = {
+struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *) = {
     /* AST_INT   */ ast_int_optimize,
     /* AST_UINT  */ ast_uint_optimize,
     /* AST_FLOAT */ ast_float_optimize,

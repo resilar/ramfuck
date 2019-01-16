@@ -34,11 +34,9 @@ enum ast_type {
 /*
  * AST structures.
  */
-struct ast_operations;
 struct ast {
     enum ast_type node_type;
     enum value_type value_type; /* Filled by parser. */
-    const struct ast_operations *vtable;
 };
 
 #define ast_is_constant(t) ((t)->node_type < AST_VAR)
@@ -51,21 +49,6 @@ struct ast_binop {
 struct ast_unop {
     struct ast root;
     struct ast *child;
-};
-
-/*
- * Check equality of AST type.
- */
-int ast_is_type(struct ast *ast, enum ast_type node_type);
-
-/*
- * AST operations.
- */
-struct ast_operations {
-    /*
-     * Evaluate AST.
-     */
-    int (*evaluate)(struct ast *this, struct value *out);
 };
 
 /*
@@ -109,8 +92,7 @@ struct ast_and_cond { struct ast_binop root; };
 struct ast_or_cond  { struct ast_binop root; };
 
 /*
- * New routines for allocating and initializing AST nodes.
- * May return NULL.
+ * Routines for allocating & initializing AST nodes.
  */
 struct ast *ast_int_new(intmax_t value);
 struct ast *ast_uint_new(uintmax_t value);

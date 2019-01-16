@@ -1,18 +1,18 @@
 #ifndef EVAL_H_INCLUDED
 #define EVAL_H_INCLUDED
 
-#include "parse.h"
+#include "ast.h"
 #include "value.h"
 
-#include <stdint.h>
-
-/**
- * Evaluate (interpret) AST and store result to *out.
+/*
+ * Evaluate (interpret) AST and store result to pointed value.
  */
-/*int ast_evaluate(struct ast *ast, struct value *out);*/
-#define ast_evaluate(ast, out) ((ast)->vtable->evaluate((ast), (out)))
+extern int (*ast_evaluate_funcs[AST_TYPES])(struct ast *, struct value *);
+#define ast_evaluate(ast, out) \
+    (ast_evaluate_funcs[(ast)->node_type]((ast), (out)))
 
-/**
+#if 0
+/*
  * Do not call these functions directly. Use the ast_evaluate macro.
  */
 
@@ -49,5 +49,6 @@ int ast_ge_evaluate(struct ast *this, struct value *out);
 
 int ast_and_cond_evaluate(struct ast *this, struct value *out);
 int ast_or_cond_evaluate(struct ast *this, struct value *out);
+#endif
 
 #endif

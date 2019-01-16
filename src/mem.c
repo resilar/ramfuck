@@ -63,15 +63,13 @@ struct memory_region *memory_region_find(pid_t pid, uintptr_t addr, char *path)
 {
     struct memory_region *it = memory_region_iter_first(pid);
     while ((it = memory_region_iter_next(it))) {
-        void *tmp;
         if (path && strcmp(it->path, path) != 0)
             continue;
         if (addr && !(it->start <= addr && addr < it->start + it->size))
             continue;
-        tmp = realloc(it, sizeof(struct memory_region)
-                          + (*it->path ? strlen(it->path)+1 : 0));
-        if (tmp) it = tmp;
         fclose(((struct memory_region_iter *)it)->fd);
+        it = realloc(it, sizeof(struct memory_region)
+                         + (*it->path ? strlen(it->path)+1 : 0));
         break;
     }
     return (struct memory_region *)it;
