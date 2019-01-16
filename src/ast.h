@@ -4,7 +4,6 @@
 #include "value.h"
 
 #include <stddef.h>
-#include <stdio.h>
 
 /*
  * Abstract syntax tree node types.
@@ -63,8 +62,6 @@ int ast_is_type(struct ast *ast, enum ast_type node_type);
  * AST operations.
  */
 struct ast_operations {
-    void (*delete)(struct ast *this);
-
     /*
      * Evaluate AST.
      */
@@ -158,9 +155,8 @@ struct ast *ast_cond_new(enum ast_type node_type,
 /*
  * Delete an AST node and its children.
  */
-#define ast_delete(ast) ((ast)->vtable->delete((ast)))
-
-size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *out, size_t size);
+extern void (*ast_delete_funcs[AST_TYPES])(struct ast *);
+#define ast_delete(ast) (ast_delete_funcs[(ast)->node_type]((ast)))
 
 /*
  * Write a textual representation of an AST node to a string buffer.
@@ -168,6 +164,7 @@ size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *out, size_t size);
  * Behaves similarly to snprintf(3), i.e., truncates the output to `size` bytes
  * and returns the number of characters needed to write the entire text.
  */
+extern size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *, size_t);
 #define ast_snprint(ast, out, size) \
     (ast_snprint_funcs[(ast)->node_type]((ast), (out), (size)))
 

@@ -9,76 +9,71 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Static functions */
-static void ast_leaf_delete(struct ast *this);
-static void ast_binop_delete(struct ast *this);
-static void ast_unop_delete(struct ast *this);
-
 /* Vtables for AST nodes */
 static const struct ast_operations vtables[AST_TYPES] = {
     /* free, evaluate */
 
     /* AST_INT   */
-    {ast_leaf_delete, ast_int_evaluate},
+    {ast_int_evaluate},
     /* AST_UINT  */
-    {ast_leaf_delete, ast_uint_evaluate},
+    {ast_uint_evaluate},
     /* AST_FLOAT */
-    {ast_leaf_delete, ast_float_evaluate},
+    {ast_float_evaluate},
     /* AST_VALUE */
-    {ast_leaf_delete, ast_value_evaluate},
+    {ast_value_evaluate},
     /* AST_VAR   */
-    {ast_leaf_delete, ast_var_evaluate},
+    {ast_var_evaluate},
 
     /* AST_ADD */
-    {ast_binop_delete, ast_add_evaluate},
+    {ast_add_evaluate},
     /* AST_SUB */
-    {ast_binop_delete, ast_sub_evaluate},
+    {ast_sub_evaluate},
     /* AST_MUL */
-    {ast_binop_delete, ast_mul_evaluate},
+    {ast_mul_evaluate},
     /* AST_DIV */
-    {ast_binop_delete, ast_div_evaluate},
+    {ast_div_evaluate},
     /* AST_MOD */
-    {ast_binop_delete, ast_mod_evaluate},
+    {ast_mod_evaluate},
 
     /* AST_AND */
-    {ast_binop_delete, ast_and_evaluate},
+    {ast_and_evaluate},
     /* AST_XOR */
-    {ast_binop_delete, ast_xor_evaluate},
+    {ast_xor_evaluate},
     /* AST_OR  */
-    {ast_binop_delete, ast_or_evaluate},
+    {ast_or_evaluate},
     /* AST_SHL */
-    {ast_binop_delete, ast_shl_evaluate},
+    {ast_shl_evaluate},
     /* AST_SHR */
-    {ast_binop_delete, ast_shr_evaluate},
+    {ast_shr_evaluate},
 
     /* AST_CAST  */
-    {ast_unop_delete, ast_cast_evaluate},
+    {ast_cast_evaluate},
     /* AST_UADD  */
-    {ast_unop_delete, ast_uadd_evaluate},
+    {ast_uadd_evaluate},
     /* AST_USUB  */
-    {ast_unop_delete, ast_usub_evaluate},
+    {ast_usub_evaluate},
     /* AST_NOT   */
-    {ast_unop_delete, ast_not_evaluate},
+    {ast_not_evaluate},
     /* AST_COMPL */
-    {ast_unop_delete, ast_compl_evaluate},
+    {ast_compl_evaluate},
 
     /* AST_EQ  */
-    {ast_binop_delete, ast_eq_evaluate},
+    {ast_eq_evaluate},
     /* AST_NEQ */
-    {ast_binop_delete, ast_neq_evaluate},
+    {ast_neq_evaluate},
     /* AST_LT  */
-    {ast_binop_delete, ast_lt_evaluate},
+    {ast_lt_evaluate},
     /* AST_GT  */
-    {ast_binop_delete, ast_gt_evaluate},
+    {ast_gt_evaluate},
     /* AST_LE  */
-    {ast_binop_delete, ast_le_evaluate},
+    {ast_le_evaluate},
     /* AST_GE  */
-    {ast_binop_delete, ast_ge_evaluate},
+    {ast_ge_evaluate},
 
     /* AST_AND_COND */
-    {ast_binop_delete, ast_and_cond_evaluate},
+    {ast_and_cond_evaluate},
     /* AST_OR_COND  */
-    {ast_binop_delete, ast_or_cond_evaluate}
+    {ast_or_cond_evaluate}
 };
 
 int ast_is_type(struct ast *ast, enum ast_type node_type)
@@ -210,21 +205,52 @@ static void ast_leaf_delete(struct ast *this)
 
 static void ast_binop_delete(struct ast *this)
 {
-    struct ast *left, *right;
-    left = ((struct ast_binop *)this)->left;
-    right = ((struct ast_binop *)this)->right;
-    left->vtable->delete(left);
-    right->vtable->delete(right);
+    ast_delete(((struct ast_binop *)this)->left);
+    ast_delete(((struct ast_binop *)this)->right);
     free(this);
 }
 
 static void ast_unop_delete(struct ast *this)
 {
-    struct ast *child;
-    child = ((struct ast_unop *)this)->child;
-    child->vtable->delete(child);
+    ast_delete(((struct ast_unop *)this)->child);
     free(this);
 }
+
+void (*ast_delete_funcs[AST_TYPES])(struct ast *) = {
+    /* AST_INT   */ ast_leaf_delete,
+    /* AST_UINT  */ ast_leaf_delete,
+    /* AST_FLOAT */ ast_leaf_delete,
+    /* AST_VALUE */ ast_leaf_delete,
+    /* AST_VAR   */ ast_leaf_delete,
+
+    /* AST_ADD */ ast_binop_delete,
+    /* AST_SUB */ ast_binop_delete,
+    /* AST_MUL */ ast_binop_delete,
+    /* AST_DIV */ ast_binop_delete,
+    /* AST_MOD */ ast_binop_delete,
+
+    /* AST_AND */ ast_binop_delete,
+    /* AST_XOR */ ast_binop_delete,
+    /* AST_OR  */ ast_binop_delete,
+    /* AST_SHL */ ast_binop_delete,
+    /* AST_SHR */ ast_binop_delete,
+
+    /* AST_CAST  */ ast_unop_delete,
+    /* AST_UADD  */ ast_unop_delete,
+    /* AST_USUB  */ ast_unop_delete,
+    /* AST_NOT   */ ast_unop_delete,
+    /* AST_COMPL */ ast_unop_delete,
+
+    /* AST_EQ  */ ast_binop_delete,
+    /* AST_NEQ */ ast_binop_delete,
+    /* AST_LT  */ ast_binop_delete,
+    /* AST_GT  */ ast_binop_delete,
+    /* AST_LE  */ ast_binop_delete,
+    /* AST_GE  */ ast_binop_delete,
+
+    /* AST_AND_COND */ ast_binop_delete,
+    /* AST_OR_COND  */ ast_binop_delete
+};
 
 /*
  * AST printing.
@@ -460,7 +486,7 @@ static size_t ast_or_cond_snprint(struct ast *this, char *out, size_t size)
     return ast_binop_snprint(this, "||", out, size);
 }
 
-size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *out, size_t size) = {
+size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *, size_t) = {
     /* AST_INT   */ ast_int_snprint,
     /* AST_UINT  */ ast_uint_snprint,
     /* AST_FLOAT */ ast_float_snprint,
