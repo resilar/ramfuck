@@ -156,12 +156,10 @@ int value_is_zero(const struct value *dest);
 #define value_is_nonzero(dest) (!value_is_zero((dest)))
 
 /*
- * Produce a string representation of a type.
- * 
- * Returns a pointer to a static buffer or fills a buffer pointed by out. The
- * buffer must be at least 32 bytes.
+ * Return a constant string representing a value type.
  */
-char *value_type_to_string(enum value_type type);
+const char *value_type_to_string(enum value_type type);
+
 size_t value_type_to_string_r(enum value_type type, char *out, size_t size);
 
 /*

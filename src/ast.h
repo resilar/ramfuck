@@ -15,6 +15,7 @@
  * The ordering must match lex token types defined in lex.h file.
  */
 #define lex_to_ast_type(lex_token_type) ((lex_token_type) + AST_ADD-LEX_ADD)
+#define ast_to_lex_type(ast_token_type) ((ast_token_type) + LEX_ADD-AST_ADD)
 enum ast_type {
     AST_VALUE=0, AST_VAR,
 
@@ -41,7 +42,7 @@ enum ast_type {
  */
 struct ast {
     enum ast_type node_type;
-    enum value_type value_type; /* Filled by parser. */
+    enum value_type value_type;
 };
 
 #define ast_is_constant(t) ((t)->node_type < AST_VAR)
@@ -100,7 +101,7 @@ struct ast *ast_value_new(struct value *value);
 struct ast *ast_var_new(const char *identifier, struct value *value);
 
 struct ast *ast_binop_new(enum ast_type node_type,
-                         struct ast *left, struct ast *right);
+                          struct ast *left, struct ast *right);
 #define ast_add_new(l, r) ast_binop_new(AST_ADD, (l), (r))
 #define ast_sub_new(l, r) ast_binop_new(AST_SUB, (l), (r))
 #define ast_mul_new(l, r) ast_binop_new(AST_MUL, (l), (r))

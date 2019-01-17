@@ -200,18 +200,11 @@ static size_t ast_value_snprint(struct ast *this, char *out, size_t size)
 {
     size_t len = 0;
     struct value *value = &((struct ast_value *)this)->value;
+    const char *type = value_type_to_string(this->value_type);
 
     if (size && len < size-1)
-        len += snprintf(out+len, size-len, "(");
-    else len += snprintf(NULL, 0, "(");
-
-    if (size && len < size-1)
-        len += value_type_to_string_r(this->value_type, out+len, size-len);
-    else len += value_type_to_string_r(this->value_type, NULL, 0);
-
-    if (size && len < size-1)
-        len += snprintf(out+len, size-len, ")");
-    else len += snprintf(NULL, 0, ")");
+        len += snprintf(out+len, size-len, "(%s)", type);
+    else len += snprintf(NULL, 0, "(%s)", type);
 
     if (size && len < size-1)
         len += value_to_string_r(value, out+len, size-len);
@@ -277,15 +270,12 @@ static size_t ast_shr_snprint(struct ast *this, char *out, size_t size)
 
 static size_t ast_cast_snprint(struct ast *this, char *out, size_t size)
 {
-    size_t len = ast_unop_snprint(this, "(", out, size);
+    size_t len = ast_unop_snprint(this, "", out, size);
+    const char *type = value_type_to_string(this->value_type);
 
     if (size && len < size-1)
-        len += value_type_to_string_r(this->value_type, out+len, size-len);
-    else len += value_type_to_string_r(this->value_type, NULL, 0);
-
-    if (size && len < size-1)
-        len += snprintf(out+len, size-len, ")");
-    else len += snprintf(NULL, 0, ")");
+        len += snprintf(out+len, size-len, "(%s)", type);
+    else len += snprintf(NULL, 0, "(%s)", type);
 
     return len;
 }

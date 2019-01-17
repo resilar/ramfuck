@@ -24,7 +24,9 @@ enum lex_token_type {
 
     LEX_EQ, LEX_NEQ, LEX_LT, LEX_GT, LEX_LE, LEX_GE,
 
-    LEX_AND_COND, LEX_OR_COND
+    LEX_AND_COND, LEX_OR_COND,
+
+    LEX_TYPES
 };
 
 struct lex_token {
@@ -51,6 +53,7 @@ struct lex_token {
  */
 struct lex_token *lexer(const char **pin, struct lex_token *out);
 
+extern const char *lex_token_type_string[LEX_TYPES];
 size_t lex_token_to_string(struct lex_token *t, char *out, size_t size);
 
 #endif

@@ -39,6 +39,26 @@ static int eol(const char *p)
     return *p == '\0';
 }
 
+static size_t fprint_value(FILE *stream, const struct value *value, int typed)
+{
+    char buf[256], *p;
+    size_t len = value_to_string_r(value, (p = buf), sizeof(buf));
+    if (len > sizeof(buf)-1) {
+        if (len < SIZE_MAX && (p = malloc(len + 1))) {
+            value_to_string_r(value, p, len + 1);
+        } else {
+            errf("p: out-of-memory for %lu-byte value string", (unsigned long)len);;
+            p = buf;
+        }
+    }
+    if (typed)
+        len += fprintf(stream, "(%s)", value_type_to_string(value->type));
+    fputs(p, stream);
+    if (p != buf)
+        free(p);
+    return len;
+}
+
 /*
  * Attach to a process specified by PID.
  * Usage: attach <pid>
@@ -229,11 +249,8 @@ static int do_p(struct ramfuck *ctx, const char *in)
 
     rc = 0;
     if (ast_evaluate(ast, &out)) {
-        char buf[256];
-        value_type_to_string_r(out.type, buf, sizeof(buf));
-        printf("(%s)", buf);
-        value_to_string_r(&out, buf, sizeof(buf));
-        printf("%s\n", buf);
+        fprint_value(stdout, &out, 1);
+        fputc('\n', stdout);
     } else {
         errf("p: evaluation failed");
         rc = 3;
@@ -254,9 +271,8 @@ static int do_eval(struct ramfuck *ctx, const char *in)
     if (errors == 0) {
         struct value out;
         if (ast_evaluate(ast, &out)) {
-            char buf[256];
-            value_to_string_r(&out, buf, sizeof(buf));
-            printf("%s\n", buf);
+            fprint_value(stdout, &out, 0);
+            fputc('\n', stdout);
         }
         ast_delete(ast);
     }
@@ -265,7 +281,6 @@ static int do_eval(struct ramfuck *ctx, const char *in)
 
 static int cli_execute(struct ramfuck *ctx, const char *in)
 {
-    /*const char *cmd;*/
     int rc = 0;
     skip_spaces(&in);
     if (accept(&in, "attach")) {

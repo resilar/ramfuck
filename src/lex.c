@@ -232,49 +232,67 @@ struct lex_token *lexer(const char **pin, struct lex_token *out)
     return out;
 }
 
+const char *lex_token_type_string[LEX_TYPES] = {
+    "NIL",  /* LEX_NIL */
+
+    "EOL",  /* LEX_EOL */
+    "(",    /* LEX_LEFT_PARENTHESE */
+    ")",    /* LEX_RIGHT_PARENTHESE */
+
+    "int",  /* LEX_INTEGER */
+    "uint", /* LEX_UINTEGER */
+    "fp",   /* LEX_FLOATING_POINT */
+    "var",  /* LEX_IDENTIFIER */
+
+    "+",    /* LEX_ADD */
+    "-",    /* LEX_SUB */
+    "*",    /* LEX_MUL */
+    "/",    /* LEX_DIV */
+    "%",    /* LEX_MOD */
+
+    "&",    /* LEX_AND */
+    "^",    /* LEX_XOR */
+    "|",    /* LEX_OR */
+    "<<",   /* LEX_SHL */
+    ">>",   /* LEX_SHR */
+
+    "(T)",  /* LEX_CAST */
+    "u+",   /* LEX_UADD */
+    "u-",   /* LEX_USUB */
+    "!",    /* LEX_NOT */
+    "~",    /* LEX_COMPL */
+
+    "==",   /* LEX_EQ */
+    "!=",   /* LEX_NEQ */
+    "<",    /* LEX_LT */
+    ">",    /* LEX_GT */
+    "<=",   /* LEX_LE */
+    ">=",   /* LEX_GE */
+
+    "&&",   /* LEX_AND_COND */
+    "||"    /* LEX_OR_COND */
+};
+
 size_t lex_token_to_string(struct lex_token *t, char *out, size_t size)
 {
     switch (t->type) {
-    case LEX_EOL: return snprintf(out, size, "EOL");
-    case LEX_LEFT_PARENTHESE: return snprintf(out, size, "(");
-    case LEX_RIGHT_PARENTHESE: return snprintf(out, size, ")");
-
     case LEX_INTEGER:
         return snprintf(out, size, "%ld", (long int)t->value.integer);
     case LEX_UINTEGER:
         return snprintf(out, size, "%luu", (unsigned long)t->value.integer);
     case LEX_FLOATING_POINT:
         return snprintf(out, size, "%g", t->value.fp);
-
-    case LEX_ADD: return snprintf(out, size, "+");
-    case LEX_SUB: return snprintf(out, size, "-");
-    case LEX_MUL: return snprintf(out, size, "*");
-    case LEX_DIV: return snprintf(out, size, "/");
-    case LEX_MOD: return snprintf(out, size, "%%");
-
-    case LEX_AND: return snprintf(out, size, "&");
-    case LEX_XOR: return snprintf(out, size, "^");
-    case LEX_OR:  return snprintf(out, size, "|");
-    case LEX_SHL: return snprintf(out, size, "<<");
-    case LEX_SHR: return snprintf(out, size, ">>");
-
-    case LEX_NOT: return snprintf(out, size, "!");
-    case LEX_COMPL: return snprintf(out, size, "~");
-    case LEX_CAST: return snprintf(out, size, "(T)");
-
-    case LEX_EQ: return snprintf(out, size, "==");
-    case LEX_NEQ: return snprintf(out, size, "!=");
-    case LEX_LT: return snprintf(out, size, "<");
-    case LEX_GT: return snprintf(out, size, ">");
-    case LEX_LE: return snprintf(out, size, "<=");
-    case LEX_GE: return snprintf(out, size, ">=");
-
-    case LEX_AND_COND: return snprintf(out, size, "&&");
-    case LEX_OR_COND: return snprintf(out, size, "||");
+    case LEX_IDENTIFIER: {
+        const char *name = t->value.identifier.name;
+        size_t len = t->value.identifier.len;
+        return snprintf(out, size, "%.*s", (int)len, name);
+    }
 
     default:
+        if (t->type >= 0 && t->type < LEX_TYPES)
+            return snprintf(out, size, "%s", lex_token_type_string[t->type]);
         break;
     }
 
-    return snprintf(out, size, "???");
+    return snprintf(out, size, "%s", "???");
 }

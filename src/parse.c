@@ -84,6 +84,43 @@ static int expect(struct parser *p, enum lex_token_type sym)
     return 1;
 }
 
+static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
+                                     struct ast *left, struct ast *right,
+                                     enum value_type mask, enum value_type new)
+{
+    const char *errfmt;
+    if (!left || !right)
+        goto delete_operands;
+
+    if ((left->value_type & mask) && (right->value_type & mask)) {
+        enum value_type type = HIGHER_TYPE(left->value_type, right->value_type);
+        if (left->value_type < type)
+            left = ast_cast_new(type, left);
+        if (right->value_type < type)
+            right = ast_cast_new(type, right);
+        if (left && right) {
+            struct ast *root;
+            if ((root = ast_binop_new(node_type, left, right))) {
+                root->value_type = new ? new : type;
+                return root;
+            } else {
+                errfmt = "out-of-memory for AST node '%s'";
+            }
+        } else {
+            errfmt = "out-of-memory for promoting operands for '%s'";
+        }
+    } else {
+        errfmt = "invalid operand types for '%s'";
+    }
+
+    parse_error(p, errfmt, lex_token_type_string[ast_to_lex_type(node_type)]);
+
+delete_operands:
+    if (left) ast_delete(left);
+    if (right) ast_delete(right);
+    return NULL;
+}
+
 int parse_expression(const char *in, struct symbol_table *symtab,
                      int quiet, struct ast **pout)
 {
@@ -101,15 +138,16 @@ int parse_expression(const char *in, struct symbol_table *symtab,
     next_symbol(&p);
     *pout = expression(&p);
 
-    if (p.symbol->type != LEX_EOL) {
-        parse_error(&p, "EOL expected");
-        do { next_symbol(&p); } while (p.symbol->type != LEX_EOL);
-    } else if (*pout == NULL) {
+    if (*pout) {
+        if (p.symbol->type != LEX_EOL) {
+            parse_error(&p, "EOL expected");
+            do { next_symbol(&p); } while (p.symbol->type != LEX_EOL);
+        }
+        if (p.errors > 0)
+            ast_delete(*pout);
+    } else if (p.errors == 0) {
         parse_error(&p, "empty input");
     }
-
-    if (p.errors > 0 && *pout)
-        ast_delete(*pout);
 
     return p.errors;
 }
@@ -124,24 +162,13 @@ static struct ast *expression(struct parser *p)
 
 static struct ast *conditional_expression(struct parser *p)
 {
-    struct ast *root;
-    root = or_expression(p);
+    struct ast *root = or_expression(p);
 
     while (root && (accept(p, LEX_AND_COND) || accept(p, LEX_OR_COND))) {
-        enum ast_type type;
-        struct ast *left, *right;
-
-        type = lex_to_ast_type(p->accepted->type);
-        left = root;
-        right = or_expression(p);
-
-        if (right) {
-            root = ast_binop_new(type, left, right);
-            root->value_type = SINT;
-        } else {
-            ast_delete(root);
-            root = NULL;
-        }
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = or_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
     }
 
     return root;
@@ -149,87 +176,36 @@ static struct ast *conditional_expression(struct parser *p)
 
 static struct ast *or_expression(struct parser *p)
 {
-    struct ast *root;
-    root = xor_expression(p);
+    struct ast *root = xor_expression(p);
 
     while (root && accept(p, LEX_OR)) {
-        struct ast *left, *right;
-
-        left = root;
-        right = xor_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            break;
-        }
-
-        if ((left->value_type & INT) && (right->value_type & INT)) {
-            root = ast_binop_new(AST_OR, left, right);
-            root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
-        } else {
-            parse_error(p, "invalid operands for '|'");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        struct ast *left = root;
+        struct ast *right = xor_expression(p);
+        root = ast_binop_try_new(p, AST_OR, left, right, INT, 0);
     }
 
     return root;
 }
 static struct ast *xor_expression(struct parser *p)
 {
-    struct ast *root;
-    root = and_expression(p);
+    struct ast *root = and_expression(p);
 
     while (root && accept(p, LEX_XOR)) {
-        struct ast *left, *right;
-
-        left = root;
-        right = and_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            break;
-        }
-
-        if ((left->value_type & INT) && (right->value_type & INT)) {
-            root = ast_binop_new(AST_XOR, left, right);
-            root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
-        } else {
-            parse_error(p, "invalid operands for '^'");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        struct ast *left = root;
+        struct ast *right = and_expression(p);
+        root = ast_binop_try_new(p, AST_XOR, left, right, INT, 0);
     }
 
     return root;
 }
 static struct ast *and_expression(struct parser *p)
 {
-    struct ast *root;
-    root = equality_expression(p);
+    struct ast *root = equality_expression(p);
 
     while (root && accept(p, LEX_AND)) {
-        struct ast *left, *right;
-
-        left = root;
-        right = equality_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            break;
-        }
-
-        if ((left->value_type & INT) && (right->value_type & INT)) {
-            root = ast_binop_new(AST_AND, left, right);
-            root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
-        } else {
-            parse_error(p, "invalid operands for '&'");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        struct ast *left = root;
+        struct ast *right = equality_expression(p);
+        root = ast_binop_try_new(p, AST_AND, left, right, INT, 0);
     }
 
     return root;
@@ -237,32 +213,13 @@ static struct ast *and_expression(struct parser *p)
 
 static struct ast *equality_expression(struct parser *p)
 {
-    struct ast *root;
-    root = relational_expression(p);
+    struct ast *root = relational_expression(p);
 
     if (root && (accept(p, LEX_EQ) || accept(p, LEX_NEQ))) {
-        enum ast_type type;
-        struct ast *left, *right;
-
-        type = lex_to_ast_type(p->accepted->type);
-        left = root;
-        right = relational_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            return NULL;
-        }
-
-        if ((left->value_type & (INT|FPU))
-                && (right->value_type & (INT|FPU))) {
-            root = ast_binop_new(type, left, right);
-            root->value_type = SINT;
-        } else {
-            parse_error(p, "invalid operands for equality operator");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = relational_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
     }
 
     return root;
@@ -275,28 +232,10 @@ static struct ast *relational_expression(struct parser *p)
 
     if (root && (accept(p, LEX_LT) || accept(p, LEX_GT)
             || accept(p, LEX_LE) || accept(p, LEX_GE))) {
-        enum ast_type type;
-        struct ast *left, *right;
-
-        type = lex_to_ast_type(p->accepted->type);
-        left = root;
-        right = shift_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            return NULL;
-        }
-
-        if ((left->value_type & (INT|FPU))
-                && (right->value_type & (INT|FPU))) {
-            root = ast_binop_new(type, left, right);
-            root->value_type = SINT;
-        } else {
-            parse_error(p, "invalid operands for relative operator");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = shift_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
     }
 
     return root;
@@ -304,31 +243,13 @@ static struct ast *relational_expression(struct parser *p)
 
 static struct ast *shift_expression(struct parser *p)
 {
-    struct ast *root;
-    root = addsub_expression(p);
+    struct ast *root = addsub_expression(p);
 
     while (root && (accept(p, LEX_SHL) || accept(p, LEX_SHR))) {
-        enum ast_type type;
-        struct ast *left, *right;
-
-        type = lex_to_ast_type(p->accepted->type);
-        left = root;
-        right = addsub_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            break;
-        }
-
-        if ((left->value_type & INT) && (right->value_type & INT)) {
-            root = ast_binop_new(type, left, right);
-            root->value_type = left->value_type;
-        } else {
-            parse_error(p, "invalid operand types for binary shift");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = addsub_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT, 0);
     }
 
     return root;
@@ -336,32 +257,13 @@ static struct ast *shift_expression(struct parser *p)
 
 static struct ast *addsub_expression(struct parser *p)
 {
-    struct ast *root; 
-    root = muldiv_expression(p);
+    struct ast *root = muldiv_expression(p);
 
     while (root && (accept(p, LEX_ADD) || accept(p, LEX_SUB))) {
-        enum ast_type type;
-        struct ast *left, *right;
-
-        type = lex_to_ast_type(p->accepted->type);
-        left = root;
-        right = muldiv_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            break;
-        }
-
-        if ((left->value_type & (INT|FPU))
-                && (right->value_type & (INT|FPU))) {
-            root = ast_binop_new(type, left, right);
-            root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
-        } else {
-            parse_error(p, "invalid operands for '+' or '-'");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = muldiv_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT|FPU, 0);
     }
 
     return root;
@@ -374,30 +276,11 @@ static struct ast *muldiv_expression(struct parser *p)
     while (root && (accept(p, LEX_MUL)
                  || accept(p, LEX_DIV)
                  || accept(p, LEX_MOD))) {
-        enum ast_type type;
-        struct ast *left, *right;
-        enum value_type valid_types;
-
-        type = lex_to_ast_type(p->accepted->type);
-        left = root;
-        right = cast_expression(p);
-        root = NULL;
-
-        if (!right) {
-            ast_delete(left);
-            break;
-        }
-
-        valid_types = (type == AST_MOD) ? INT : (INT|FPU);
-        if ((left->value_type & valid_types)
-                && (right->value_type & valid_types)) {
-            root = ast_binop_new(type, left, right);
-            root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
-        } else {
-            parse_error(p, "invalid operands for muldiv operator");
-            ast_delete(left);
-            ast_delete(right);
-        }
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = cast_expression(p);
+        enum value_type valid_types = (type == AST_MOD) ? INT : (INT|FPU);
+        root = ast_binop_try_new(p, type, left, right, valid_types, 0);
     }
 
     return root;
@@ -435,34 +318,34 @@ static struct ast *unary_expression(struct parser *p)
     struct ast *root;
 
     if (accept(p, LEX_ADD) || accept(p, LEX_SUB)
-            || accept(p, LEX_NOT) || accept(p, LEX_COMPL)) {
-        struct ast *child;
-        enum ast_type type;
+     || accept(p, LEX_NOT) || accept(p, LEX_COMPL)) {
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *child = cast_expression(p);
+        if (child) {
+            const char *op, *errfmt;
+            enum value_type valid_types = INT;
 
-        root = NULL;
-        type = lex_to_ast_type(p->accepted->type);
-        if (!(child = cast_expression(p))) 
-            return NULL;
-
-        if (type == AST_ADD || type == AST_SUB) {
-            /* AST_ADD -> AST_UADD, AST_SUB -> LEX_USUB */
-            type += AST_UADD - AST_ADD; 
-
-            if (child->value_type & (INT|FPU)) {
-                root = ast_unop_new(type, child);
-                root->value_type = child->value_type;
+            if (type == AST_ADD || type == AST_SUB) {
+                /* AST_ADD -> AST_UADD, AST_SUB -> LEX_USUB */
+                type += AST_UADD - AST_ADD;
+                valid_types |= FPU;
             }
-        } else { /* AST_NOT or AST_COMPL */
-            if (child->value_type & INT) {
-                root = ast_unop_new(type, child);
-                root->value_type = child->value_type;
-            }
-        }
 
-        if (!root) {
-            parse_error(p, "invalid operands for unary operator");
+            if (child->value_type & valid_types) {
+                if ((root = ast_unop_new(type, child))) {
+                    root->value_type = child->value_type;
+                    return root;
+                }
+                errfmt = "out-of-memory for AST node '%s'";
+            } else {
+                errfmt = "invalid operand types for '%s'";
+            }
+
+            op = lex_token_type_string[ast_to_lex_type(type)];
+            parse_error(p, errfmt, op);
             ast_delete(child);
         }
+        root = NULL;
     } else {
         root = factor(p);
     }
