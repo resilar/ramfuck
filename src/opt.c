@@ -6,12 +6,15 @@ static struct ast *ast_binop_optimize(enum ast_type type, struct ast *this)
     struct ast *left = ast_optimize(((struct ast_binop *)this)->left);
     struct ast *right = ast_optimize(((struct ast_binop *)this)->right);
     struct ast *ast = ast_binop_new(type, left, right);
-    ast->value_type = this->value_type;
-    if (ast_is_constant(left) && ast_is_constant(right)) {
-        struct value value;
-        ast_evaluate(ast, &value);
-        ast_delete(ast);
-        ast = ast_value_new(&value);
+    if (ast) {
+        ast->value_type = this->value_type;
+        if (ast_is_constant(left) && ast_is_constant(right)) {
+            struct value value;
+            if (ast_evaluate(ast, &value)) {
+                ast_delete(ast);
+                ast = ast_value_new(&value);
+            }
+        }
     }
     return ast;
 }
@@ -20,20 +23,24 @@ static struct ast *ast_unop_optimize(enum ast_type type, struct ast *this)
 {
     struct ast *child = ast_optimize(((struct ast_unop *)this)->child);
     struct ast *ast = ast_unop_new(type, child);
-    ast->value_type = this->value_type;
-    if (ast_is_constant(child)) {
-        struct value value;
-        ast_evaluate(ast, &value);
-        ast_delete(ast);
-        ast = ast_value_new(&value);
+    if (ast) {
+        ast->value_type = this->value_type;
+        if (ast_is_constant(child)) {
+            struct value value;
+            if (ast_evaluate(ast, &value)) {
+                ast_delete(ast);
+                ast = ast_value_new(&value);
+            }
+        }
     }
     return ast;
 }
 
 static struct ast *ast_value_optimize(struct ast *this)
 {
-    struct ast *ast = ast_value_new(&((struct ast_value *)this)->value);
-    ast->value_type = this->value_type;
+    struct ast *ast;
+    if ((ast = ast_value_new(&((struct ast_value *)this)->value)))
+        ast->value_type = this->value_type;
     return ast;
 }
 
@@ -41,7 +48,7 @@ static struct ast *ast_var_optimize(struct ast *this)
 {
     struct ast *ast = ast_var_new(((struct ast_var *)this)->identifier,
                                   ((struct ast_var *)this)->value);
-    ast->value_type = this->value_type;
+    if (ast) ast->value_type = this->value_type;
     return ast;
 }
 
@@ -77,9 +84,7 @@ static struct ast *ast_and_optimize(struct ast *this)
 
 static struct ast *ast_xor_optimize(struct ast *this)
 {
-    struct ast *ast;
-    ast = ast_binop_optimize(AST_XOR, this);
-    return ast;
+    return ast_binop_optimize(AST_XOR, this);
 }
 
 static struct ast *ast_or_optimize(struct ast *this)
