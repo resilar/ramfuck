@@ -488,13 +488,18 @@ int value_init(struct value *dest, enum value_type type)
     return 1;
 }
 
+void value_copy(struct value *dest, const struct value *src)
+{
+    memcpy(dest, src, sizeof(struct value));
+}
+
 int value_set_data(struct value *dest, void *data)
 {
     memcpy(&dest->data, data, value_sizeof(dest));
     return 1;
 }
 
-int value_is_zero(struct value *dest)
+int value_is_zero(const struct value *dest)
 {
     int i, j;
     for (i = 0, j = value_sizeof(dest); i < j; i++) {
@@ -536,14 +541,14 @@ size_t value_type_to_string_r(enum value_type type, char *out, size_t size)
     return snprintf(out, size, "???");
 }
 
-char *value_to_string(struct value *value)
+char *value_to_string(const struct value *value)
 {
     static char buf[256];
     value_to_string_r(value, buf, sizeof(buf));
     return buf;
 }
 
-size_t value_to_string_r(struct value *value, char *out, size_t size)
+size_t value_to_string_r(const struct value *value, char *out, size_t size)
 {
     switch (value->type)
     {

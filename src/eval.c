@@ -232,14 +232,14 @@ static int ast_or_cond_evaluate(struct ast *this, struct value *out)
 
     if (!ast_evaluate(((struct ast_binop *)this)->left, &left))
         return 0;
-    if (!value_is_zero(&left)) {
+    if (value_is_nonzero(&left)) {
         value_init_s32(out, 1);
         return 1;
     }
 
     if (!ast_evaluate(((struct ast_binop *)this)->right, &right))
         return 0;
-    if (!value_is_zero(&right)) {
+    if (value_is_nonzero(&right)) {
         value_init_s32(out, 1);
         return 1;
     }

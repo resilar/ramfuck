@@ -6,39 +6,38 @@
 struct symbol *symbol_new(char *name, struct value *value)
 {
     struct symbol *sym;
-    if (!(sym = malloc(sizeof(struct symbol))))
-        return NULL;
-
-    if (!(sym->name = malloc(strlen(name) + 1))) {
-        symbol_delete(sym);
-        return NULL;
+    if ((sym = malloc(sizeof(struct symbol)))) {
+        if ((sym->name = malloc(strlen(name) + 1))) {
+            strcpy(sym->name, name);
+            value_copy(&sym->value, value);
+        } else {
+            free(sym);
+            sym = NULL;
+        }
     }
-
-    strcpy(sym->name, name);
-    if (value) memcpy(&sym->value, value, sizeof(struct value));
-
     return sym;
 }
 
 void symbol_delete(struct symbol *sym)
 {
-    if (sym->name) free(sym->name);
-    free(sym);
+    if (sym) {
+        if (sym->name) free(sym->name);
+        free(sym);
+    }
 }
 
 struct symbol_table *symbol_table_new()
 {
     struct symbol_table *symtab;
 
-    if (!(symtab = malloc(sizeof(struct symbol_table))))
-        return NULL;
-
-    symtab->size = 0;
-    symtab->allocated = 16;
-    symtab->symbols = malloc(symtab->allocated * sizeof(struct symbol *));
-    if (!symtab->symbols) {
-        symbol_table_delete(symtab);
-        return NULL;
+    if ((symtab = malloc(sizeof(struct symbol_table)))) {
+        symtab->size = 0;
+        symtab->allocated = 16;
+        symtab->symbols = malloc(symtab->allocated * sizeof(struct symbol *));
+        if (!symtab->symbols) {
+            symbol_table_delete(symtab);
+            symtab = NULL;
+        }
     }
 
     return symtab;
@@ -52,7 +51,6 @@ void symbol_table_delete(struct symbol_table *symtab)
             symbol_delete(symtab->symbols[i]);
         free(symtab->symbols);
     }
-
     free(symtab);
 }
 

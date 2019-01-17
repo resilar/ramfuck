@@ -1,3 +1,7 @@
+/*
+ * Abstract Syntax Tree (AST).
+ */
+
 #ifndef AST_H_INCLUDED
 #define AST_H_INCLUDED
 
@@ -6,8 +10,9 @@
 #include <stddef.h>
 
 /*
- * Abstract syntax tree node types.
- * The order must match lex token types defined in lex.h.
+ * AST node types.
+ *
+ * The ordering must match lex token types defined in lex.h file.
  */
 #define lex_to_ast_type(lex_token_type) ((lex_token_type) + AST_ADD-LEX_ADD)
 enum ast_type {

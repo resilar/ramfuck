@@ -39,6 +39,8 @@ enum value_type {
 #define value_type_is_sint(v) ((v) & SINT)
 #define value_type_is_int(v) ((v) & INT)
 #define value_type_is_fp(v) ((v) & FPU)
+#define value_type_is_ptr(v) ((v) & PTR)
+#define value_type_is_arr(v) ((v) & ARR)
 
 union value_data {
     uint8_t u8;
@@ -73,7 +75,7 @@ extern const struct value_operations *value_vtables[];
 #define value_type_vtable(t) (value_vtables[(t) >> 16])
 
 /*
- * Vtables for values.
+ * Value operations.
  */
 struct value_operations {
     int (*cast_to_s8)(struct value *this, struct value *out);
@@ -138,14 +140,20 @@ int value_init_double(struct value *dest, double value);
 int value_init(struct value *dest, enum value_type type);
 
 /*
+ * Copy value `src` to `dest`.
+ */
+void value_copy(struct value *dest, const struct value *src);
+
+/*
  * Assign data to a value.
  */
 int value_set_data(struct value *dest, void *data);
 
 /*
- * Check whether value equals to zero.
+ * Check whether value equals to (non-)zero.
  */
-int value_is_zero(struct value *dest);
+int value_is_zero(const struct value *dest);
+#define value_is_nonzero(dest) (!value_is_zero((dest)))
 
 /*
  * Produce a string representation of a type.
@@ -162,8 +170,8 @@ size_t value_type_to_string_r(enum value_type type, char *out, size_t size);
  * Returns a pointer to a static buffer or fills a buffer pointed by out. The
  * buffer must be at least 32 bytes.
  */
-char *value_to_string(struct value *value);
-size_t value_to_string_r(struct value *value, char *out, size_t size);
+char *value_to_string(const struct value *value);
+size_t value_to_string_r(const struct value *value, char *out, size_t size);
 
 /*
  * Inverse of value_type_to_string.

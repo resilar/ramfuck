@@ -10,6 +10,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -42,7 +43,7 @@ static int eol(const char *p)
  * Attach to a process.
  * Usage: attach pid
  */
-static int do_attach(struct ramfuck_context *ctx, const char *in)
+static int do_attach(struct ramfuck *ctx, const char *in)
 {
     char *end;
     unsigned long pid;
@@ -77,7 +78,7 @@ static int do_attach(struct ramfuck_context *ctx, const char *in)
  * Detach from the target process.
  * Usage: detach
  */
-static int do_detach(struct ramfuck_context *ctx, const char *in)
+static int do_detach(struct ramfuck *ctx, const char *in)
 {
     if (!eol(in)) {
         errf("detach: trailing characters");
@@ -94,95 +95,186 @@ static int do_detach(struct ramfuck_context *ctx, const char *in)
     return 0;
 }
 
-static int do_p(struct ramfuck_context *ctx, const char *in)
+static int do_p(struct ramfuck *ctx, const char *in)
 {
-    struct parser p;
-    struct symbol_table *symtab;
-    struct ast *ast, *ast_opt;
-    struct value value, out;
+    int rc, errors;
+    struct ast *ast;
+    struct value out;
 
     if (eol(in)) {
         errf("p: expression expected");
         return 1;
     }
 
-    symtab = symbol_table_new();
-    value_init_s32(&value, 42);
-    symbol_table_insert(symtab, symbol_new("value", &value));
-
-    parser_init(&p, symtab, in);
-    ast = parse_expression(&p);
-    if (p.errors > 0 || !ast) {
-        printf("got %d parse errors\n", p.errors);
-        return p.errors + !ast;
+    errors = parse_expression(in, NULL, 0, &ast);
+    if (errors > 0) {
+        errf("p: %d parse errors", errors);
+        return 2;
     }
 
     printf("rpn: ");
     ast_print(ast);
     printf("\n");
 
+    rc = 0;
     if (ast_evaluate(ast, &out)) {
-        printf("ret: (%s)%s\n", value_type_to_string(out.type),
-                value_to_string(&out));
-    } else printf("evaluation failed\n");
-
-    printf("-------------------\n");
-    printf("rpn: ");
-    ast_opt = ast_optimize(ast);
-    ast_print(ast_opt);
-    printf(" [opt]\n");
-
-    if (ast_evaluate(ast_opt, &out)) {
-        printf("ret: (%s)%s [opt]\n", value_type_to_string(out.type),
-                value_to_string(&out));
-    } else printf("opt evaluation failed\n");
-
-    ast_delete(ast_opt);
+        char buf[256];
+        value_type_to_string_r(out.type, buf, sizeof(buf));
+        printf("(%s)", buf);
+        value_to_string_r(&out, buf, sizeof(buf));
+        printf("%s\n", buf);
+    } else {
+        errf("p: evaluation failed");
+        rc = 3;
+    }
     ast_delete(ast);
-    symbol_table_delete(symtab);
 
-    return 0;
+    return rc;
 }
 
-static int cli_execute(struct ramfuck_context *ctx, const char *in)
+static int do_eval(struct ramfuck *ctx, const char *in)
+{
+    struct ast *ast;
+    int errors = parse_expression(in, NULL, 1, &ast);
+    if (errors == 0) {
+        struct value out;
+        if (ast_evaluate(ast, &out)) {
+            char buf[256];
+            value_to_string_r(&out, buf, sizeof(buf));
+            printf("%s\n", buf);
+        }
+        ast_delete(ast);
+    }
+    return errors;
+}
+
+static int do_explain(struct ramfuck *ctx, const char *in)
+{
+    int rc;
+    struct symbol_table *symtab;
+
+    if (eol(in)) {
+        errf("explain: expression expected");
+        return 1;
+    }
+
+    /* Isn't it pretty? Like a Down's child */
+    if ((symtab = symbol_table_new())) {
+        int errors;
+        struct value value;
+        struct ast *ast;
+        value_init_s32(&value, 42);
+        symbol_table_insert(symtab, symbol_new("value", &value));
+
+        errors = parse_expression(in, symtab, 0, &ast);
+        if (errors == 0) {
+            struct value out;
+            printf("rpn: ");
+            ast_print(ast);
+            printf("\n");
+
+            if (ast_evaluate(ast, &out)) {
+                struct ast *ast_opt;
+                if ((ast_opt = ast_optimize(ast))) {
+                    struct value out_opt;
+                    printf("opt: ");
+                    ast_print(ast_opt);
+                    printf("\n");
+
+                    if (ast_evaluate(ast_opt, &out_opt)) {
+                        struct ast *ast_check;
+                        struct ast *l = ast_value_new(&out);
+                        struct ast *r = ast_value_new(&out_opt);
+                        if (l && r && (ast_check = ast_eq_new(l, r))) {
+                            struct value out_check;
+                            if (ast_evaluate(ast_check, &out_check)) {
+                                if (value_is_nonzero(&out_check)) {
+                                    printf("(%s)%s\n",
+                                           value_type_to_string(out.type),
+                                           value_to_string(&out));
+                                    rc = 0;
+                                } else {
+                                    errf("explain: invalid optimization");
+                                    rc = 9;
+                                }
+                            } else {
+                                errf("explain: evaluation of check AST failed");
+                                rc = 8;
+                            }
+                            ast_delete(ast_check);
+                        } else {
+                            ast_delete(l);
+                            ast_delete(r);
+                            errf("explain: creation of check AST failed");
+                            rc = 7;
+                        }
+                    } else {
+                        errf("explain: evaluation of optimized AST failed");
+                        rc = 6;
+                    }
+                    ast_delete(ast_opt);
+                } else {
+                    errf("explain: optimization of AST faild");
+                    rc = 5;
+                }
+            } else {
+                errf("explain: evaluation of AST failed");
+                rc = 4;
+            }
+            ast_delete(ast);
+        } else {
+            errf("explain: %d parse errors", errors);
+            rc = 3;
+        }
+        symbol_table_delete(symtab);
+    } else {
+        errf("explain: creating a symbol table failed");
+        rc = 2;
+    }
+
+    return rc;
+}
+
+
+static int cli_execute(struct ramfuck *ctx, const char *in)
 {
     /*const char *cmd;*/
     int rc = 0;
     skip_spaces(&in);
-    dbgf("execute(%s)", in);
     if (accept(&in, "attach")) {
         rc = do_attach(ctx, in);
     } else if (accept(&in, "detach")) {
         rc = do_detach(ctx, in);
+    } else if (accept(&in, "explain")) {
+        rc = do_explain(ctx, in);
+    } else if (accept(&in, "exit") || accept(&in, "quit") || accept(&in, "q")) {
+        ramfuck_stop(ctx);
+        rc = 0;
     } else if (accept(&in, "p")) {
         rc = do_p(ctx, in);
-    } else if (accept(&in, "exit") || accept(&in, "quit") || accept(&in, "q")) {
-        ctx->running = 0;
+    } else if (!eol(in) && do_eval(ctx, in) != 0) {
+        size_t i;
+        for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);
+        errf("cli: unknown command '%.*s'", (int)i, in);
     }
     return rc;
 }
 
 int cli_run(FILE *in)
 {
-    char *line;
-    struct ramfuck_context ctx;
-    struct linereader *reader = linereader_get();
+    struct ramfuck ctx;
     int rc = 0;
-    ramfuck_context_init(&ctx);
-    while (ctx.running) {
-        /* Prompt */
-        printf("%d> ", rc);
-        fflush(stdout);
-
-        /* Read line */
-        line = reader->get_line(reader, in);
-        if (!line) break;
-
-        /* Execute */
-        rc = cli_execute(&ctx, line);
-        reader->add_history(reader, line);
+    ramfuck_init(&ctx);
+    ramfuck_set_input_stream(&ctx, in);
+    while (ramfuck_running(&ctx)) {
+        char *line = ramfuck_get_line(&ctx);
+        if (line) {
+            rc = cli_execute(&ctx, line);
+            ramfuck_free_line(&ctx, line);
+        } else {
+            ramfuck_stop(&ctx);
+        }
     }
-    linereader_put(reader);
-    ramfuck_context_destroy(&ctx);
+    ramfuck_destroy(&ctx);
     return rc;
 }

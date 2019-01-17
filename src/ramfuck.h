@@ -1,6 +1,8 @@
 #ifndef RAMFUCK_H_INCLUDED
 #define RAMFUCK_H_INCLUDED
 
+#include "line.h"
+
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -10,13 +12,30 @@ void dbgf(const char *format, ...);
 void errf(const char *format, ...);
 void dief(const char *format, ...);
 
-struct ramfuck_context {
-    int running;
-    pid_t pid;
+enum ramfuck_state {
+    DEAD = 0,
+    RUNNING,
+    STOPPING
 };
 
-void ramfuck_context_init(struct ramfuck_context *ctx);
-void ramfuck_context_destroy(struct ramfuck_context *ctx);
+struct ramfuck {
+    enum ramfuck_state state;
+    pid_t pid;
+
+    struct linereader *linereader;
+};
+
+#define ramfuck_dead(ctx) ((ctx)->state == DEAD)
+#define ramfuck_running(ctx) ((ctx)->state == RUNNING)
+#define ramfuck_attached(ctx) ((ctx)->pid != 0)
+
+void ramfuck_init(struct ramfuck *ctx);
+void ramfuck_destroy(struct ramfuck *ctx);
+void ramfuck_stop(struct ramfuck *ctx);
+
+void ramfuck_set_input_stream(struct ramfuck *ctx, FILE *in);
+char *ramfuck_get_line(struct ramfuck *ctx);
+void ramfuck_free_line(struct ramfuck *ctx, char *line);
 
 int main(int argc, char *argv[]);
 

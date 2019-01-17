@@ -1,9 +1,23 @@
+#define _DEFAULT_SOURCE
 #include "parse.h"
 #include "ramfuck.h"
+#include "lex.h"
 #include "value.h"
 
 #include <memory.h>
+#include <stdarg.h>
 #include <stdlib.h>
+
+struct parser {
+    const char *in;
+    struct symbol_table *symtab;
+    int quiet;
+    int errors;
+
+    struct lex_token *symbol;   /* Symbol being processed. */
+    struct lex_token *accepted; /* Last accepted symbol. */
+    struct lex_token tokens[2]; /* symbol and accepted fields point here. */
+};
 
 static struct ast *expression(struct parser *p);
 static struct ast *conditional_expression(struct parser *p);
@@ -19,10 +33,23 @@ static struct ast *cast_expression(struct parser *p);
 static struct ast *unary_expression(struct parser *p);
 static struct ast *factor(struct parser *p);
 
+static void parse_error(struct parser *p, const char *format, ...)
+{
+    if (!p->quiet) {
+        va_list args;
+        va_start(args, format);
+        fputs("parse: ", stderr);
+        vfprintf(stderr, format, args);
+        fputc('\n', stderr);
+        va_end(args);
+    }
+    p->errors++;
+}
+
 static int next_symbol(struct parser *p)
 {
     if (!lexer(&p->in, p->symbol)) {
-        p->errors++;
+        parse_error(p, "lexer error");
         do { lexer(&p->in, p->symbol); } while (p->symbol->type != LEX_EOL);
         return 0;
     }
@@ -51,41 +78,40 @@ static int expect(struct parser *p, enum lex_token_type sym)
     if (!accept(p, sym)) {
         char symstr[64];
         lex_token_to_string(p->symbol, symstr, sizeof(symstr));
-        errf("parse: unexpected symbol '%s'", symstr);
-        p->errors++;
+        parse_error(p, "unexpected symbol '%s'", symstr);
         return 0;
     }
     return 1;
 }
 
-void parser_init(struct parser *p, struct symbol_table *symtab, const char *in)
+int parse_expression(const char *in, struct symbol_table *symtab,
+                     int quiet, struct ast **pout)
 {
-    memset(p, 0, sizeof(struct parser));
-    p->in = in;
-    p->symbol = &p->tokens[0];
-    p->accepted = &p->tokens[1];
-    p->symtab = symtab;
-}
+    struct ast *out;
+    struct parser p;
+    if (pout == NULL)
+        pout = &out;
 
-struct ast *parse_expression(struct parser *p)
-{
-    struct ast *root;
+    memset(&p, 0, sizeof(struct parser));
+    p.in = in;
+    p.symbol = &p.tokens[0];
+    p.accepted = &p.tokens[1];
+    p.symtab = symtab;
+    p.quiet = quiet;
+    next_symbol(&p);
+    *pout = expression(&p);
 
-    p->errors = 0;
-    next_symbol(p);
-    root = expression(p);
-
-    if (p->symbol->type != LEX_EOL) {
-        p->errors++;
-        errf("parse: EOL expected");
-        do { next_symbol(p); } while (p->symbol->type != LEX_EOL);
+    if (p.symbol->type != LEX_EOL) {
+        parse_error(&p, "EOL expected");
+        do { next_symbol(&p); } while (p.symbol->type != LEX_EOL);
+    } else if (*pout == NULL) {
+        parse_error(&p, "empty input");
     }
 
-    if (p->errors > 0 && root) {
-        ast_delete(root);
-        root = NULL;
-    }
-    return root;
+    if (p.errors > 0 && *pout)
+        ast_delete(*pout);
+
+    return p.errors;
 }
 
 /*
@@ -93,9 +119,7 @@ struct ast *parse_expression(struct parser *p)
  */
 static struct ast *expression(struct parser *p)
 {
-    if (p->symbol->type == LEX_EOL)
-        return NULL;
-    return conditional_expression(p);
+    return (p->symbol->type == LEX_EOL) ? NULL : conditional_expression(p);
 }
 
 static struct ast *conditional_expression(struct parser *p)
@@ -144,8 +168,7 @@ static struct ast *or_expression(struct parser *p)
             root = ast_binop_new(AST_OR, left, right);
             root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
         } else {
-            p->errors++;
-            errf("parse: invalid operands for '|'");
+            parse_error(p, "invalid operands for '|'");
             ast_delete(left);
             ast_delete(right);
         }
@@ -174,8 +197,7 @@ static struct ast *xor_expression(struct parser *p)
             root = ast_binop_new(AST_XOR, left, right);
             root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
         } else {
-            p->errors++;
-            errf("parse: invalid operands for '^'");
+            parse_error(p, "invalid operands for '^'");
             ast_delete(left);
             ast_delete(right);
         }
@@ -204,8 +226,7 @@ static struct ast *and_expression(struct parser *p)
             root = ast_binop_new(AST_AND, left, right);
             root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
         } else {
-            p->errors++;
-            errf("parse: invalid operands for '&'");
+            parse_error(p, "invalid operands for '&'");
             ast_delete(left);
             ast_delete(right);
         }
@@ -238,8 +259,7 @@ static struct ast *equality_expression(struct parser *p)
             root = ast_binop_new(type, left, right);
             root->value_type = SINT;
         } else {
-            p->errors++;
-            errf("parse: invalid operands for equality operator");
+            parse_error(p, "invalid operands for equality operator");
             ast_delete(left);
             ast_delete(right);
         }
@@ -273,8 +293,7 @@ static struct ast *relational_expression(struct parser *p)
             root = ast_binop_new(type, left, right);
             root->value_type = SINT;
         } else {
-            p->errors++;
-            errf("parse: invalid operands for relative operator");
+            parse_error(p, "invalid operands for relative operator");
             ast_delete(left);
             ast_delete(right);
         }
@@ -306,8 +325,7 @@ static struct ast *shift_expression(struct parser *p)
             root = ast_binop_new(type, left, right);
             root->value_type = left->value_type;
         } else {
-            p->errors++;
-            errf("parse: invalid operand types for binary shift");
+            parse_error(p, "invalid operand types for binary shift");
             ast_delete(left);
             ast_delete(right);
         }
@@ -340,8 +358,7 @@ static struct ast *addsub_expression(struct parser *p)
             root = ast_binop_new(type, left, right);
             root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
         } else {
-            p->errors++;
-            errf("parse: invalid operands for '+' or '-'");
+            parse_error(p, "invalid operands for '+' or '-'");
             ast_delete(left);
             ast_delete(right);
         }
@@ -377,8 +394,7 @@ static struct ast *muldiv_expression(struct parser *p)
             root = ast_binop_new(type, left, right);
             root->value_type = HIGHER_TYPE(left->value_type, right->value_type);
         } else {
-            p->errors++;
-            errf("parse: invalid operands for muldiv operator");
+            parse_error(p, "invalid operands for muldiv operator");
             ast_delete(left);
             ast_delete(right);
         }
@@ -444,8 +460,7 @@ static struct ast *unary_expression(struct parser *p)
         }
 
         if (!root) {
-            p->errors++;
-            errf("parse: invalid operands for unary operator");
+            parse_error(p, "invalid operands for unary operator");
             ast_delete(child);
         }
     } else {
@@ -467,8 +482,7 @@ static struct ast *factor(struct parser *p)
             root = ast_var_new(sym->name, &sym->value);
             root->value_type = sym->value.type;
         } else {
-            errf("parse: unknown identifier '%.*s'", (int)len, name);
-            p->errors++;
+            parse_error(p, "unknown identifier '%.*s'", (int)len, name);
             root = NULL;
         }
     } else if (accept(p, LEX_INTEGER)) {
@@ -487,9 +501,10 @@ static struct ast *factor(struct parser *p)
         if (p->symbol->type != LEX_EOL) {
             char symstr[64];
             lex_token_to_string(p->symbol, symstr, sizeof(symstr));
-            errf("parse: expected a factor but got '%s'", symstr);
-        } else errf("parse: expected a factor");
-        p->errors++;
+            parse_error(p, "expected a factor but got '%s'", symstr);
+        } else {
+            parse_error(p, "expected a factor");
+        }
         root = NULL;
     }
 

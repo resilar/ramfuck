@@ -7,15 +7,15 @@
 #include <fcntl.h>
 #include <limits.h>
 
-struct memory_region_iter {
-    struct memory_region region;
+struct mem_region_iter {
+    struct mem_region region;
     char pathbuf[4096];
     FILE* fd;
 };
 
-struct memory_region *memory_region_iter_first(pid_t pid)
+struct mem_region *mem_region_iter_first(pid_t pid)
 {
-    struct memory_region_iter *it = malloc(sizeof(struct memory_region_iter));
+    struct mem_region_iter *it = malloc(sizeof(struct mem_region_iter));
     if (it) {
         it->region.path = it->pathbuf;
 
@@ -32,15 +32,15 @@ struct memory_region *memory_region_iter_first(pid_t pid)
             it = NULL;
         }
     }
-    return (struct memory_region *)it;
+    return (struct mem_region *)it;
 }
 
-struct memory_region *memory_region_iter_next(struct memory_region *it)
+struct mem_region *mem_region_iter_next(struct mem_region *it)
 {
     if (it) {
         void *start, *end;
         char perms[4];
-        if (fscanf(((struct memory_region_iter *)it)->fd,
+        if (fscanf(((struct mem_region_iter *)it)->fd,
                    "%p-%p %c%c%c%c %*[^ ] %*[^ ] %*[^ ]%*[ ]%4095[^\n]",
                    &start, &end, &perms[0], &perms[1], &perms[2], &perms[3],
                    it->path) >= 6) {
@@ -51,7 +51,7 @@ struct memory_region *memory_region_iter_next(struct memory_region *it)
             if (perms[1] == 'w') it->prot |= MEM_WRITE;
             if (perms[2] == 'x') it->prot |= MEM_EXEC;
         } else {
-            fclose(((struct memory_region_iter *)it)->fd);
+            fclose(((struct mem_region_iter *)it)->fd);
             free(it);
             it = NULL;
         }
@@ -59,23 +59,23 @@ struct memory_region *memory_region_iter_next(struct memory_region *it)
     return it;
 }
 
-struct memory_region *memory_region_find(pid_t pid, uintptr_t addr, char *path)
+struct mem_region *mem_region_find(pid_t pid, uintptr_t addr, char *path)
 {
-    struct memory_region *it = memory_region_iter_first(pid);
-    while ((it = memory_region_iter_next(it))) {
+    struct mem_region *it = mem_region_iter_first(pid);
+    while ((it = mem_region_iter_next(it))) {
         if (path && strcmp(it->path, path) != 0)
             continue;
         if (addr && !(it->start <= addr && addr < it->start + it->size))
             continue;
-        fclose(((struct memory_region_iter *)it)->fd);
-        it = realloc(it, sizeof(struct memory_region)
+        fclose(((struct mem_region_iter *)it)->fd);
+        it = realloc(it, sizeof(struct mem_region)
                          + (*it->path ? strlen(it->path)+1 : 0));
         break;
     }
-    return (struct memory_region *)it;
+    return (struct mem_region *)it;
 }
 
-void *memory_region_dump(pid_t pid, struct memory_region *region)
+void *mem_region_dump(pid_t pid, struct mem_region *region)
 {
     char mem_file[128];
     int fd;
