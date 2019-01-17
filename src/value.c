@@ -833,21 +833,21 @@ static int u32_mod(struct value *op1, struct value *op2, struct value *out)
 static int u32_and(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U32;
-    out->data.s32 = op1->data.s32 & op2->data.s32;
+    out->data.u32 = op1->data.u32 & op2->data.u32;
     return 1;
 }
 
 static int u32_xor(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U32;
-    out->data.s32 = op1->data.s32 ^ op2->data.s32;
+    out->data.u32 = op1->data.u32 ^ op2->data.u32;
     return 1;
 }
 
 static int u32_or(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U32;
-    out->data.s32 = op1->data.s32 | op2->data.s32;
+    out->data.u32 = op1->data.u32 | op2->data.u32;
     return 1;
 }
 
@@ -874,8 +874,8 @@ static int u32_usub(struct value *op1, struct value *out)
 
 static int u32_not(struct value *op1, struct value *out)
 {
-    out->type = S32;
-    out->data.s32 = !op1->data.u32;
+    out->type = U32;
+    out->data.u32 = !op1->data.u32;
     return 1;
 }
 
@@ -1079,43 +1079,43 @@ static int s64_compl(struct value *op1, struct value *out)
 
 static int s64_eq(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = S64;
-    out->data.s64 = op1->data.s64 == op2->data.s64;
+    out->type = S32;
+    out->data.s32 = op1->data.s64 == op2->data.s64;
     return 1;
 }
 
 static int s64_neq(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = S64;
-    out->data.s64 = op1->data.s64 != op2->data.s64;
+    out->type = S32;
+    out->data.s32 = op1->data.s64 != op2->data.s64;
     return 1;
 }
 
 static int s64_lt(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = S64;
-    out->data.s64 = op1->data.s64 < op2->data.s64;
+    out->type = S32;
+    out->data.s32 = op1->data.s64 < op2->data.s64;
     return 1;
 }
 
 static int s64_gt(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = S64;
-    out->data.s64 = op1->data.s64 > op2->data.s64;
+    out->type = S32;
+    out->data.s32 = op1->data.s64 > op2->data.s64;
     return 1;
 }
 
 static int s64_le(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = S64;
-    out->data.s64 = op1->data.s64 <= op2->data.s64;
+    out->type = S32;
+    out->data.s32 = op1->data.s64 <= op2->data.s64;
     return 1;
 }
 
 static int s64_ge(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = S64;
-    out->data.s64 = op1->data.s64 >= op2->data.s64;
+    out->type = S32;
+    out->data.s32 = op1->data.s64 >= op2->data.s64;
     return 1;
 }
 
@@ -1215,21 +1215,21 @@ static int u64_mod(struct value *op1, struct value *op2, struct value *out)
 static int u64_and(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U64;
-    out->data.s32 = op1->data.s32 & op2->data.s32;
+    out->data.u64 = op1->data.u64 & op2->data.u64;
     return 1;
 }
 
 static int u64_xor(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U64;
-    out->data.s32 = op1->data.s32 ^ op2->data.s32;
+    out->data.u64 = op1->data.u64 ^ op2->data.u64;
     return 1;
 }
 
 static int u64_or(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U64;
-    out->data.s32 = op1->data.s32 | op2->data.s32;
+    out->data.u64 = op1->data.u64 | op2->data.u64;
     return 1;
 }
 
@@ -1256,8 +1256,8 @@ static int u64_usub(struct value *op1, struct value *out)
 
 static int u64_not(struct value *op1, struct value *out)
 {
-    out->type = S32;
-    out->data.s32 = !op1->data.u64;
+    out->type = U64;
+    out->data.u64 = !op1->data.u64;
     return 1;
 }
 
