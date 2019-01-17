@@ -16,7 +16,7 @@
  */
 #define lex_to_ast_type(lex_token_type) ((lex_token_type) + AST_ADD-LEX_ADD)
 enum ast_type {
-    AST_INT=0, AST_UINT, AST_FLOAT, AST_VALUE, AST_VAR,
+    AST_VALUE=0, AST_VAR,
 
     /* Binary operators */
     AST_ADD, AST_SUB, AST_MUL, AST_DIV, AST_MOD,
@@ -59,9 +59,6 @@ struct ast_unop {
 /*
  * AST nodes.
  */
-struct ast_int   { struct ast root; intmax_t value; };
-struct ast_uint  { struct ast root; uintmax_t value; };
-struct ast_float { struct ast root; double value; };
 struct ast_value { struct ast root; struct value value; };
 struct ast_var {
     struct ast root;
@@ -97,11 +94,8 @@ struct ast_and_cond { struct ast_binop root; };
 struct ast_or_cond  { struct ast_binop root; };
 
 /*
- * Routines for allocating & initializing AST nodes.
+ * Routines and macros for allocating & initializing AST nodes.
  */
-struct ast *ast_int_new(intmax_t value);
-struct ast *ast_uint_new(uintmax_t value);
-struct ast *ast_float_new(double value);
 struct ast *ast_value_new(struct value *value);
 struct ast *ast_var_new(const char *identifier, struct value *value);
 

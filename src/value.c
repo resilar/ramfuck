@@ -588,9 +588,9 @@ enum value_type value_type_from_string(const char *type)
         return U32;
     } else if (!strcmp(type, "u64")) {
         return U64;
-    } else if (!strcmp(type, "float")) {
+    } else if (!strcmp(type, "f32")  || !strcmp(type, "float")) {
         return FLOAT;
-    } else if (!strcmp(type, "double")) {
+    } else if (!strcmp(type, "f64") || !strcmp(type, "double")) {
         return DOUBLE;
     }
 

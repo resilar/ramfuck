@@ -30,27 +30,6 @@ static struct ast *ast_unop_optimize(enum ast_type type, struct ast *this)
     return ast;
 }
 
-static struct ast *ast_int_optimize(struct ast *this)
-{
-    struct ast *ast = ast_int_new(((struct ast_int *)this)->value);
-    ast->value_type = this->value_type;
-    return ast;
-}
-
-static struct ast *ast_uint_optimize(struct ast *this)
-{
-    struct ast *ast = ast_uint_new(((struct ast_uint *)this)->value);
-    ast->value_type = this->value_type;
-    return ast;
-}
-
-static struct ast *ast_float_optimize(struct ast *this)
-{
-    struct ast *ast = ast_float_new(((struct ast_float *)this)->value);
-    ast->value_type = this->value_type;
-    return ast;
-}
-
 static struct ast *ast_value_optimize(struct ast *this)
 {
     struct ast *ast = ast_value_new(&((struct ast_value *)this)->value);
@@ -184,9 +163,6 @@ static struct ast *ast_or_cond_optimize(struct ast *this)
 }
 
 struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *) = {
-    /* AST_INT   */ ast_int_optimize,
-    /* AST_UINT  */ ast_uint_optimize,
-    /* AST_FLOAT */ ast_float_optimize,
     /* AST_VALUE */ ast_value_optimize,
     /* AST_VAR   */ ast_var_optimize,
 

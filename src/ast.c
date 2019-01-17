@@ -9,36 +9,6 @@
 /*
  * AST allocation and initialization functions.
  */
-struct ast *ast_int_new(intmax_t value)
-{
-    struct ast_int *n;
-    if ((n = malloc(sizeof(struct ast_int)))) {
-        n->root.node_type = AST_INT;
-        n->value = value;
-    }
-    return (struct ast *)n;
-}
-
-struct ast *ast_uint_new(uintmax_t value)
-{
-    struct ast_uint *n;
-    if ((n = malloc(sizeof(struct ast_uint)))) {
-        n->root.node_type = AST_UINT;
-        n->value = value;
-    }
-    return (struct ast *)n;
-}
-
-struct ast *ast_float_new(double value)
-{
-    struct ast_float *n;
-    if ((n = malloc(sizeof(struct ast_float)))) {
-        n->root.node_type = AST_FLOAT;
-        n->value = value;
-    }
-    return (struct ast *)n;
-}
-
 struct ast *ast_value_new(struct value *value)
 {
     struct ast_value *n;
@@ -62,7 +32,6 @@ struct ast *ast_var_new(const char *identifier, struct value *value)
     }
     return (struct ast *)n;
 }
-
 
 struct ast *ast_binop_new(enum ast_type node_type,
                           struct ast *left, struct ast *right)
@@ -131,9 +100,6 @@ static void ast_unop_delete(struct ast *this)
 }
 
 void (*ast_delete_funcs[AST_TYPES])(struct ast *) = {
-    /* AST_INT   */ ast_leaf_delete,
-    /* AST_UINT  */ ast_leaf_delete,
-    /* AST_FLOAT */ ast_leaf_delete,
     /* AST_VALUE */ ast_leaf_delete,
     /* AST_VAR   */ ast_leaf_delete,
 
@@ -178,7 +144,7 @@ void ast_print(struct ast *ast)
     } else {
         char *p = malloc(len+1);
         if (p) {
-            if (ast_snprint(ast, p, len+1) <= len) {
+            if (ast_snprint(ast, p, len+1) == len) {
                 fwrite(p, sizeof(char), len, stdout);
             } else {
                 errf("ast: inconsistent ast_snprint() results");
@@ -228,22 +194,6 @@ static size_t ast_unop_snprint(struct ast *this, const char *op,
         len += snprintf(out+len, size-len, " %s", op);
     else len += snprintf(NULL, 0, " %s", op);
     return len;
-}
-
-static size_t ast_int_snprint(struct ast *this, char *out, size_t size)
-{
-    return snprintf(out, size, "%ld", (long)((struct ast_int *)this)->value);
-}
-
-static size_t ast_uint_snprint(struct ast *this, char *out, size_t size)
-{
-    return snprintf(out, size, "%lu",
-                    (unsigned long)((struct ast_uint *)this)->value);
-}
-
-static size_t ast_float_snprint(struct ast *this, char *out, size_t size)
-{
-    return snprintf(out, size, "%f", ((struct ast_float *)this)->value);
 }
 
 static size_t ast_value_snprint(struct ast *this, char *out, size_t size)
@@ -401,9 +351,6 @@ static size_t ast_or_cond_snprint(struct ast *this, char *out, size_t size)
 }
 
 size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *, size_t) = {
-    /* AST_INT   */ ast_int_snprint,
-    /* AST_UINT  */ ast_uint_snprint,
-    /* AST_FLOAT */ ast_float_snprint,
     /* AST_VALUE */ ast_value_snprint,
     /* AST_VAR   */ ast_var_snprint,
 

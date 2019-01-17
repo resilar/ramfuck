@@ -40,8 +40,8 @@ static int eol(const char *p)
 }
 
 /*
- * Attach to a process.
- * Usage: attach pid
+ * Attach to a process specified by PID.
+ * Usage: attach <pid>
  */
 static int do_attach(struct ramfuck *ctx, const char *in)
 {
@@ -95,59 +95,10 @@ static int do_detach(struct ramfuck *ctx, const char *in)
     return 0;
 }
 
-static int do_p(struct ramfuck *ctx, const char *in)
-{
-    int rc, errors;
-    struct ast *ast;
-    struct value out;
-
-    if (eol(in)) {
-        errf("p: expression expected");
-        return 1;
-    }
-
-    errors = parse_expression(in, NULL, 0, &ast);
-    if (errors > 0) {
-        errf("p: %d parse errors", errors);
-        return 2;
-    }
-
-    printf("rpn: ");
-    ast_print(ast);
-    printf("\n");
-
-    rc = 0;
-    if (ast_evaluate(ast, &out)) {
-        char buf[256];
-        value_type_to_string_r(out.type, buf, sizeof(buf));
-        printf("(%s)", buf);
-        value_to_string_r(&out, buf, sizeof(buf));
-        printf("%s\n", buf);
-    } else {
-        errf("p: evaluation failed");
-        rc = 3;
-    }
-    ast_delete(ast);
-
-    return rc;
-}
-
-static int do_eval(struct ramfuck *ctx, const char *in)
-{
-    struct ast *ast;
-    int errors = parse_expression(in, NULL, 1, &ast);
-    if (errors == 0) {
-        struct value out;
-        if (ast_evaluate(ast, &out)) {
-            char buf[256];
-            value_to_string_r(&out, buf, sizeof(buf));
-            printf("%s\n", buf);
-        }
-        ast_delete(ast);
-    }
-    return errors;
-}
-
+/*
+ * Explain expression, i.e., print in Reverse Polish Notation RPN).
+ * Usage: explain <expr>
+ */
 static int do_explain(struct ramfuck *ctx, const char *in)
 {
     int rc;
@@ -235,6 +186,82 @@ static int do_explain(struct ramfuck *ctx, const char *in)
     return rc;
 }
 
+/*
+ * Show memory maps of the attached process.
+ * Usage: maps
+ */
+static int do_maps(struct ramfuck *ctx, const char *in)
+{
+    printf("foobar\n");
+
+    if (!eol(in)) {
+        errf("maps: trailing characters");
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * Print expression and its value.
+ * Usage: p <expr>
+ */
+static int do_p(struct ramfuck *ctx, const char *in)
+{
+    int rc, errors;
+    struct ast *ast;
+    struct value out;
+
+    if (eol(in)) {
+        errf("p: expression expected");
+        return 1;
+    }
+
+    errors = parse_expression(in, NULL, 0, &ast);
+    if (errors > 0) {
+        errf("p: %d parse errors", errors);
+        return 2;
+    }
+
+    printf("rpn: ");
+    ast_print(ast);
+    printf("\n");
+
+    rc = 0;
+    if (ast_evaluate(ast, &out)) {
+        char buf[256];
+        value_type_to_string_r(out.type, buf, sizeof(buf));
+        printf("(%s)", buf);
+        value_to_string_r(&out, buf, sizeof(buf));
+        printf("%s\n", buf);
+    } else {
+        errf("p: evaluation failed");
+        rc = 3;
+    }
+    ast_delete(ast);
+
+    return rc;
+}
+
+/*
+ * Evaluate expression and print its value.
+ * Usage: eval <expr>
+ */
+static int do_eval(struct ramfuck *ctx, const char *in)
+{
+    struct ast *ast;
+    int errors = parse_expression(in, NULL, 1, &ast);
+    if (errors == 0) {
+        struct value out;
+        if (ast_evaluate(ast, &out)) {
+            char buf[256];
+            value_to_string_r(&out, buf, sizeof(buf));
+            printf("%s\n", buf);
+        }
+        ast_delete(ast);
+    }
+    return errors;
+}
 
 static int cli_execute(struct ramfuck *ctx, const char *in)
 {
@@ -250,6 +277,8 @@ static int cli_execute(struct ramfuck *ctx, const char *in)
     } else if (accept(&in, "exit") || accept(&in, "quit") || accept(&in, "q")) {
         ramfuck_stop(ctx);
         rc = 0;
+    } else if (accept(&in, "m") || accept(&in, "maps") || accept(&in, "mem")) {
+        rc = do_maps(ctx, in);
     } else if (accept(&in, "p")) {
         rc = do_p(ctx, in);
     } else if (!eol(in) && do_eval(ctx, in) != 0) {

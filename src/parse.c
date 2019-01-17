@@ -486,14 +486,27 @@ static struct ast *factor(struct parser *p)
             root = NULL;
         }
     } else if (accept(p, LEX_INTEGER)) {
-        root = ast_int_new(p->accepted->value.integer);
-        root->value_type = SINT;
+        struct value value;
+        intmax_t sint = p->accepted->value.integer;
+        if ((uintmax_t)sint != (uint32_t)sint) {
+            value_init_s64(&value, sint);
+        } else {
+            value_init_s32(&value, sint);
+        }
+        root = ast_value_new(&value);
     } else if (accept(p, LEX_UINTEGER)) {
-        root = ast_uint_new((uintmax_t)p->accepted->value.integer);
-        root->value_type = UINT;
+        struct value value;
+        uintmax_t uint = (uintmax_t)p->accepted->value.integer;
+        if (uint != (uint32_t)uint) {
+            value_init_u64(&value, uint);
+        } else {
+            value_init_u32(&value, uint);
+        }
+        root = ast_value_new(&value);
     } else if (accept(p, LEX_FLOATING_POINT)) {
-        root = ast_float_new(p->accepted->value.fp);
-        root->value_type = DOUBLE;
+        struct value value;
+        value_init_double(&value, p->accepted->value.fp);
+        root = ast_value_new(&value);
     } else if (accept(p, LEX_LEFT_PARENTHESE)) {
         root = expression(p);
         expect(p, LEX_RIGHT_PARENTHESE);

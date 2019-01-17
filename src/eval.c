@@ -1,33 +1,5 @@
 #include "eval.h"
 
-static int ast_int_evaluate(struct ast *this, struct value *out)
-{
-    intmax_t value = ((struct ast_int *)this)->value;
-    if (value != (int32_t)value) {
-        value_init_s64(out, value);
-    } else {
-        value_init_s32(out, value);
-    }
-    return 1;
-}
-
-static int ast_uint_evaluate(struct ast *this, struct value *out)
-{
-    uintmax_t value = ((struct ast_uint *)this)->value;
-    if (value != (uint32_t)value) {
-        value_init_u64(out, value);
-    } else {
-        value_init_u32(out, value);
-    }
-    return 1;
-}
-
-static int ast_float_evaluate(struct ast *this, struct value *out)
-{
-    value_init_double(out, ((struct ast_float *)this)->value);
-    return 1;
-}
-
 static int ast_value_evaluate(struct ast *this, struct value *out)
 {
     *out = ((struct ast_value *)this)->value;
@@ -249,9 +221,6 @@ static int ast_or_cond_evaluate(struct ast *this, struct value *out)
 }
 
 int (*ast_evaluate_funcs[AST_TYPES])(struct ast *, struct value *) = {
-    /* AST_INT   */ ast_int_evaluate,
-    /* AST_UINT  */ ast_uint_evaluate,
-    /* AST_FLOAT */ ast_float_evaluate,
     /* AST_VALUE */ ast_value_evaluate,
     /* AST_VAR   */ ast_var_evaluate,
 

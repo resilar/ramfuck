@@ -31,14 +31,15 @@ struct mem_region {
 };
 
 /* Iteration of PID memory regions */
-struct mem_region *mem_region_iter_first(pid_t pid);
+struct mem_region *mem_region_iter_first(struct mem_io *mem);
 struct mem_region *mem_region_iter_next(struct mem_region *it);
 
 /* Find memory region based on address or pathname */
-struct mem_region *mem_region_find(pid_t pid, uintptr_t addr, char *path);
+struct mem_region *mem_region_find(struct mem_io *mem, uintptr_t addr,
+                                   char *path);
 
 /* Dump memory region from process memory */
-void *mem_region_dump(pid_t pid, struct mem_region *region);
+void *mem_region_dump(struct mem_io *mem, struct mem_region *region);
 
 
 #endif

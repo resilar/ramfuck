@@ -13,15 +13,15 @@ struct mem_region_iter {
     FILE* fd;
 };
 
-struct mem_region *mem_region_iter_first(pid_t pid)
+struct mem_region *mem_region_iter_first(struct mem_io *mem)
 {
     struct mem_region_iter *it = malloc(sizeof(struct mem_region_iter));
     if (it) {
         it->region.path = it->pathbuf;
 
-        if (pid > 0) {
+        if (mem->ctx->pid > 0) {
             char filename[64];
-            sprintf(filename, "/proc/%ld/maps", (long)pid);
+            sprintf(filename, "/proc/%lu/maps", (unsigned long)mem->ctx->pid);
             it->fd = fopen(filename, "r");
         } else {
             it->fd = fopen("/proc/self/maps", "r");
@@ -59,9 +59,10 @@ struct mem_region *mem_region_iter_next(struct mem_region *it)
     return it;
 }
 
-struct mem_region *mem_region_find(pid_t pid, uintptr_t addr, char *path)
+struct mem_region *mem_region_find(struct mem_io *mem, uintptr_t addr,
+                                   char *path)
 {
-    struct mem_region *it = mem_region_iter_first(pid);
+    struct mem_region *it = mem_region_iter_first(mem);
     while ((it = mem_region_iter_next(it))) {
         if (path && strcmp(it->path, path) != 0)
             continue;
@@ -75,14 +76,14 @@ struct mem_region *mem_region_find(pid_t pid, uintptr_t addr, char *path)
     return (struct mem_region *)it;
 }
 
-void *mem_region_dump(pid_t pid, struct mem_region *region)
+void *mem_region_dump(struct mem_io *mem, struct mem_region *region)
 {
     char mem_file[128];
     int fd;
     unsigned char *buf;
     size_t count, ret;
     buf = 0;
-    sprintf(mem_file, "/proc/%lu/mem", (unsigned long)pid);
+    sprintf(mem_file, "/proc/%lu/mem", (unsigned long)mem->ctx->pid);
 
     if (!(fd = open(mem_file, O_RDONLY))) {
         free(buf);
