@@ -395,9 +395,8 @@ static struct ast *factor(struct parser *p)
         expect(p, LEX_RIGHT_PARENTHESE);
     } else {
         if (p->symbol->type != LEX_EOL) {
-            char symstr[64];
-            lex_token_to_string(p->symbol, symstr, sizeof(symstr));
-            parse_error(p, "expected a factor but got '%s'", symstr);
+            const char *token = lex_token_type_string[p->symbol->type];
+            parse_error(p, "expected a factor but got '%s'", token);
         } else {
             parse_error(p, "expected a factor");
         }

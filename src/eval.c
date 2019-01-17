@@ -8,10 +8,7 @@ static int ast_value_evaluate(struct ast *this, struct value *out)
 
 static int ast_var_evaluate(struct ast *this, struct value *out)
 {
-    struct value *value;
-    value = ((struct ast_var *)this)->value;
-    *out = *value;
-    /*value_vtable(out)->assign(out, value);*/
+    *out = *((struct ast_var *)this)->value;
     return 1;
 }
 
