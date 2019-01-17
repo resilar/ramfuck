@@ -69,7 +69,6 @@ static int accept(struct parser *p, enum lex_token_type sym)
         p->symbol = &p->tokens[0];
     }
 
-    /* Next symbol */
     return next_symbol(p);
 }
 
@@ -143,8 +142,10 @@ int parse_expression(const char *in, struct symbol_table *symtab,
             parse_error(&p, "EOL expected");
             do { next_symbol(&p); } while (p.symbol->type != LEX_EOL);
         }
-        if (p.errors > 0)
+        if (p.errors > 0) {
             ast_delete(*pout);
+            *pout = NULL;
+        }
     } else if (p.errors == 0) {
         parse_error(&p, "empty input");
     }
