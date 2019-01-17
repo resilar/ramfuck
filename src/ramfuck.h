@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 void infof(const char *format, ...);
+void warnf(const char *format, ...);
 void dbgf(const char *format, ...);
 void errf(const char *format, ...);
 void dief(const char *format, ...);
