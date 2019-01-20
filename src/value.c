@@ -60,17 +60,17 @@ int value_init_u64(struct value *dest, uint64_t value)
     return 1;
 }
 
-int value_init_float(struct value *dest, float value)
+int value_init_f32(struct value *dest, float value)
 {
-    dest->type = FLOAT;
-    dest->data.float_val = value;
+    dest->type = F32;
+    dest->data.f32 = value;
     return 1;
 }
 
-int value_init_double(struct value *dest, double value)
+int value_init_f64(struct value *dest, double value)
 {
-    dest->type = DOUBLE;
-    dest->data.double_val = value;
+    dest->type = F64;
+    dest->data.f64 = value;
     return 1;
 }
 
@@ -113,8 +113,8 @@ const char *value_type_to_string(enum value_type type)
     case U32: return "u32";
     case U64: return "u64";
 
-    case FLOAT:  return "f32";
-    case DOUBLE: return "f64";
+    case F32: return "f32";
+    case F64: return "f64";
 
     default: break;
     }
@@ -147,8 +147,8 @@ size_t value_to_string_r(const struct value *value, char *out, size_t size)
     case U32: return snprintf(out, size, "%lu", (unsigned long)value->data.u32);
     case U64: return snprintf(out, size, "%lu", (unsigned long)value->data.u64);
 
-    case FLOAT:  return snprintf(out, size, "%g", value->data.float_val);
-    case DOUBLE: return snprintf(out, size, "%g", value->data.double_val);
+    case F32: return snprintf(out, size, "%g", value->data.f32);
+    case F64: return snprintf(out, size, "%g", value->data.f64);
 
     default: break;
     }
@@ -174,9 +174,9 @@ enum value_type value_type_from_string(const char *type)
     } else if (!strcmp(type, "u64")) {
         return U64;
     } else if (!strcmp(type, "f32")  || !strcmp(type, "float")) {
-        return FLOAT;
+        return F32;
     } else if (!strcmp(type, "f64") || !strcmp(type, "double")) {
-        return DOUBLE;
+        return F64;
     }
 
     return 0;
@@ -351,14 +351,14 @@ static int s8_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s8);
 }
 
-static int s8_to_float(struct value *this, struct value *out)
+static int s8_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.s8);
+    return value_init_f32(out, this->data.s8);
 }
 
-static int s8_to_double(struct value *this, struct value *out)
+static int s8_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.s8);
+    return value_init_f64(out, this->data.s8);
 }
 
 static int s8_assign(struct value *this, struct value *src)
@@ -409,14 +409,14 @@ static int u8_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u8);
 }
 
-static int u8_to_float(struct value *this, struct value *out)
+static int u8_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.u8);
+    return value_init_f32(out, this->data.u8);
 }
 
-static int u8_to_double(struct value *this, struct value *out)
+static int u8_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.u8);
+    return value_init_f64(out, this->data.u8);
 }
 
 static int u8_assign(struct value *this, struct value *src)
@@ -467,14 +467,14 @@ static int s16_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s16);
 }
 
-static int s16_to_float(struct value *this, struct value *out)
+static int s16_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.s16);
+    return value_init_f32(out, this->data.s16);
 }
 
-static int s16_to_double(struct value *this, struct value *out)
+static int s16_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.s16);
+    return value_init_f64(out, this->data.s16);
 }
 
 static int s16_assign(struct value *this, struct value *src)
@@ -525,14 +525,14 @@ static int u16_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u16);
 }
 
-static int u16_to_float(struct value *this, struct value *out)
+static int u16_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.u16);
+    return value_init_f32(out, this->data.u16);
 }
     
-static int u16_to_double(struct value *this, struct value *out)
+static int u16_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.u16);
+    return value_init_f64(out, this->data.u16);
 }
 
 static int u16_assign(struct value *this, struct value *src)
@@ -583,14 +583,14 @@ static int s32_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s32);
 }
 
-static int s32_to_float(struct value *this, struct value *out)
+static int s32_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.s32);
+    return value_init_f32(out, this->data.s32);
 }
 
-static int s32_to_double(struct value *this, struct value *out)
+static int s32_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.s32);
+    return value_init_f64(out, this->data.s32);
 }
 
 static int s32_assign(struct value *this, struct value *src)
@@ -774,14 +774,14 @@ static int u32_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u32);
 }
 
-static int u32_to_float(struct value *this, struct value *out)
+static int u32_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.u32);
+    return value_init_f32(out, this->data.u32);
 }
 
-static int u32_to_double(struct value *this, struct value *out)
+static int u32_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.u32);
+    return value_init_f64(out, this->data.u32);
 }
 
 static int u32_assign(struct value *this, struct value *src)
@@ -965,14 +965,14 @@ static int s64_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s64);
 }
 
-static int s64_to_float(struct value *this, struct value *out)
+static int s64_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.s64);
+    return value_init_f32(out, this->data.s64);
 }
 
-static int s64_to_double(struct value *this, struct value *out)
+static int s64_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.s64);
+    return value_init_f64(out, this->data.s64);
 }
 
 static int s64_assign(struct value *this, struct value *src)
@@ -1156,14 +1156,14 @@ static int u64_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u64);
 }
 
-static int u64_to_float(struct value *this, struct value *out)
+static int u64_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.u64);
+    return value_init_f32(out, this->data.u64);
 }
 
-static int u64_to_double(struct value *this, struct value *out)
+static int u64_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.u64);
+    return value_init_f64(out, this->data.u64);
 }
 
 static int u64_assign(struct value *this, struct value *src)
@@ -1305,274 +1305,274 @@ static int u64_ge(struct value *op1, struct value *op2, struct value *out)
 }
 
 /*
- * float methods.
+ * f32 methods.
  */
-static int float_to_s8(struct value *this, struct value *out)
+static int f32_to_s8(struct value *this, struct value *out)
 {
-    return value_init_s8(out, this->data.float_val);
+    return value_init_s8(out, this->data.f32);
 }
 
-static int float_to_u8(struct value *this, struct value *out)
+static int f32_to_u8(struct value *this, struct value *out)
 {
-    return value_init_u8(out, this->data.float_val);
+    return value_init_u8(out, this->data.f32);
 }
 
-static int float_to_s16(struct value *this, struct value *out)
+static int f32_to_s16(struct value *this, struct value *out)
 {
-    return value_init_s16(out, this->data.float_val);
+    return value_init_s16(out, this->data.f32);
 }
 
-static int float_to_u16(struct value *this, struct value *out)
+static int f32_to_u16(struct value *this, struct value *out)
 {
-    return value_init_u16(out, this->data.float_val);
+    return value_init_u16(out, this->data.f32);
 }
 
-static int float_to_s32(struct value *this, struct value *out)
+static int f32_to_s32(struct value *this, struct value *out)
 {
-    return value_init_s32(out, this->data.float_val);
+    return value_init_s32(out, this->data.f32);
 }
 
-static int float_to_u32(struct value *this, struct value *out)
+static int f32_to_u32(struct value *this, struct value *out)
 {
-    return value_init_u32(out, this->data.float_val);
+    return value_init_u32(out, this->data.f32);
 }
 
-static int float_to_s64(struct value *this, struct value *out)
+static int f32_to_s64(struct value *this, struct value *out)
 {
-    return value_init_s64(out, this->data.float_val);
+    return value_init_s64(out, this->data.f32);
 }
 
-static int float_to_u64(struct value *this, struct value *out)
+static int f32_to_u64(struct value *this, struct value *out)
 {
-    return value_init_u64(out, this->data.float_val);
+    return value_init_u64(out, this->data.f32);
 }
 
-static int float_to_float(struct value *this, struct value *out)
+static int f32_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.float_val);
+    return value_init_f32(out, this->data.f32);
 }
 
-static int float_to_double(struct value *this, struct value *out)
+static int f32_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.float_val);
+    return value_init_f64(out, this->data.f32);
 }
 
-static int float_assign(struct value *this, struct value *src)
+static int f32_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_float(src, this);
+    return value_vtable(src)->cast_to_f32(src, this);
 }
 
-static int float_add(struct value *op1, struct value *op2, struct value *out)
+static int f32_add(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->add(out, op2, out);
 }
 
-static int float_sub(struct value *op1, struct value *op2, struct value *out)
+static int f32_sub(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->sub(out, op2, out);
 }
 
-static int float_mul(struct value *op1, struct value *op2, struct value *out)
+static int f32_mul(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->mul(out, op2, out);
 }
 
-static int float_div(struct value *op1, struct value *op2, struct value *out)
+static int f32_div(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->div(out, op2, out);
 }
 
-static int float_usub(struct value *op1, struct value *out)
+static int f32_usub(struct value *op1, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->usub(out, out);
 }
 
-static int float_not(struct value *op1, struct value *out)
+static int f32_not(struct value *op1, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->not(out, out);
 }
 
-static int float_eq(struct value *op1, struct value *op2, struct value *out)
+static int f32_eq(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->eq(out, op2, out);
 }
 
-static int float_neq(struct value *op1, struct value *op2, struct value *out)
+static int f32_neq(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->neq(out, op2, out);
 }
 
-static int float_lt(struct value *op1, struct value *op2, struct value *out)
+static int f32_lt(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->lt(out, op2, out);
 }
 
-static int float_gt(struct value *op1, struct value *op2, struct value *out)
+static int f32_gt(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->gt(out, op2, out);
 }
 
-static int float_le(struct value *op1, struct value *op2, struct value *out)
+static int f32_le(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->le(out, op2, out);
 }
 
-static int float_ge(struct value *op1, struct value *op2, struct value *out)
+static int f32_ge(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_double(op1, out);
+    value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->ge(out, op2, out);
 }
 
 /*
- * double methods.
+ * f64 methods.
  */
-static int double_to_s8(struct value *this, struct value *out)
+static int f64_to_s8(struct value *this, struct value *out)
 {
-    return value_init_s8(out, this->data.double_val);
+    return value_init_s8(out, this->data.f64);
 }
 
-static int double_to_u8(struct value *this, struct value *out)
+static int f64_to_u8(struct value *this, struct value *out)
 {
-    return value_init_u8(out, this->data.double_val);
+    return value_init_u8(out, this->data.f64);
 }
 
-static int double_to_s16(struct value *this, struct value *out)
+static int f64_to_s16(struct value *this, struct value *out)
 {
-    return value_init_s16(out, this->data.double_val);
+    return value_init_s16(out, this->data.f64);
 }
 
-static int double_to_u16(struct value *this, struct value *out)
+static int f64_to_u16(struct value *this, struct value *out)
 {
-    return value_init_u16(out, this->data.double_val);
+    return value_init_u16(out, this->data.f64);
 }
 
-static int double_to_s32(struct value *this, struct value *out)
+static int f64_to_s32(struct value *this, struct value *out)
 {
-    return value_init_s32(out, this->data.double_val);
+    return value_init_s32(out, this->data.f64);
 }
 
-static int double_to_u32(struct value *this, struct value *out)
+static int f64_to_u32(struct value *this, struct value *out)
 {
-    return value_init_u32(out, this->data.double_val);
+    return value_init_u32(out, this->data.f64);
 }
 
-static int double_to_s64(struct value *this, struct value *out)
+static int f64_to_s64(struct value *this, struct value *out)
 {
-    return value_init_s64(out, this->data.double_val);
+    return value_init_s64(out, this->data.f64);
 }
 
-static int double_to_u64(struct value *this, struct value *out)
+static int f64_to_u64(struct value *this, struct value *out)
 {
-    return value_init_u64(out, this->data.double_val);
+    return value_init_u64(out, this->data.f64);
 }
 
-static int double_to_float(struct value *this, struct value *out)
+static int f64_to_f32(struct value *this, struct value *out)
 {
-    return value_init_float(out, this->data.double_val);
+    return value_init_f32(out, this->data.f64);
 }
 
-static int double_to_double(struct value *this, struct value *out)
+static int f64_to_f64(struct value *this, struct value *out)
 {
-    return value_init_double(out, this->data.double_val);
+    return value_init_f64(out, this->data.f64);
 }
 
-static int double_assign(struct value *this, struct value *src)
+static int f64_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_double(src, this);
+    return value_vtable(src)->cast_to_f64(src, this);
 }
 
-static int double_add(struct value *op1, struct value *op2, struct value *out)
+static int f64_add(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = DOUBLE;
-    out->data.double_val = op1->data.double_val + op2->data.double_val;
+    out->type = F64;
+    out->data.f64 = op1->data.f64 + op2->data.f64;
     return 1;
 }
 
-static int double_sub(struct value *op1, struct value *op2, struct value *out)
+static int f64_sub(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = DOUBLE;
-    out->data.double_val = op1->data.double_val - op2->data.double_val;
+    out->type = F64;
+    out->data.f64 = op1->data.f64 - op2->data.f64;
     return 1;
 }
 
-static int double_mul(struct value *op1, struct value *op2, struct value *out)
+static int f64_mul(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = DOUBLE;
-    out->data.double_val = op1->data.double_val * op2->data.double_val;
+    out->type = F64;
+    out->data.f64 = op1->data.f64 * op2->data.f64;
     return 1;
 }
 
-static int double_div(struct value *op1, struct value *op2, struct value *out)
+static int f64_div(struct value *op1, struct value *op2, struct value *out)
 {
-    out->type = DOUBLE;
-    out->data.double_val = op1->data.double_val / op2->data.double_val;
+    out->type = F64;
+    out->data.f64 = op1->data.f64 / op2->data.f64;
     return 1;
 }
 
-static int double_usub(struct value *op1, struct value *out)
+static int f64_usub(struct value *op1, struct value *out)
 {
-    out->type = DOUBLE;
-    out->data.double_val = -op1->data.double_val;
+    out->type = F64;
+    out->data.f64 = -op1->data.f64;
     return 1;
 }
 
-static int double_not(struct value *op1, struct value *out)
+static int f64_not(struct value *op1, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = !op1->data.double_val;
+    out->data.s32 = !op1->data.f64;
     return 1;
 }
 
-static int double_eq(struct value *op1, struct value *op2, struct value *out)
+static int f64_eq(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = op1->data.double_val == op2->data.double_val;
+    out->data.s32 = op1->data.f64 == op2->data.f64;
     return 1;
 }
 
-static int double_neq(struct value *op1, struct value *op2, struct value *out)
+static int f64_neq(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = op1->data.double_val != op2->data.double_val;
+    out->data.s32 = op1->data.f64 != op2->data.f64;
     return 1;
 }
 
-static int double_lt(struct value *op1, struct value *op2, struct value *out)
+static int f64_lt(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = op1->data.double_val < op2->data.double_val;
+    out->data.s32 = op1->data.f64 < op2->data.f64;
     return 1;
 }
 
-static int double_gt(struct value *op1, struct value *op2, struct value *out)
+static int f64_gt(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = op1->data.double_val > op2->data.double_val;
+    out->data.s32 = op1->data.f64 > op2->data.f64;
     return 1;
 }
 
-static int double_le(struct value *op1, struct value *op2, struct value *out)
+static int f64_le(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = op1->data.double_val <= op2->data.double_val;
+    out->data.s32 = op1->data.f64 <= op2->data.f64;
     return 1;
 }
 
-static int double_ge(struct value *op1, struct value *op2, struct value *out)
+static int f64_ge(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
-    out->data.s32 = op1->data.double_val >= op2->data.double_val;
+    out->data.s32 = op1->data.f64 >= op2->data.f64;
     return 1;
 }
 
@@ -1580,17 +1580,17 @@ static int double_ge(struct value *op1, struct value *op2, struct value *out)
  * Method tables.
  */
 static const struct value_operations s32_vtable = {
-    /*.cast_to_s8 =    */ s32_to_s8,
-    /*.cast_to_u8 =    */ s32_to_u8,
-    /*.cast_to_s16 =   */ s32_to_s16,
-    /*.cast_to_u16 =   */ s32_to_u16,
-    /*.cast_to_s32 =   */ s32_to_s32,
-    /*.cast_to_u32 =   */ s32_to_u32,
-    /*.cast_to_s64 =   */ s32_to_s64,
-    /*.cast_to_u64 =   */ s32_to_u64,
-    /*.cast_to_float = */ s32_to_float,
-    /*.cast_to_double =*/ s32_to_double,
-    /*.assign =        */ s32_assign,
+    /*.cast_to_s8 =  */ s32_to_s8,
+    /*.cast_to_u8 =  */ s32_to_u8,
+    /*.cast_to_s16 = */ s32_to_s16,
+    /*.cast_to_u16 = */ s32_to_u16,
+    /*.cast_to_s32 = */ s32_to_s32,
+    /*.cast_to_u32 = */ s32_to_u32,
+    /*.cast_to_s64 = */ s32_to_s64,
+    /*.cast_to_u64 = */ s32_to_u64,
+    /*.cast_to_f32 = */ s32_to_f32,
+    /*.cast_to_f64 = */ s32_to_f64,
+    /*.assign =      */ s32_assign,
 
     /*.add =*/ s32_add,
     /*.sub =*/ s32_sub,
@@ -1619,7 +1619,7 @@ static const struct value_operations s32_vtable = {
 static const struct value_operations u32_vtable = {
     u32_to_s8, u32_to_u8, u32_to_s16, u32_to_u16,
     u32_to_s32, u32_to_u32, u32_to_s64, u32_to_u64,
-    u32_to_float, u32_to_double,
+    u32_to_f32, u32_to_f64,
     u32_assign,
 
     u32_add, u32_sub, u32_mul, u32_div, u32_mod,
@@ -1631,7 +1631,7 @@ static const struct value_operations u32_vtable = {
 static const struct value_operations s64_vtable = {
     s64_to_s8, s64_to_u8, s64_to_s16, s64_to_u16,
     s64_to_s32, s64_to_u32, s64_to_s64, s64_to_u64,
-    s64_to_float, s64_to_double,
+    s64_to_f32, s64_to_f64,
     s64_assign,
 
     s64_add, s64_sub, s64_mul, s64_div, s64_mod,
@@ -1643,7 +1643,7 @@ static const struct value_operations s64_vtable = {
 static const struct value_operations u64_vtable = {
     u64_to_s8, u64_to_u8, u64_to_s16, u64_to_u16,
     u64_to_s32, u64_to_u32, u64_to_s64, u64_to_u64,
-    u64_to_float, u64_to_double,
+    u64_to_f32, u64_to_f64,
     u64_assign,
 
     u64_add, u64_sub, u64_mul, u64_div, u64_mod,
@@ -1655,7 +1655,7 @@ static const struct value_operations u64_vtable = {
 static const struct value_operations s8_vtable = {
     s8_to_s8, s8_to_u8, s8_to_s16, s8_to_u16,
     s8_to_s32, s8_to_u32, s8_to_s64, s8_to_u64,
-    s8_to_float, s8_to_double,
+    s8_to_f32, s8_to_f64,
     s8_assign,
 
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
@@ -1667,7 +1667,7 @@ static const struct value_operations s8_vtable = {
 static const struct value_operations u8_vtable = {
     u8_to_s8, u8_to_u8, u8_to_s16, u8_to_u16,
     u8_to_s32, u8_to_u32, u8_to_s64, u8_to_u64,
-    u8_to_float, u8_to_double,
+    u8_to_f32, u8_to_f64,
     u8_assign,
 
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
@@ -1679,7 +1679,7 @@ static const struct value_operations u8_vtable = {
 static const struct value_operations s16_vtable = {
     s16_to_s8, s16_to_u8, s16_to_s16, s16_to_u16,
     s16_to_s32, s16_to_u32, s16_to_s64, s16_to_u64,
-    s16_to_float, s16_to_double,
+    s16_to_f32, s16_to_f64,
     s16_assign,
 
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
@@ -1691,7 +1691,7 @@ static const struct value_operations s16_vtable = {
 static const struct value_operations u16_vtable = {
     u16_to_s8, u16_to_u8, u16_to_s16, u16_to_u16,
     u16_to_s32, u16_to_u32, u16_to_s64, u16_to_u64,
-    u16_to_float, u16_to_double,
+    u16_to_f32, u16_to_f64,
     u16_assign,
 
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
@@ -1700,28 +1700,28 @@ static const struct value_operations u16_vtable = {
     dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
 };
 
-static const struct value_operations float_vtable = {
-    float_to_s8, float_to_u8, float_to_s16, float_to_u16,
-    float_to_s32, float_to_u32, float_to_s64, float_to_u64,
-    float_to_float, float_to_double,
-    float_assign,
+static const struct value_operations f32_vtable = {
+    f32_to_s8, f32_to_u8, f32_to_s16, f32_to_u16,
+    f32_to_s32, f32_to_u32, f32_to_s64, f32_to_u64,
+    f32_to_f32, f32_to_f64,
+    f32_assign,
 
-    float_add, float_sub, float_mul, float_div, dummy_mod,
+    f32_add, f32_sub, f32_mul, f32_div, dummy_mod,
     dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
-    float_usub, float_not, dummy_unop,
-    float_eq, float_neq, float_lt, float_gt, float_le, float_ge
+    f32_usub, f32_not, dummy_unop,
+    f32_eq, f32_neq, f32_lt, f32_gt, f32_le, f32_ge
 };
 
-static const struct value_operations double_vtable = {
-    double_to_s8, double_to_u8, double_to_s16, double_to_u16,
-    double_to_s32, double_to_u32, double_to_s64, double_to_u64,
-    double_to_float, double_to_double,
-    double_assign,
+static const struct value_operations f64_vtable = {
+    f64_to_s8, f64_to_u8, f64_to_s16, f64_to_u16,
+    f64_to_s32, f64_to_u32, f64_to_s64, f64_to_u64,
+    f64_to_f32, f64_to_f64,
+    f64_assign,
 
-    double_add, double_sub, double_mul, double_div, dummy_mod,
+    f64_add, f64_sub, f64_mul, f64_div, dummy_mod,
     dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
-    double_usub, double_not, dummy_unop,
-    double_eq, double_neq, double_lt, double_gt, double_le, double_ge
+    f64_usub, f64_not, dummy_unop,
+    f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge
 };
 
 const struct value_operations *value_vtables[] = {
@@ -1729,6 +1729,6 @@ const struct value_operations *value_vtables[] = {
     &s16_vtable, &u16_vtable,
     &s32_vtable, &u32_vtable,
     &s64_vtable, &u64_vtable,
-    &float_vtable, &double_vtable
+    &f32_vtable, &f64_vtable
 };
 

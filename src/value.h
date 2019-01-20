@@ -23,9 +23,9 @@ enum value_type {
  
     INT = UINT | SINT,
 
-    FPU    = 0x000400,
-    FLOAT  = 0x080400 | sizeof(float),
-    DOUBLE = 0x090400 | sizeof(double),
+    FPU = 0x000400,
+    F32 = 0x080400 | sizeof(float),
+    F64 = 0x090400 | sizeof(double),
 
     PTR = 0x100000,
     ARR = 0x200000
@@ -55,8 +55,8 @@ union value_data {
     int64_t s64;
     intmax_t sint;
 
-    float float_val;
-    double double_val;
+    float f32;
+    double f64;
 };
 
 struct value {
@@ -86,8 +86,8 @@ struct value_operations {
     int (*cast_to_u32)(struct value *this, struct value *out);
     int (*cast_to_s64)(struct value *this, struct value *out);
     int (*cast_to_u64)(struct value *this, struct value *out);
-    int (*cast_to_float)(struct value *this, struct value *out);
-    int (*cast_to_double)(struct value *this, struct value *out);
+    int (*cast_to_f32)(struct value *this, struct value *out);
+    int (*cast_to_f64)(struct value *this, struct value *out);
 
     /* this = (typeof(this))src; */
     int (*assign)(struct value *this, struct value *src);
@@ -128,8 +128,8 @@ int value_init_s32(struct value *dest, int32_t value);
 int value_init_u32(struct value *dest, uint32_t value);
 int value_init_s64(struct value *dest, int64_t value);
 int value_init_u64(struct value *dest, uint64_t value);
-int value_init_float(struct value *dest, float value);
-int value_init_double(struct value *dest, double value);
+int value_init_f32(struct value *dest, float value);
+int value_init_f64(struct value *dest, double value);
 
 /*
  * Copy value `src` to `dest`.

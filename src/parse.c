@@ -389,7 +389,7 @@ static struct ast *factor(struct parser *p)
         root = ast_value_new(&value);
     } else if (accept(p, LEX_FLOATING_POINT)) {
         struct value value;
-        value_init_double(&value, p->accepted->value.fp);
+        value_init_f64(&value, p->accepted->value.fp);
         root = ast_value_new(&value);
     } else if (accept(p, LEX_LEFT_PARENTHESE)) {
         root = expression(p);
