@@ -11,7 +11,7 @@ static int ast_var_evaluate(struct ast *this, struct value *out)
 {
     struct ast_var *var = (struct ast_var *)this;
     const struct symbol *sym = var->symtab->symbols[var->sym];
-    return value_init(out, sym->type, sym->data);
+    return value_init(out, sym->type, sym->pdata);
 }
 
 static int ast_add_evaluate(struct ast *this, struct value *out)

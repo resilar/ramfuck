@@ -86,15 +86,9 @@ void value_copy(struct value *dest, const struct value *src)
     memcpy(dest, src, sizeof(struct value));
 }
 
-int value_set_data(struct value *dest, void *data)
-{
-    memcpy(&dest->data, data, value_sizeof(dest));
-    return 1;
-}
-
 int value_is_zero(const struct value *dest)
 {
-    int i, j;
+    size_t i, j;
     for (i = 0, j = value_sizeof(dest); i < j; i++) {
         if (((char *)&dest->data)[i] != 0)
             return 0;

@@ -138,11 +138,6 @@ int value_init_f64(struct value *dest, double value);
 void value_copy(struct value *dest, const struct value *src);
 
 /*
- * Assign data to a value.
- */
-int value_set_data(struct value *dest, void *data);
-
-/*
  * Check whether value equals to (non-)zero.
  */
 int value_is_zero(const struct value *dest);

@@ -271,8 +271,11 @@ int lexer(const char **pin, struct lex_token *out)
             while (acceptf(pin, isalnum) || accept(pin, '_'));
             out->value.identifier.len = *pin - out->value.identifier.name;
             out->type = LEX_IDENTIFIER;
+        } else if (isprint(peek(pin))) {
+            errf("lex: unexpected character '%c'", get(pin));
+            return 0;
         } else {
-            errf("lex: unexpected character '%c'", peek(pin));
+            errf("lex: unexpected character '\\x%02X'", get(pin));
             return 0;
         }
     }

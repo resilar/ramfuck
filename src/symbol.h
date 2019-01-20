@@ -17,7 +17,7 @@
 
 struct symbol {
     enum value_type type;
-    union value_data *data;
+    union value_data *pdata;
 };
 #define symbol_name(sym) ((const char *)(sym) + sizeof(struct symbol))
 
@@ -31,7 +31,7 @@ struct symbol_table {
  * Allocate and fill a new symbol structure.
  */
 struct symbol *symbol_new(const char *name,
-                          enum value_type type, union value_data *data);
+                          enum value_type type, union value_data *pdata);
 
 /*
  * Delete a symbol.
@@ -47,10 +47,10 @@ void symbol_table_delete(struct symbol_table *symtab);
 /*
  * Add symbol to a symbol table.
  */
-int symbol_table_add(struct symbol_table *symtab, const char *name,
-                     enum value_type type, union value_data *data);
-int symbol_table_add_value(struct symbol_table *symtab, const char *name,
-                           struct value *value);
+size_t symbol_table_add(struct symbol_table *symtab, const char *name,
+                        enum value_type type, union value_data *pdata);
+size_t symbol_table_add_value(struct symbol_table *symtab, const char *name,
+                              struct value *value);
 
 /*
  * Symbol table lookup by name of length `len`.

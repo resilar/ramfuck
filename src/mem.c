@@ -111,8 +111,7 @@ static struct mem_region *mem_region_iter_next(struct mem_region *it)
     return it;
 }
 
-static struct mem_region *mem_region_find_addr(struct mem_io *mem,
-                                               uintptr_t addr)
+static struct mem_region *mem_region_at(struct mem_io *mem, uintptr_t addr)
 {
     struct mem_region *it = mem_region_iter_first(mem);
     while ((it = mem_region_iter_next(it))) {
@@ -159,7 +158,7 @@ struct mem_io *mem_io_get()
         mem_attached,
         mem_region_iter_first,
         mem_region_iter_next,
-        mem_region_find_addr,
+        mem_region_at,
         mem_region_put,
         mem_read
     };

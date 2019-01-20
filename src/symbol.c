@@ -4,13 +4,13 @@
 #include <string.h>
 
 struct symbol *symbol_new(const char *name,
-                          enum value_type type, union value_data *data)
+                          enum value_type type, union value_data *pdata)
 {
     struct symbol *sym;
     if ((sym = malloc(sizeof(struct symbol) + strlen(name) + 1))) {
         strcpy((char *)sym + sizeof(struct symbol), name);
         sym->type = type;
-        sym->data = data;
+        sym->pdata = pdata;
     }
     return sym;
 }
@@ -32,7 +32,7 @@ struct symbol_table *symbol_table_new(struct ramfuck *ctx)
         symtab->size = 0;
         symtab->capacity = 16;
         if ((symbols = malloc(symtab->capacity * sizeof(struct symbol *)))) {
-            symtab->symbols = &symbols[-1];
+            symtab->symbols = &symbols[-1]; /* indexing from 1 */
         } else {
             symbol_table_delete(symtab);
             symtab = NULL;
@@ -51,8 +51,8 @@ void symbol_table_delete(struct symbol_table *symtab)
     free(symtab);
 }
 
-int symbol_table_add(struct symbol_table *symtab, const char *name,
-                     enum value_type type, union value_data *data)
+size_t symbol_table_add(struct symbol_table *symtab, const char *name,
+                        enum value_type type, union value_data *data)
 {
     struct symbol *sym;
     if (symbol_table_lookup(symtab, name, strlen(name))) {
@@ -73,11 +73,11 @@ int symbol_table_add(struct symbol_table *symtab, const char *name,
     }
 
     symtab->symbols[++symtab->size] = sym;
-    return 1;
+    return symtab->size;
 }
 
-int symbol_table_add_value(struct symbol_table *symtab, const char *name,
-                           struct value *value)
+size_t symbol_table_add_value(struct symbol_table *symtab, const char *name,
+                              struct value *value)
 {
     return symbol_table_add(symtab, name, value->type, &value->data);
 }

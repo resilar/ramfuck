@@ -25,13 +25,15 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
     size_t ranges_size, ranges_capacity;
     size_t size_max, range_idx;
     struct symbol_table *symtab;
-    char *buf, *p;
+    char *buf;
     struct value value;
     unsigned int align;
     uintptr_t addr, end;
     enum value_type addr_type;
-    int errors;
+    size_t value_sym;
+    union value_data **ppdata;
     struct ast *ast, *opt;
+    int errors;
 
     ranges_size = 0;
     if (!(ranges = calloc((ranges_capacity = 16), sizeof(struct range)))) {
@@ -78,7 +80,8 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
     value.type = type;
     addr_type = (sizeof(uintptr_t) == 8) ? U64 : U32;
     symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
-    symbol_table_add(symtab, "value", value.type, &value.data);
+    value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
+    ppdata = &symtab->symbols[value_sym]->pdata;
     if ((errors = parse_expression(expression, symtab, 0, &ast))) {
         errf("search: %d parse errors", errors);
         symbol_table_delete(symtab);
@@ -96,21 +99,20 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
     for (range_idx = 0; range_idx < ranges_size; range_idx++) {
         addr = ranges[range_idx].start;
         end = addr + ranges[range_idx].size;
-        if (!mem->read(mem, addr, (p = buf), (size_t)(end - addr)))
+        if (!mem->read(mem, addr, buf, (size_t)(end - addr)))
             continue;
+        *ppdata = (union value_data *)buf;
 
         printf("%p-%p\n", (void *)addr, (void *)end);
         while (addr < end) {
-            memcpy(&value.data, p, align);
-
             if (ast_evaluate(ast, &value)) {
-                if (!value_is_zero(&value)) {
+                if (value_is_nonzero(&value)) {
                     printf("%p hit\n", (void *)addr);
                 }
             }
 
+            *ppdata = (union value_data *)((char *)*ppdata + align);
             addr += align;
-            p += align;
         }
     }
 
