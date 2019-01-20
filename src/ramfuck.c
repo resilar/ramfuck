@@ -1,10 +1,11 @@
 #define _DEFAULT_SOURCE
 #include "ramfuck.h"
 #include "cli.h"
+#include "line.h"
+#include "mem.h"
 #include "ptrace.h"
 
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 void infof(const char *format, ...)
@@ -58,6 +59,7 @@ void ramfuck_init(struct ramfuck *ctx)
     ctx->state = RUNNING;
     ctx->pid = 0;
     ctx->linereader = NULL;
+    ctx->mem = mem_io_get(ctx);
 }
 
 void ramfuck_destroy(struct ramfuck *ctx)
@@ -69,6 +71,9 @@ void ramfuck_destroy(struct ramfuck *ctx)
         if (ctx->pid) {
             ptrace_detach(ctx->pid);
             ctx->pid = 0;
+        }
+        if (ctx->mem) {
+            mem_io_put(ctx->mem);
         }
     }
 }

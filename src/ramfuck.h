@@ -1,9 +1,7 @@
 #ifndef RAMFUCK_H_INCLUDED
 #define RAMFUCK_H_INCLUDED
 
-#include "line.h"
-
-#include <stdint.h>
+#include <stdio.h>
 #include <sys/types.h>
 
 void infof(const char *format, ...);
@@ -23,6 +21,7 @@ struct ramfuck {
     pid_t pid;
 
     struct linereader *linereader;
+    struct mem_io *mem;
 };
 
 #define ramfuck_dead(ctx) ((ctx)->state == DEAD)

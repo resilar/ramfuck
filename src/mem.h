@@ -12,13 +12,15 @@ struct mem_region;
 struct mem_io {
     struct ramfuck *ctx;
 
-    struct mem_region *(*mem_region_first)();
-    struct mem_region *(*mem_region_next)(struct mem_region *);
-    void (*mem_region_put)(struct mem_region *);
+    struct mem_region *(*region_first)(struct mem_io *);
+    struct mem_region *(*region_next)(struct mem_region *);
+	struct mem_region *(*region_find_addr)(struct mem_io *, uintptr_t addr);
+    void *(*region_dump)(struct mem_io *, struct mem_region *);
+    void (*region_put)(struct mem_region *);
 };
 
 enum mem_prot {
-    MEM_EXEC = 1,
+    MEM_EXECUTE = 1,
     MEM_WRITE = 2,
     MEM_READ = 4
 };
@@ -30,16 +32,10 @@ struct mem_region {
     char *path;
 };
 
-/* Iteration of PID memory regions */
-struct mem_region *mem_region_iter_first(struct mem_io *mem);
-struct mem_region *mem_region_iter_next(struct mem_region *it);
+/* Get mem_io instance */
+struct mem_io *mem_io_get(struct ramfuck *ctx);
 
-/* Find memory region based on address or pathname */
-struct mem_region *mem_region_find(struct mem_io *mem, uintptr_t addr,
-                                   char *path);
-
-/* Dump memory region from process memory */
-void *mem_region_dump(struct mem_io *mem, struct mem_region *region);
-
+/* Destroy mem_io instance */
+void mem_io_put(struct mem_io *mem);
 
 #endif

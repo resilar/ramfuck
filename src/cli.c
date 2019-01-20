@@ -3,6 +3,7 @@
 
 #include "eval.h"
 #include "line.h"
+#include "mem.h"
 #include "opt.h"
 #include "parse.h"
 #include "ptrace.h"
@@ -212,11 +213,31 @@ static int do_explain(struct ramfuck *ctx, const char *in)
  */
 static int do_maps(struct ramfuck *ctx, const char *in)
 {
-    printf("foobar\n");
+    struct mem_io *mem;
+    struct mem_region *mr;
 
     if (!eol(in)) {
         errf("maps: trailing characters");
         return 1;
+    }
+
+    if (!ctx->pid) {
+        errf("maps: attach to process first (pid=0)");
+        return 2;
+    }
+
+    mem = ctx->mem;
+    for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
+        fprintf(stdout, "%p-%p %c%c%c",
+                (void *)mr->start, (void *)(mr->start + mr->size),
+                (mr->prot & MEM_READ) ? 'r' : '-',
+                (mr->prot & MEM_WRITE) ? 'w' : '-',
+                (mr->prot & MEM_EXECUTE) ? 'x' : '-');
+        if (mr->path) {
+            fputc(' ', stdout);
+            fprintf(stdout, "%s", mr->path);
+        }
+        fputc('\n', stdout);
     }
 
     return 0;
