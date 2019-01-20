@@ -45,13 +45,12 @@ struct lex_token {
     } value;
 };
 
-/**
+/*
  * Read the next token from string `*pin` and advance the pointer `*pin`.
  *
- * On success, returns the given `out` pointer with a filled token structure.
- * Return NULL if EOF is reached.
+ * Returns non-zero on success.
  */
-struct lex_token *lexer(const char **pin, struct lex_token *out);
+int lexer(const char **pin, struct lex_token *out);
 
 extern const char *lex_token_type_string[LEX_TYPES];
 size_t lex_token_to_string(struct lex_token *t, char *out, size_t size);

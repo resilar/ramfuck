@@ -3,233 +3,279 @@
 #include "ramfuck.h"
 
 #include <ctype.h>
+#include <limits.h>
 #include <math.h>
 #include <memory.h>
 #include <stdio.h>
 
-static const char get(const char **pin)
+#define get(pin) ((++*pin)[-1])
+#define unget(pin) ((*pin)--)
+#define peek(pin) (**pin)
+
+static int accept(const char **pin, int c)
 {
-    (*pin)++;
-    return (*pin)[-1];
+    if (**pin == c) {
+        (*pin)++;
+        return 1;
+    }
+    return 0;
 }
 
-static const char peek(const char **pin)
+static int acceptf(const char **pin, int (*is)(int c))
 {
-    return **pin;
+    if (is(**pin)) {
+        (*pin)++;
+        return 1;
+    }
+    return 0;
 }
 
-static const char unget(const char **pin)
+enum scan_error {
+    SUCCESS           = 0,
+    INVALID_BASE      = 1 << CHAR_BIT,
+    INVALID_EXPONENT  = 2 << CHAR_BIT,
+    INVALID_FRACTION  = 3 << CHAR_BIT,
+    INVALID_OCT       = 4 << CHAR_BIT,
+    INVALID_DEC       = 5 << CHAR_BIT,
+    INVALID_HEX       = 6 << CHAR_BIT,
+    OVERFLOW_INTEGER  = 7 << CHAR_BIT,
+    OVERFLOW_FRACTION = 8 << CHAR_BIT,
+    OVERFLOW_EXPONENT = 9 << CHAR_BIT,
+    EMPTY_NUMBER      = 10 << CHAR_BIT
+};
+
+static void errf_scan_error(enum scan_error err)
 {
-    (*pin)--;
-    return **pin;
+    int c = err & ((1 << CHAR_BIT)-1);
+    switch (err ^ c) {
+    case INVALID_BASE:
+        errf("lex: number with invalid base (%c)", c);
+        break;
+    case INVALID_EXPONENT:
+        errf("lex: floating-point number with invalid exponent (%c)", c);
+        break;
+    case INVALID_FRACTION:
+        errf("lex: floating-point number with invalid fraction (%c)", c);
+        break;
+    case INVALID_OCT:
+        errf("lex: invalid octal number (%c)", c);
+        break;
+    case INVALID_DEC:
+        errf("lex: invalid decimal number (%c)", c);
+        break;
+    case INVALID_HEX:
+        errf("lex: invalid hexadecimal number (%c)", c);
+        break;
+    case OVERFLOW_INTEGER:
+        errf("lex: numeric constant too large");
+        break;
+    case OVERFLOW_FRACTION:
+        errf("lex: numeric fraction too large");
+        break;
+    case OVERFLOW_EXPONENT:
+        errf("lex: numeric exponent too large");
+        break;
+    case EMPTY_NUMBER:
+        errf("lex: empty number (got 0 digits)");
+        break;
+
+    default: break;
+    }
+    return;
 }
 
-/* Returns 0 on an invalid number. */
-/* TODO: error on too big numbers */
-static int scan_number(const char **pin, struct lex_token *out)
+static enum scan_error scan_number(const char **pin, struct lex_token *out)
 {
-    intmax_t val, fraction, exponent;
-    double dval;
-    int neg_exponent, base, has_point, has_exponent;
+    double dvalue;
+    uintmax_t value, fraction, exponent;
     int digits, fraction_digits, exponent_digits;
-    int is_unsigned_int;
-    char c;
-    has_point = has_exponent = 0;
-    neg_exponent = 0;
-    is_unsigned_int = 0;
+    int base, has_exponent, neg_exponent, is_float;
+    dvalue = 0.0;
+    value = fraction = exponent = 0;
+    digits = fraction_digits = exponent_digits = 0;
+    base = has_exponent = neg_exponent = is_float = 0;
 
     /* Determine base. */
-    c = get(pin);
-    if (c == '0') {
-        if (peek(pin) == 'x') {
-            get(pin);
-            c = get(pin);
+    if (accept(pin, '0')) {
+        if (accept(pin, 'x')) {
             base = 16;
-        } else if (isdigit(peek(pin))) { 
+        } else if (accept(pin, '.')) {
+            base = 10;
+            is_float = 1;
+        } else {
             base = 8;
-        } else base = 10;
-    } else if (isdigit(c)) {
+            digits++;
+        }
+    } else if (isdigit(peek(pin))) {
         base = 10;
-    } else if (c == '.') {
+    } else if (accept(pin, '.')) {
         base = 10;
-        has_point = 1;
-        c = get(pin);
-    } else return 0;
+        is_float = 1;
+    }
+    if (base == 0)
+        return INVALID_BASE | (unsigned)peek(pin);
 
     /* Scan the number */
-    dval = val = fraction = exponent = 0;
-    digits = fraction_digits = exponent_digits = 0;
-    do {
+    while (isxdigit(peek(pin)) || peek(pin) == '.') {
         /* Process character c */
-        if (!has_point && !has_exponent) {
+        char c = get(pin);
+        if (!is_float) {
+            int val;
             if (base == 8) {
-                if (c >= '0' && c <= '8') {
-                    val = val * 8 + c - '0';
-                } else return 0;
+                if (c >= '0' && c <= '7') {
+                    val = c - '0';
+                } else return INVALID_OCT | (unsigned)c;
                 digits++;
             } else if (base == 16) {
                 if (c >= '0' && c <= '9') {
-                    val = val * 16 + c - '0';
+                    val = c - '0';
                 } else if (c >= 'A' && c <= 'F') {
-                    val = val * 16 + 10 + c - 'A';
+                    val = c - 'A' + 10;
                 } else if (c >= 'a' && c <= 'f') {
-                    val = val * 16 + 10 + c - 'a';
-                } else return 0;
+                    val = c - 'a' + 10;
+                } else return INVALID_HEX | (unsigned)c;
                 digits++;
-            } else if (base == 10) {
+            } else /*if (base == 10)*/ {
                 if (c >= '0' && c <= '9') {
-                    val = val * 10 + c - '0';
+                    val = c - '0';
                     digits++;
                 } else if (c == '.') {
-                    dval = val;
-                    has_point = 1;
+                    dvalue = value;
+                    is_float = 1;
                 } else if (c == 'e' || c == 'E') {
-                    char next = peek(pin);
-                    dval = val;
-                    has_exponent = 1;
-                    if (next == '-' || next == '+') {
-                        get(pin);
-                        neg_exponent = (next == '-');
-                        next = peek(pin);
-                    }
-                    if (!isdigit(next)) {
-                        return 0;
-                    }
-                } else return 0;
+                    has_exponent = 2*(accept(pin, '+') || !accept(pin, '-'))-1;
+                    if (!isdigit(peek(pin)))
+                        return INVALID_EXPONENT | (unsigned)c;
+                    dvalue = value;
+                    is_float = 1;
+                } else return INVALID_DEC | (unsigned)c;
             }
-        } else if (has_point && !has_exponent) {
+            if (!is_float) {
+                if (value > (UINTMAX_MAX - val) / base)
+                    return OVERFLOW_INTEGER;
+                value = value * base + val;
+            }
+        } else if (!has_exponent) {
             if (c >= '0' && c <= '9') {
-                fraction = fraction * 10 + c - '0';
+                if (fraction > (UINTMAX_MAX - (c - '0')) / 10)
+                    return OVERFLOW_FRACTION;
+                fraction = fraction * 10 + (c - '0');
                 fraction_digits++;
             } else if ((digits || fraction_digits) && (c == 'e' || c == 'E')) {
-                has_exponent = 1;
-                if (peek(pin) == '-') {
-                    get(pin);
-                    neg_exponent = 1;
-                }
-            } else return 0;
-        } else if (has_exponent) {
+                has_exponent = 2*(accept(pin, '+') || !accept(pin, '-'))-1;
+            } else return INVALID_FRACTION | (unsigned)c;
+        } else /*if (has_exponent)*/ {
             if (c >= '0' && c <= '9') {
-                exponent = exponent * 10 + c - '0';
+                if (exponent > (UINTMAX_MAX - (c - '0')) / 10)
+                    return OVERFLOW_FRACTION;
+                exponent = exponent * 10 + (c - '0');
                 exponent_digits++;
-            } else return 0;
+            } else return INVALID_EXPONENT | (unsigned)c;
         }
-
-    } while ((c = get(pin)) != '\0' && strchr("0123456789abcdefABCDEF.", c));
-    unget(pin);
-
-    /* Trailing characters / suffix */
-    if (isalpha(c)) {
-        if ((c == 'u' || c == 'U') && !has_point && !has_exponent) {
-            get(pin);
-            is_unsigned_int = 1;
-        } else return 0;
     }
+
+    if (!digits && !fraction_digits && !exponent_digits)
+        return EMPTY_NUMBER;
 
     /* Fill token */
-    if (has_point || has_exponent) {
+    if (is_float) {
         out->type = LEX_FLOATING_POINT;
-        if (neg_exponent) exponent = -exponent;
-        out->value.fp = (dval + fraction*pow(10, -fraction_digits))
-            * pow(10, exponent);
+        out->value.fp = (dvalue + fraction*pow(10, -fraction_digits))
+                        * pow(10, has_exponent * exponent);
     } else {
-        out->type = (is_unsigned_int) ? LEX_UINTEGER : LEX_INTEGER;
-        out->value.integer = val;
+        if (accept(pin, 'u') || accept(pin, 'U'))
+            out->type = LEX_UINTEGER;
+        else out->type = LEX_INTEGER;
+        out->value.integer = value;
     }
-    return 1;
+    return SUCCESS;
 }
 
-struct lex_token *lexer(const char **pin, struct lex_token *out)
+int lexer(const char **pin, struct lex_token *out)
 {
-    char c;
+    enum scan_error scan_error;
 
+    while (acceptf(pin, isspace));
     memset(out, 0, sizeof(struct lex_token));
-    while (isspace(peek(pin))) get(pin);
 
-    c = get(pin);
-    if (c == '(') {
-        out->type = LEX_LEFT_PARENTHESE;
-    } else if (c == ')') {
-        out->type = LEX_RIGHT_PARENTHESE;
-    } else if (c == '.' || isdigit(c)) {
+    switch (get(pin)) {
+    case '(': out->type = LEX_LEFT_PARENTHESE; break;
+    case ')': out->type = LEX_RIGHT_PARENTHESE; break;
+
+    case '.':
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
         unget(pin);
-        if (!scan_number(pin, out)) {
-            errf("lex: invalid number");
-            return NULL;
+        if ((scan_error = scan_number(pin, out)) != SUCCESS) {
+            errf_scan_error(scan_error);
+            return 0;
         }
-    } else if (c == '+') {
-        out->type = LEX_ADD;
-    } else if (c == '-') {
-        out->type = LEX_SUB;
-    } else if (c == '*') {
-        out->type = LEX_MUL;
-    } else if (c == '/') {
-        out->type = LEX_DIV;
-    } else if (c == '%') {
-        out->type = LEX_MOD;
-    } else if (c == '!') {
-        if (peek(pin) == '=') {
-            get(pin);
-            out->type = LEX_NEQ;
-        } else out->type = LEX_NOT;
-    } else if (c == '~') {
-        out->type = LEX_COMPL;
-    } else if (c == '^') {
-        out->type = LEX_XOR;
-    } else if (c == '|') {
-        if (peek(pin) == '|') {
-            get(pin);
-            out->type = LEX_OR_COND;
-        } else {
-            out->type = LEX_OR;
-        }
-    } else if (c == '&') {
-        if (peek(pin) == '&') {
-            get(pin);
-            out->type = LEX_AND_COND;
-        } else {
-            out->type = LEX_AND;
-        }
-    } else if (c == '=') {
-        c = get(pin);
-        if (c != '=') {
+        break;
+
+    case '+': out->type = LEX_ADD; break;
+    case '-': out->type = LEX_SUB; break;
+    case '*': out->type = LEX_MUL; break;
+    case '/': out->type = LEX_DIV; break;
+    case '%': out->type = LEX_MOD; break;
+    case '!': out->type = accept(pin, '=') ? LEX_NEQ : LEX_NOT; break;
+    case '~': out->type = LEX_COMPL; break;
+    case '^': out->type = LEX_XOR; break;
+    case '|': out->type = accept(pin, '|') ? LEX_OR_COND : LEX_OR; break;
+    case '&': out->type = accept(pin, '&') ? LEX_AND_COND : LEX_AND; break;
+
+    case '=':
+        if (!accept(pin, '=')) {
             errf("lex: expected '=' after '='");
-            return NULL;
+            return 0;
         }
         out->type = LEX_EQ;
-    } else if (c == '<') {
-        if (peek(pin) == '=') {
-            get(pin);
+        break;
+
+    case '<':
+        if (accept(pin, '=')) {
             out->type = LEX_LE;
-        } else if (peek(pin) == '<') {
-            get(pin);
+        } else if (accept(pin, '<')) {
             out->type = LEX_SHL;
         } else {
             out->type = LEX_LT;
         }
-    } else if (c == '>') {
-        if (peek(pin) == '=') {
-            get(pin);
+        break;
+
+    case '>':
+        if (accept(pin, '=')) {
             out->type = LEX_GE;
-        } else if (peek(pin) == '>') {
-            get(pin);
+        } else if (accept(pin, '>')) {
             out->type = LEX_SHR;
         } else {
             out->type = LEX_GT;
         }
-    } else if (c == '\0' || c == '\n' || c == '\r') {
+        break;
+
+    case '\r':
+        if (!accept(pin, '\n')) {
+            errf("lex: expected newline after '\r'");
+            return 0;
+        }
+        /* fall-through */
+    case '\n':
+    case '\0':
         out->type = LEX_EOL;
-    } else if (isalpha(c)) {
-        out->type = LEX_IDENTIFIER;
-        out->value.identifier.name = (*pin)-1;
-        while (isalnum(peek(pin)) || **pin == '_') (*pin)++;
-        out->value.identifier.len = *pin - out->value.identifier.name;
-    } else {
-        errf("lex: unexpected character '%c'", c);
-        return NULL;
+        break;
+
+    default:
+        unget(pin);
+        if (isalpha(peek(pin)) || peek(pin) == '_') {
+            out->value.identifier.name = *pin;
+            while (acceptf(pin, isalnum) || accept(pin, '_'));
+            out->value.identifier.len = *pin - out->value.identifier.name;
+            out->type = LEX_IDENTIFIER;
+        } else {
+            errf("lex: unexpected character '%c'", peek(pin));
+            return 0;
+        }
     }
 
-    return out;
+    return 1;
 }
 
 const char *lex_token_type_string[LEX_TYPES] = {
@@ -239,7 +285,7 @@ const char *lex_token_type_string[LEX_TYPES] = {
     "(",    /* LEX_LEFT_PARENTHESE */
     ")",    /* LEX_RIGHT_PARENTHESE */
 
-    "int",  /* LEX_INTEGER */
+    "sint", /* LEX_INTEGER */
     "uint", /* LEX_UINTEGER */
     "fp",   /* LEX_FLOATING_POINT */
     "var",  /* LEX_IDENTIFIER */
