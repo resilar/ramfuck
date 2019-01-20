@@ -14,9 +14,9 @@ struct parser {
     int quiet;
     int errors;
 
-    struct lex_token *symbol;   /* Symbol being processed. */
-    struct lex_token *accepted; /* Last accepted symbol. */
-    struct lex_token tokens[2]; /* symbol and accepted fields point here. */
+    struct lex_token *symbol;   /* symbol being processed */
+    struct lex_token *accepted; /* last accepted symbol */
+    struct lex_token tokens[2]; /* symbol and accepted fields point here */
 };
 
 static struct ast *expression(struct parser *p);
@@ -85,7 +85,7 @@ static int expect(struct parser *p, enum lex_token_type sym)
 
 static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
                                      struct ast *left, struct ast *right,
-                                     enum value_type mask, enum value_type new)
+                                     enum value_type mask, enum value_type cast)
 {
     const char *errfmt;
     if (!left || !right)
@@ -100,7 +100,7 @@ static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
         if (left && right) {
             struct ast *root;
             if ((root = ast_binop_new(node_type, left, right))) {
-                root->value_type = new ? new : type;
+                root->value_type = cast ? cast : type;
                 return root;
             } else {
                 errfmt = "out-of-memory for AST node '%s'";
@@ -232,7 +232,7 @@ static struct ast *relational_expression(struct parser *p)
     root = shift_expression(p);
 
     if (root && (accept(p, LEX_LT) || accept(p, LEX_GT)
-            || accept(p, LEX_LE) || accept(p, LEX_GE))) {
+              || accept(p, LEX_LE) || accept(p, LEX_GE))) {
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = shift_expression(p);
@@ -363,7 +363,7 @@ static struct ast *factor(struct parser *p)
         const char *name = p->accepted->value.identifier.name;
         size_t len = p->accepted->value.identifier.len;
         if (p->symtab && (sym = symbol_table_nlookup(p->symtab, name, len))) {
-            root = ast_var_new(sym->name, &sym->value);
+            root = ast_var_new(p->symtab, sym->name, &sym->value);
             root->value_type = sym->value.type;
         } else {
             parse_error(p, "unknown identifier '%.*s'", (int)len, name);

@@ -65,6 +65,7 @@ struct ast_var {
     struct ast root;
     struct value *value;
     const char *identifier;
+    struct symbol_table *symtab;
 };
 
 struct ast_add   { struct ast_binop root; };
@@ -98,7 +99,8 @@ struct ast_or_cond  { struct ast_binop root; };
  * Routines and macros for allocating & initializing AST nodes.
  */
 struct ast *ast_value_new(struct value *value);
-struct ast *ast_var_new(const char *identifier, struct value *value);
+struct ast *ast_var_new(struct symbol_table *symtab, const char *identifier,
+                        struct value *value);
 
 struct ast *ast_binop_new(enum ast_type node_type,
                           struct ast *left, struct ast *right);

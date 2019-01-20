@@ -46,7 +46,8 @@ static struct ast *ast_value_optimize(struct ast *this)
 
 static struct ast *ast_var_optimize(struct ast *this)
 {
-    struct ast *ast = ast_var_new(((struct ast_var *)this)->identifier,
+    struct ast *ast = ast_var_new(((struct ast_var *)this)->symtab,
+                                  ((struct ast_var *)this)->identifier,
                                   ((struct ast_var *)this)->value);
     if (ast) ast->value_type = this->value_type;
     return ast;

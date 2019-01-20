@@ -9,9 +9,11 @@
 #ifndef SYMBOL_H_INCLUDED
 #define SYMBOL_H_INCLUDED
 
+#include "ramfuck.h"
+#include "value.h"
+
 #include <stddef.h>
 
-#include "value.h"
 
 struct symbol {
     char *name;
@@ -19,6 +21,7 @@ struct symbol {
 };
 
 struct symbol_table {
+    struct ramfuck *ctx;
     size_t size, allocated;
     struct symbol **symbols;
 };
@@ -35,7 +38,7 @@ void symbol_delete(struct symbol *sym);
 /*
  * Allocate a symbol table.
  */
-struct symbol_table *symbol_table_new();
+struct symbol_table *symbol_table_new(struct ramfuck *ctx);
 void symbol_table_delete(struct symbol_table *symtab);
 
 /*

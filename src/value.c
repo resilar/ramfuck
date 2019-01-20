@@ -74,12 +74,6 @@ int value_init_double(struct value *dest, double value)
     return 1;
 }
 
-int value_init(struct value *dest, enum value_type type)
-{
-    dest->type = type;
-    return 1;
-}
-
 void value_copy(struct value *dest, const struct value *src)
 {
     memcpy(dest, src, sizeof(struct value));

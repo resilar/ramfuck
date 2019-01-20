@@ -130,7 +130,7 @@ static int do_explain(struct ramfuck *ctx, const char *in)
     }
 
     /* Isn't it pretty? Like a Down's child */
-    if ((symtab = symbol_table_new())) {
+    if ((symtab = symbol_table_new(ctx))) {
         int errors;
         struct value value;
         struct ast *ast;

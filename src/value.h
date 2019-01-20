@@ -132,14 +132,6 @@ int value_init_float(struct value *dest, float value);
 int value_init_double(struct value *dest, double value);
 
 /*
- * Initialize a value of type 'type'.
- *
- * If the type is invalid, horrible things happens! Value/data can be set with
- * vtable->assign() or value_set_data().
- */
-int value_init(struct value *dest, enum value_type type);
-
-/*
  * Copy value `src` to `dest`.
  */
 void value_copy(struct value *dest, const struct value *src);

@@ -20,7 +20,8 @@ struct ast *ast_value_new(struct value *value)
     return (struct ast *)n;
 }
 
-struct ast *ast_var_new(const char *identifier, struct value *value)
+struct ast *ast_var_new(struct symbol_table *symtab, const char *identifier,
+                        struct value *value)
 {
     struct ast_var *n;
     size_t len = strlen(identifier);
@@ -29,6 +30,7 @@ struct ast *ast_var_new(const char *identifier, struct value *value)
         memcpy((char *)n + sizeof(struct ast_var), identifier, len + 1);
         n->identifier = (const char *)n + sizeof(struct ast_var);
         n->value = value;
+        n->symtab = symtab;
     }
     return (struct ast *)n;
 }

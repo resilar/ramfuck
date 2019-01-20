@@ -26,11 +26,12 @@ void symbol_delete(struct symbol *sym)
     }
 }
 
-struct symbol_table *symbol_table_new()
+struct symbol_table *symbol_table_new(struct ramfuck *ctx)
 {
     struct symbol_table *symtab;
 
     if ((symtab = malloc(sizeof(struct symbol_table)))) {
+        symtab->ctx = ctx;
         symtab->size = 0;
         symtab->allocated = 16;
         symtab->symbols = malloc(symtab->allocated * sizeof(struct symbol *));
