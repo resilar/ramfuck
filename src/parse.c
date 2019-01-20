@@ -1,4 +1,4 @@
-#define _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE /* vfprintf(3) */
 #include "parse.h"
 #include "ramfuck.h"
 #include "value.h"

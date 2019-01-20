@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE /* vsnprintf(3) */
 #include "cli.h"
 #include "ramfuck.h"
 
@@ -13,6 +14,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -88,9 +90,10 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
 
     /* Confirm that we can attach to the process with PTRACE_ATTACH */
-    if (ctx->mem->attach_pid(ctx->mem, (pid_t)pid)) {
-        infof("attached to process %lu", pid);
-    }
+    if (!ctx->mem->attach_pid(ctx->mem, (pid_t)pid))
+        return 1;
+
+    infof("attached to process %lu", pid);
     return 0;
 }
 
@@ -134,7 +137,7 @@ static int do_explain(struct ramfuck *ctx, const char *in)
         struct value value;
         struct ast *ast;
         value_init_s32(&value, 42);
-        symbol_table_add_value(symtab, "value", &value);
+        symbol_table_add(symtab, "value", S32, &value.data);
         parser_init(&parser);
         parser.symtab = symtab;
 
@@ -323,7 +326,7 @@ static int do_eval(struct ramfuck *ctx, const char *in)
     return parser.errors;
 }
 
-static int cli_execute(struct ramfuck *ctx, const char *in)
+int cli_execute_line(struct ramfuck *ctx, const char *in)
 {
     int rc = 0;
     skip_spaces(&in);
@@ -350,21 +353,53 @@ static int cli_execute(struct ramfuck *ctx, const char *in)
     return rc;
 }
 
-int cli_run(FILE *in)
+int cli_execute_format(struct ramfuck *ctx, const char *format, ...)
 {
-    struct ramfuck ctx;
-    int rc = 0;
-    ramfuck_init(&ctx);
-    ramfuck_set_input_stream(&ctx, in);
-    while (ramfuck_running(&ctx)) {
-        char *line = ramfuck_get_line(&ctx);
-        if (line) {
-            rc = cli_execute(&ctx, line);
-            ramfuck_free_line(&ctx, line);
+    va_list args;
+    char buf[BUFSIZ];
+    size_t len;
+    int rc;
+
+    va_start(args, format);
+    len = vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+
+    if (len < sizeof(buf)-1) {
+        rc = cli_execute_line(ctx, buf);
+    } else {
+        int ok;
+        char *p;
+        if ((p = malloc(len + 1))) {
+            va_start(args, format);
+            ok = (vsnprintf(p, len + 1, format, args) == len);
+            va_end(args);
+            if (ok) {
+                rc = cli_execute_line(ctx, p);
+            } else {
+                errf("cli: inconsistent command formatting");
+                rc = 1;
+            }
+            free(p);
         } else {
-            ramfuck_stop(&ctx);
+            errf("cli: out-of-memory for formatted command");
+            rc = 1;
         }
     }
-    ramfuck_destroy(&ctx);
+
+    return rc;
+}
+
+int cli_main_loop(struct ramfuck *ctx)
+{
+    int rc;
+    while (ramfuck_running(ctx)) {
+        char *line = ramfuck_get_line(ctx);
+        if (line) {
+            rc = cli_execute_line(ctx, line);
+            ramfuck_free_line(ctx, line);
+        } else {
+            ramfuck_stop(ctx);
+        }
+    }
     return rc;
 }

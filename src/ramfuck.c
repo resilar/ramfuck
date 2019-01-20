@@ -1,4 +1,4 @@
-#define _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE /* snprintf(3) vfprintf(3) */
 #include "ramfuck.h"
 #include "cli.h"
 #include "line.h"
@@ -125,6 +125,27 @@ void ramfuck_free_line(struct ramfuck *ctx, char *line)
 
 int main(int argc, char *argv[])
 {
-    int rc = cli_run(stdin);
+    struct ramfuck ctx;
+    int rc = 0;
+
+    ramfuck_init(&ctx);
+    ramfuck_set_input_stream(&ctx, stdin);
+
+    if (argc == 2) {
+       char *end;
+       unsigned long pidlu = strtoul(argv[1], &end, 10);
+       if (*argv[1] && !*end) {
+           if ((rc = cli_execute_format(&ctx, "attach %lu", pidlu))) {
+               errf("main: error attaching to pid '%s'", argv[1]);
+           }
+       } else {
+           errf("main: bad pid '%s'", argv[1]);
+           rc = 1;
+       }
+    }
+
+    rc = rc ? rc : cli_main_loop(&ctx);
+
+    ramfuck_destroy(&ctx);
     return rc;
 }

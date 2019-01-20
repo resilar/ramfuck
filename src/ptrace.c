@@ -11,11 +11,11 @@ int ptrace_attach(pid_t pid)
     int status;
 
     if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1) {
-        perror("ptrace: ATTACH");
+        perror("ptrace(ATTACH)");
         return 0;
     }
     if (waitpid(pid, &status, WUNTRACED) == -1 || !WIFSTOPPED(status)) {
-        perror("ptrace: stopping process failed");
+        perror("ptrace(ATTACH)");
         return 0;
     }
 
@@ -25,7 +25,7 @@ int ptrace_attach(pid_t pid)
 int ptrace_detach(pid_t pid)
 {
     if (ptrace(PTRACE_DETACH, pid, NULL, NULL) == -1) {
-        perror("ptrace: DETACH");
+        perror("ptrace(DETACH)");
         return 0;
     }
     return 1;
