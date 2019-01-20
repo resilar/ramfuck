@@ -1,4 +1,5 @@
 #include "eval.h"
+#include "symbol.h"
 
 static int ast_value_evaluate(struct ast *this, struct value *out)
 {
@@ -8,8 +9,9 @@ static int ast_value_evaluate(struct ast *this, struct value *out)
 
 static int ast_var_evaluate(struct ast *this, struct value *out)
 {
-    *out = *((struct ast_var *)this)->value;
-    return 1;
+    struct ast_var *var = (struct ast_var *)this;
+    const struct symbol *sym = var->symtab->symbols[var->sym];
+    return value_init(out, sym->type, sym->data);
 }
 
 static int ast_add_evaluate(struct ast *this, struct value *out)

@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "ast.h"
 #include "ramfuck.h"
+#include "symbol.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,17 +21,14 @@ struct ast *ast_value_new(struct value *value)
     return (struct ast *)n;
 }
 
-struct ast *ast_var_new(struct symbol_table *symtab, const char *identifier,
-                        struct value *value)
+struct ast *ast_var_new(struct symbol_table *symtab, size_t sym)
 {
     struct ast_var *n;
-    size_t len = strlen(identifier);
-    if ((n = malloc(sizeof(struct ast_var) + len + 1))) {
+    if ((n = malloc(sizeof(struct ast_var)))) {
         n->root.node_type = AST_VAR;
-        memcpy((char *)n + sizeof(struct ast_var), identifier, len + 1);
-        n->identifier = (const char *)n + sizeof(struct ast_var);
-        n->value = value;
+        n->root.value_type = symtab->symbols[sym]->type;
         n->symtab = symtab;
+        n->sym = sym;
     }
     return (struct ast *)n;
 }
@@ -217,7 +215,9 @@ static size_t ast_value_snprint(struct ast *this, char *out, size_t size)
 
 static size_t ast_var_snprint(struct ast *this, char *out, size_t size)
 {
-    return snprintf(out, size, "%s", ((struct ast_var *)this)->identifier);
+    struct ast_var *var = (struct ast_var *)this;
+    const char *name = symbol_name(var->symtab->symbols[var->sym]);
+    return snprintf(out, size, "%s", name);
 }
 
 static size_t ast_add_snprint(struct ast *this, char *out, size_t size)

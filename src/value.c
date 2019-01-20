@@ -4,6 +4,13 @@
 #include <memory.h>
 #include <stdio.h>
 
+int value_init(struct value *dest, enum value_type type, void *pvalue)
+{
+    dest->type = type;
+    memcpy(&dest->data, pvalue, value_sizeof(dest));
+    return 1;
+}
+
 int value_init_s8(struct value *dest, int8_t value)
 {
     dest->type = S8;
@@ -123,7 +130,7 @@ const char *value_type_to_string(enum value_type type)
 
 size_t value_type_to_string_r(enum value_type type, char *out, size_t size)
 {
-    return snprintf(out, size, value_type_to_string(type));
+    return snprintf(out, size, "%s", value_type_to_string(type));
 }
 
 char *value_to_string(const struct value *value)

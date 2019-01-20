@@ -7,6 +7,7 @@
 #include "opt.h"
 #include "parse.h"
 #include "ptrace.h"
+#include "search.h"
 #include "symbol.h"
 
 #include <ctype.h>
@@ -134,7 +135,7 @@ static int do_explain(struct ramfuck *ctx, const char *in)
         struct value value;
         struct ast *ast;
         value_init_s32(&value, 42);
-        symbol_table_insert(symtab, symbol_new("value", &value));
+        symbol_table_add_value(symtab, "value", &value);
 
         errors = parse_expression(in, symtab, 0, &ast);
         if (errors == 0) {
@@ -286,8 +287,8 @@ static int do_p(struct ramfuck *ctx, const char *in)
  */
 static int do_search(struct ramfuck *ctx, const char *in)
 {
-    if (!eol(in)) {
-        errf("search: trailing characters");
+    if (eol(in)) {
+        errf("search: missing type");
         return 1;
     }
 
@@ -296,6 +297,7 @@ static int do_search(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
+    search(ctx, S32, in);
     return 0;
 }
 

@@ -15,8 +15,9 @@ struct mem_io {
     struct mem_region *(*region_first)(struct mem_io *);
     struct mem_region *(*region_next)(struct mem_region *);
 	struct mem_region *(*region_find_addr)(struct mem_io *, uintptr_t addr);
-    void *(*region_dump)(struct mem_io *, struct mem_region *);
     void (*region_put)(struct mem_region *);
+
+    int (*read)(struct mem_io *, uintptr_t addr, void *buf, size_t len);
 };
 
 enum mem_prot {

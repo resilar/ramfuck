@@ -357,12 +357,11 @@ static struct ast *factor(struct parser *p)
     struct ast *root;
 
     if (accept(p, LEX_IDENTIFIER)) {
-        struct symbol *sym;
+        size_t sym;
         const char *name = p->accepted->value.identifier.name;
         size_t len = p->accepted->value.identifier.len;
-        if (p->symtab && (sym = symbol_table_nlookup(p->symtab, name, len))) {
-            root = ast_var_new(p->symtab, sym->name, &sym->value);
-            root->value_type = sym->value.type;
+        if (p->symtab && (sym = symbol_table_lookup(p->symtab, name, len))) {
+            root = ast_var_new(p->symtab, sym);
         } else {
             parse_error(p, "unknown identifier '%.*s'", (int)len, name);
             root = NULL;

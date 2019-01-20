@@ -1,24 +1,32 @@
+#define _DEFAULT_SOURCE /* for pread(3) */
 #include "mem.h"
 #include "ramfuck.h"
 #include "ptrace.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
+#include <sys/file.h>
 
 struct mem_process {
     struct mem_io io;
     pid_t pid;
+    int mem_fd;
 };
 
 static int mem_attach_pid(struct mem_io *io, pid_t pid)
 {
     struct mem_process *mem = (struct mem_process *)io;
     if (ptrace_attach(pid)) {
+        char mem_path[128];
         mem->pid = pid;
+        sprintf(mem_path, "/proc/%lu/mem", (unsigned long)pid);
+        if ((mem->mem_fd = open(mem_path, O_RDONLY)) == -1)
+            warnf("mem: open(%s) failed", mem_path);
         return 1;
     }
     return 0;
@@ -27,11 +35,15 @@ static int mem_attach_pid(struct mem_io *io, pid_t pid)
 static int mem_detach(struct mem_io *io)
 {
     struct mem_process *mem = (struct mem_process *)io;
+    int rc = 1;
     if (mem->pid && ptrace_detach(mem->pid)) {
         mem->pid = 0;
-        return 1;
-    }
-    return 0;
+    } else rc = 0;
+    if (mem->mem_fd != -1) {
+        close(mem->mem_fd);
+        mem->mem_fd = -1;
+    } else rc = 0;
+    return rc;
 }
 
 static int mem_attached(struct mem_io *io)
@@ -53,7 +65,7 @@ static struct mem_region *mem_region_iter_first(struct mem_io *io)
     struct mem_region_iter *it;
     struct mem_process *mem = (struct mem_process *)io;
     if ((it = malloc(sizeof(struct mem_region_iter)))) {
-        char filename[64];
+        char filename[128];
         it->region.path = it->pathbuf;
 
         if (mem->pid > 0) {
@@ -114,58 +126,29 @@ static struct mem_region *mem_region_find_addr(struct mem_io *mem,
     return (struct mem_region *)it;
 }
 
-static void *mem_region_dump(struct mem_io *io, struct mem_region *region)
-{
-    int fd;
-    size_t count, ret;
-    unsigned char *buf;
-    char procmem_path[128];
-    struct mem_process *mem = (struct mem_process *)io;
-
-    sprintf(procmem_path, "/proc/%lu/mem", (unsigned long)mem->pid);
-    if (!(fd = open(procmem_path, O_RDONLY))) {
-        errf("mem: cannot open '%s' for reading", procmem_path);
-        return NULL;
-    }
-
-    if (!(buf = malloc(region->size))) {
-        errf("mem: %lu-byte allocation failed", (unsigned long)region->size);
-        goto fail;
-    }
-
-    if (lseek(fd, region->start, SEEK_SET) == -1) {
-        errf("mem: seeking to a memory region failed");
-        goto fail;
-    }
-
-    for (count = 0; count < region->size; count += ret) {
-        ret = read(fd, &buf[count], region->size - count);
-        if (ret == 0) {
-            errf("mem: unexpected end of memory region");
-            goto fail;
-        } else if (ret == -1) {
-            /*
-             * This is a common error when trying to read mapped (?) regions.
-             *
-             perror("mem: memory read failed");
-             */
-            goto fail;
-        }
-    }
-
-    /* Finish */
-    close(fd);
-    return buf;
-
-fail:
-    free(buf);
-    close(fd);
-    return NULL;
-}
-
 static void mem_region_put(struct mem_region *region)
 {
     free(region);
+}
+
+static int mem_read(struct mem_io *io, uintptr_t addr, void *buf, size_t len)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    int errors = 0;
+
+    if (mem->mem_fd != -1 && len > sizeof(uint64_t)) {
+        ssize_t ret = pread(mem->mem_fd, buf, len, (off_t)addr);
+        if (ret == -1) {
+            if (errno != EINTR || ++errors == 3)
+                return 0;
+        } else {
+            buf = (char *)buf + ret;
+            len -= ret;
+            addr += ret;
+        }
+    }
+
+    return !len || ptrace_read(mem->pid, (const void *)addr, buf, len);
 }
 
 struct mem_io *mem_io_get()
@@ -177,8 +160,8 @@ struct mem_io *mem_io_get()
         mem_region_iter_first,
         mem_region_iter_next,
         mem_region_find_addr,
-        mem_region_dump,
         mem_region_put,
+        mem_read
     };
 
     struct mem_process *mem;

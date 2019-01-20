@@ -120,6 +120,7 @@ struct value_operations {
  * Initialize value structure.
  * The caller does not have to free/destroy initialized values.
  */
+int value_init(struct value *dest, enum value_type type, void *pvalue);
 int value_init_s8(struct value *dest, int8_t value);
 int value_init_u8(struct value *dest, uint8_t value);
 int value_init_s16(struct value *dest, int16_t value);
