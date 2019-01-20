@@ -24,8 +24,9 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
     struct range *ranges, *new;
     size_t ranges_size, ranges_capacity;
     size_t size_max, range_idx;
-    struct symbol_table *symtab;
     char *buf;
+    struct symbol_table *symtab;
+    struct parser parser;
     struct value value;
     unsigned int align;
     uintptr_t addr, end;
@@ -33,7 +34,6 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
     size_t value_sym;
     union value_data **ppdata;
     struct ast *ast, *opt;
-    int errors;
 
     ranges_size = 0;
     if (!(ranges = calloc((ranges_capacity = 16), sizeof(struct range)))) {
@@ -76,14 +76,16 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
         free(buf);
         return;
     }
-
     value.type = type;
     addr_type = (sizeof(uintptr_t) == 8) ? U64 : U32;
     symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
     value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
     ppdata = &symtab->symbols[value_sym]->pdata;
-    if ((errors = parse_expression(expression, symtab, 0, &ast))) {
-        errf("search: %d parse errors", errors);
+
+    parser_init(&parser);
+    parser.symtab = symtab;
+    if (!(ast = parse_expression(&parser, expression))) {
+        errf("search: %d parse errors", parser.errors);
         symbol_table_delete(symtab);
         free(ranges);
         free(buf);

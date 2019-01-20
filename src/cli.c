@@ -69,7 +69,6 @@ static int do_attach(struct ramfuck *ctx, const char *in)
 {
     char *end;
     unsigned long pid;
-    dbgf("ptrace(%s) attach", in);
 
     if (eol(in)) {
         errf("attach: missing pid");
@@ -131,14 +130,15 @@ static int do_explain(struct ramfuck *ctx, const char *in)
 
     /* Isn't it pretty? Like a Down's child */
     if ((symtab = symbol_table_new(ctx))) {
-        int errors;
+        struct parser parser;
         struct value value;
         struct ast *ast;
         value_init_s32(&value, 42);
         symbol_table_add_value(symtab, "value", &value);
+        parser_init(&parser);
+        parser.symtab = symtab;
 
-        errors = parse_expression(in, symtab, 0, &ast);
-        if (errors == 0) {
+        if ((ast = parse_expression(&parser, in))) {
             struct value out;
             printf("rpn: ");
             ast_print(ast);
@@ -194,7 +194,7 @@ static int do_explain(struct ramfuck *ctx, const char *in)
             }
             ast_delete(ast);
         } else {
-            errf("explain: %d parse errors", errors);
+            errf("explain: %d parse errors", parser.errors);
             rc = 3;
         }
         symbol_table_delete(symtab);
@@ -248,8 +248,9 @@ static int do_maps(struct ramfuck *ctx, const char *in)
  */
 static int do_p(struct ramfuck *ctx, const char *in)
 {
-    int rc, errors;
+    struct parser parser;
     struct ast *ast;
+    int rc;
     struct value out;
 
     if (eol(in)) {
@@ -257,9 +258,9 @@ static int do_p(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    errors = parse_expression(in, NULL, 0, &ast);
-    if (errors > 0) {
-        errf("p: %d parse errors", errors);
+    parser_init(&parser);
+    if (!(ast = parse_expression(&parser, in))) {
+        errf("p: %d parse errors", parser.errors);
         return 2;
     }
 
@@ -307,9 +308,11 @@ static int do_search(struct ramfuck *ctx, const char *in)
  */
 static int do_eval(struct ramfuck *ctx, const char *in)
 {
+    struct parser parser;
     struct ast *ast;
-    int errors = parse_expression(in, NULL, 1, &ast);
-    if (errors == 0) {
+    parser_init(&parser);
+    parser.quiet = 1;
+    if ((ast = parse_expression(&parser, in))) {
         struct value out;
         if (ast_evaluate(ast, &out)) {
             fprint_value(stdout, &out, 0);
@@ -317,7 +320,7 @@ static int do_eval(struct ramfuck *ctx, const char *in)
         }
         ast_delete(ast);
     }
-    return errors;
+    return parser.errors;
 }
 
 static int cli_execute(struct ramfuck *ctx, const char *in)

@@ -1,23 +1,18 @@
 #define _DEFAULT_SOURCE
 #include "parse.h"
 #include "ramfuck.h"
-#include "lex.h"
 #include "value.h"
 
 #include <memory.h>
 #include <stdarg.h>
 #include <stdlib.h>
 
-struct parser {
-    const char *in;
-    struct symbol_table *symtab;
-    int quiet;
-    int errors;
-
-    struct lex_token *symbol;   /* symbol being processed */
-    struct lex_token *accepted; /* last accepted symbol */
-    struct lex_token tokens[2]; /* symbol and accepted fields point here */
-};
+void parser_init(struct parser *target)
+{
+    memset(target, 0, sizeof(struct parser));
+    target->symbol = &target->tokens[0];
+    target->accepted = &target->tokens[1];
+}
 
 static struct ast *expression(struct parser *p);
 static struct ast *conditional_expression(struct parser *p);
@@ -83,6 +78,32 @@ static int expect(struct parser *p, enum lex_token_type sym)
     return 1;
 }
 
+struct ast *parse_expression(struct parser *p, const char *in)
+{
+    struct ast *out;
+    int errors = p->errors;
+
+    p->in = in;
+    p->symbol = &p->tokens[0];
+    p->accepted = &p->tokens[1];
+    memset(p->tokens, 0, sizeof(p->tokens));
+    next_symbol(p);
+    if ((out = expression(p))) {
+        if (p->symbol->type != LEX_EOL) {
+            parse_error(p, "EOL expected");
+            do { next_symbol(p); } while (p->symbol->type != LEX_EOL);
+        }
+        if (p->errors > errors) {
+            ast_delete(out);
+            out = NULL;
+        }
+    } else if (p->errors == errors) {
+        parse_error(p, "empty input");
+    }
+
+    return out;
+}
+
 static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
                                      struct ast *left, struct ast *right,
                                      enum value_type mask, enum value_type type)
@@ -117,39 +138,6 @@ delete_operands:
     if (left) ast_delete(left);
     if (right) ast_delete(right);
     return NULL;
-}
-
-int parse_expression(const char *in, struct symbol_table *symtab,
-                     int quiet, struct ast **pout)
-{
-    struct ast *out;
-    struct parser p;
-    if (pout == NULL)
-        pout = &out;
-
-    memset(&p, 0, sizeof(struct parser));
-    p.in = in;
-    p.symbol = &p.tokens[0];
-    p.accepted = &p.tokens[1];
-    p.symtab = symtab;
-    p.quiet = quiet;
-    next_symbol(&p);
-    *pout = expression(&p);
-
-    if (*pout) {
-        if (p.symbol->type != LEX_EOL) {
-            parse_error(&p, "EOL expected");
-            do { next_symbol(&p); } while (p.symbol->type != LEX_EOL);
-        }
-        if (p.errors > 0) {
-            ast_delete(*pout);
-            *pout = NULL;
-        }
-    } else if (p.errors == 0) {
-        parse_error(&p, "empty input");
-    }
-
-    return p.errors;
 }
 
 /*
