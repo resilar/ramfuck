@@ -1,11 +1,11 @@
 #include "opt.h"
 #include "eval.h"
 
-static struct ast *ast_binop_optimize(enum ast_type type, struct ast *this)
+static struct ast *ast_binop_optimize(struct ast *this)
 {
     struct ast *left = ast_optimize(((struct ast_binop *)this)->left);
     struct ast *right = ast_optimize(((struct ast_binop *)this)->right);
-    struct ast *ast = ast_binop_new(type, left, right);
+    struct ast *ast = ast_binop_new(this->node_type, left, right);
     if (ast) {
         ast->value_type = this->value_type;
         if (ast_is_constant(left) && ast_is_constant(right)) {
@@ -19,10 +19,10 @@ static struct ast *ast_binop_optimize(enum ast_type type, struct ast *this)
     return ast;
 }
 
-static struct ast *ast_unop_optimize(enum ast_type type, struct ast *this)
+static struct ast *ast_unop_optimize(struct ast *this)
 {
     struct ast *child = ast_optimize(((struct ast_unop *)this)->child);
-    struct ast *ast = ast_unop_new(type, child);
+    struct ast *ast = ast_unop_new(this->node_type, child);
     if (ast) {
         ast->value_type = this->value_type;
         if (ast_is_constant(child)) {
@@ -55,117 +55,117 @@ static struct ast *ast_var_optimize(struct ast *this)
 
 static struct ast *ast_add_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_ADD, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_sub_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_SUB, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_mul_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_MUL, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_div_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_DIV, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_mod_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_MOD, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_and_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_AND, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_xor_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_XOR, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_or_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_OR, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_shl_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_SHL, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_shr_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_SHR, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_cast_optimize(struct ast *this)
 {
-    return ast_unop_optimize(AST_CAST, this);
+    return ast_unop_optimize(this);
 }
 
 static struct ast *ast_uadd_optimize(struct ast *this)
 {
-    return ast_unop_optimize(AST_UADD, this);
+    return ast_unop_optimize(this);
 }
 
 static struct ast *ast_usub_optimize(struct ast *this)
 {
-    return ast_unop_optimize(AST_USUB, this);
+    return ast_unop_optimize(this);
 }
 
 static struct ast *ast_not_optimize(struct ast *this)
 {
-    return ast_unop_optimize(AST_NOT, this);
+    return ast_unop_optimize(this);
 }
 
 static struct ast *ast_compl_optimize(struct ast *this)
 {
-    return ast_unop_optimize(AST_COMPL, this);
+    return ast_unop_optimize(this);
 }
 
 static struct ast *ast_eq_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_EQ, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_neq_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_NEQ, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_lt_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_LT, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_gt_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_GT, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_le_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_LE, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_ge_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_GE, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_and_cond_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_AND_COND, this);
+    return ast_binop_optimize(this);
 }
 
 static struct ast *ast_or_cond_optimize(struct ast *this)
 {
-    return ast_binop_optimize(AST_OR_COND, this);
+    return ast_binop_optimize(this);
 }
 
 struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *) = {
