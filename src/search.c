@@ -110,14 +110,14 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
 
     for (region_idx = 0; region_idx < regions_size; region_idx++) {
         const struct mem_region *region = &regions[region_idx];
-        addr = region->start;
-        end = addr + region->size;
-        if (!mem->read(mem, addr, region_buf, (size_t)(end - addr)))
+        if (!mem->read(mem, region->start, region_buf, region->size))
             continue;
         *ppdata = (union value_data *)region_buf;
-
         mem_region_snprint(region, snprint_buf, snprint_len_max + 1);
         printf("%s\n", snprint_buf);
+
+        addr = region->start;
+        end = addr + region->size;
         while (addr < end) {
             if (ast_evaluate(ast, &value)) {
                 if (value_is_nonzero(&value)) {

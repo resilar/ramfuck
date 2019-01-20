@@ -46,10 +46,10 @@ static int eol(const char *p)
 static size_t fprint_value(FILE *stream, const struct value *value, int typed)
 {
     char buf[256], *p;
-    size_t len = value_to_string_r(value, (p = buf), sizeof(buf));
+    size_t len = value_to_string(value, (p = buf), sizeof(buf));
     if (len > sizeof(buf)-1) {
         if (len < SIZE_MAX && (p = malloc(len + 1))) {
-            value_to_string_r(value, p, len + 1);
+            value_to_string(value, p, len + 1);
         } else {
             errf("p: out-of-memory for %lu-byte value string", (unsigned long)len);;
             p = buf;
@@ -163,9 +163,8 @@ static int do_explain(struct ramfuck *ctx, const char *in)
                             struct value out_check;
                             if (ast_evaluate(ast_check, &out_check)) {
                                 if (value_is_nonzero(&out_check)) {
-                                    printf("(%s)%s\n",
-                                           value_type_to_string(out.type),
-                                           value_to_string(&out));
+                                    fprint_value(stdout, &out, 1);
+                                    fputc('\n', stdout);
                                     rc = 0;
                                 } else {
                                     errf("explain: invalid optimization");

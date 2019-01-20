@@ -35,12 +35,6 @@ enum value_type {
 
 #define value_type_index(t) ((t) >> 16)
 #define value_type_sizeof(t) ((t) & 0xFF)
-#define value_type_is_uint(v) ((v) & UINT)
-#define value_type_is_sint(v) ((v) & SINT)
-#define value_type_is_int(v) ((v) & INT)
-#define value_type_is_fp(v) ((v) & FPU)
-#define value_type_is_ptr(v) ((v) & PTR)
-#define value_type_is_arr(v) ((v) & ARR)
 
 union value_data {
     uint8_t u8;
@@ -65,10 +59,6 @@ struct value {
 };
 
 #define value_sizeof(v) (((v)->type) & 0xFF)
-#define value_is_uint(v) (((v)->type) & UINT)
-#define value_is_sint(v) (((v)->type) & SINT)
-#define value_is_int(v) (((v)->type) & INT)
-#define value_is_fp(v) (((v)->type) & FPU)
 
 extern const struct value_operations *value_vtables[];
 #define value_vtable(v) (value_vtables[(v)->type >> 16])
@@ -133,11 +123,6 @@ int value_init_f32(struct value *dest, float value);
 int value_init_f64(struct value *dest, double value);
 
 /*
- * Copy value `src` to `dest`.
- */
-void value_copy(struct value *dest, const struct value *src);
-
-/*
  * Check whether value equals to (non-)zero.
  */
 int value_is_zero(const struct value *dest);
@@ -148,16 +133,13 @@ int value_is_zero(const struct value *dest);
  */
 const char *value_type_to_string(enum value_type type);
 
-size_t value_type_to_string_r(enum value_type type, char *out, size_t size);
-
 /*
  * Produce a string representation of a value.
  *
  * Returns a pointer to a static buffer or fills a buffer pointed by out. The
  * buffer must be at least 32 bytes.
  */
-char *value_to_string(const struct value *value);
-size_t value_to_string_r(const struct value *value, char *out, size_t size);
+size_t value_to_string(const struct value *value, char *out, size_t size);
 
 /*
  * Inverse of value_type_to_string.

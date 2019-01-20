@@ -81,11 +81,6 @@ int value_init_f64(struct value *dest, double value)
     return 1;
 }
 
-void value_copy(struct value *dest, const struct value *src)
-{
-    memcpy(dest, src, sizeof(struct value));
-}
-
 int value_is_zero(const struct value *dest)
 {
     size_t i, j;
@@ -127,14 +122,7 @@ size_t value_type_to_string_r(enum value_type type, char *out, size_t size)
     return snprintf(out, size, "%s", value_type_to_string(type));
 }
 
-char *value_to_string(const struct value *value)
-{
-    static char buf[256];
-    value_to_string_r(value, buf, sizeof(buf));
-    return buf;
-}
-
-size_t value_to_string_r(const struct value *value, char *out, size_t size)
+size_t value_to_string(const struct value *value, char *out, size_t size)
 {
     switch (value->type)
     {

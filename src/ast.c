@@ -207,8 +207,8 @@ static size_t ast_value_snprint(struct ast *this, char *out, size_t size)
     else len += snprintf(NULL, 0, "(%s)", type);
 
     if (size && len < size-1)
-        len += value_to_string_r(value, out+len, size-len);
-    else len += value_to_string_r(value, NULL, 0);
+        len += value_to_string(value, out+len, size-len);
+    else len += value_to_string(value, NULL, 0);
 
     return len;
 }
