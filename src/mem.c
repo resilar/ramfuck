@@ -135,15 +135,17 @@ static int mem_read(struct mem_io *io, uintptr_t addr, void *buf, size_t len)
     int errors = 0;
 
     if (mem->mem_fd != -1 && len > sizeof(uint64_t)) {
-        ssize_t ret = pread(mem->mem_fd, buf, len, (off_t)addr);
-        if (ret == -1) {
-            if (errno != EINTR || ++errors == 3)
-                return 0;
-        } else {
-            buf = (char *)buf + ret;
-            len -= ret;
-            addr += ret;
-        }
+        do {
+            ssize_t ret = pread(mem->mem_fd, buf, len, (off_t)addr);
+            if (ret == -1) {
+                if (errno != EINTR || ++errors == 3)
+                    return 0;
+            } else {
+                buf = (char *)buf + ret;
+                len -= ret;
+                addr += ret;
+            }
+        } while (len > 0);
     }
 
     return !len || ptrace_read(mem->pid, (const void *)addr, buf, len);
