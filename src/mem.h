@@ -20,6 +20,7 @@ struct mem_io {
     void (*region_put)(struct mem_region *);
 
     int (*read)(struct mem_io *, uintptr_t addr, void *buf, size_t len);
+    int (*write)(struct mem_io *, uintptr_t addr, void *buf, size_t len);
 };
 
 /* Get mem_io instance */

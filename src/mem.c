@@ -151,6 +151,12 @@ static int mem_read(struct mem_io *io, uintptr_t addr, void *buf, size_t len)
     return !len || ptrace_read(mem->pid, (const void *)addr, buf, len);
 }
 
+static int mem_write(struct mem_io *io, uintptr_t addr, void *buf, size_t len)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    return ptrace_write(mem->pid, (void *)addr, buf, len);
+}
+
 struct mem_io *mem_io_get()
 {
     static struct mem_io mem_io_init = {
@@ -161,7 +167,8 @@ struct mem_io *mem_io_get()
         mem_region_iter_next,
         mem_region_at,
         mem_region_put,
-        mem_read
+        mem_read,
+        mem_write
     };
 
     struct mem_process *mem;
