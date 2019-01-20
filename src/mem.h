@@ -15,10 +15,18 @@ struct mem_io {
     struct mem_region *(*region_first)(struct mem_io *);
     struct mem_region *(*region_next)(struct mem_region *);
 	struct mem_region *(*region_at)(struct mem_io *, uintptr_t addr);
+
+    /* For freeing regions returned by the functions above */
     void (*region_put)(struct mem_region *);
 
     int (*read)(struct mem_io *, uintptr_t addr, void *buf, size_t len);
 };
+
+/* Get mem_io instance */
+struct mem_io *mem_io_get();
+
+/* Destroy mem_io instance */
+void mem_io_put(struct mem_io *mem);
 
 enum mem_prot {
     MEM_EXECUTE = 1,
@@ -33,10 +41,10 @@ struct mem_region {
     char *path;
 };
 
-/* Get mem_io instance */
-struct mem_io *mem_io_get();
+int mem_region_copy(struct mem_region *dest, const struct mem_region *source);
 
-/* Destroy mem_io instance */
-void mem_io_put(struct mem_io *mem);
+size_t mem_region_snprint(const struct mem_region *mr, char *out, size_t size);
+
+void mem_region_destroy(struct mem_region *region);
 
 #endif

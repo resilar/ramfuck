@@ -58,31 +58,6 @@ struct mem_region_iter {
     FILE* fd;
 };
 
-static struct mem_region *mem_region_iter_next(struct mem_region *it);
-
-static struct mem_region *mem_region_iter_first(struct mem_io *io)
-{
-    struct mem_region_iter *it;
-    struct mem_process *mem = (struct mem_process *)io;
-    if ((it = malloc(sizeof(struct mem_region_iter)))) {
-        char filename[128];
-        it->region.path = it->pathbuf;
-
-        if (mem->pid > 0) {
-            sprintf(filename, "/proc/%lu/maps", (unsigned long)mem->pid);
-        } else {
-            memcpy(filename, "/proc/self/maps", sizeof("/proc/self/maps"));
-        }
-
-        if (!(it->fd = fopen(filename, "r"))) {
-            errf("mem: error opening %s", filename);
-            free(it);
-            it = NULL;
-        }
-    }
-    return it ? mem_region_iter_next((struct mem_region *)it) : NULL;
-}
-
 static struct mem_region *mem_region_iter_next(struct mem_region *it)
 {
     if (it) {
@@ -111,6 +86,29 @@ static struct mem_region *mem_region_iter_next(struct mem_region *it)
     return it;
 }
 
+static struct mem_region *mem_region_iter_first(struct mem_io *io)
+{
+    struct mem_region_iter *it;
+    struct mem_process *mem = (struct mem_process *)io;
+    if ((it = malloc(sizeof(struct mem_region_iter)))) {
+        char filename[128];
+        it->region.path = it->pathbuf;
+
+        if (mem->pid > 0) {
+            sprintf(filename, "/proc/%lu/maps", (unsigned long)mem->pid);
+        } else {
+            memcpy(filename, "/proc/self/maps", sizeof("/proc/self/maps"));
+        }
+
+        if (!(it->fd = fopen(filename, "r"))) {
+            errf("mem: error opening %s", filename);
+            free(it);
+            it = NULL;
+        }
+    }
+    return it ? mem_region_iter_next((struct mem_region *)it) : NULL;
+}
+
 static struct mem_region *mem_region_at(struct mem_io *mem, uintptr_t addr)
 {
     struct mem_region *it = mem_region_iter_first(mem);
@@ -127,6 +125,7 @@ static struct mem_region *mem_region_at(struct mem_io *mem, uintptr_t addr)
 
 static void mem_region_put(struct mem_region *region)
 {
+    free(region->path);
     free(region);
 }
 
@@ -177,4 +176,63 @@ struct mem_io *mem_io_get()
 void mem_io_put(struct mem_io *mem)
 {
     free(mem);
+}
+
+int mem_region_copy(struct mem_region *dest, const struct mem_region *source)
+{
+    memcpy(dest, source, sizeof(struct mem_region));
+    if (source->path) {
+        size_t size = strlen(source->path) + 1;
+        if ((dest->path = malloc(size))) {
+            memcpy(dest->path, source->path, size);
+        } else {
+            /* return 0; */ /* ? */
+        }
+    }
+    return 1;
+}
+
+size_t mem_region_snprint(const struct mem_region *mr, char *out, size_t size)
+{
+    char suffix;
+    size_t hsize = mr->size;
+
+    /*
+     * Get human-readable size.
+     *
+     * We cheat a little and round up values 1000-1023 to the next unit
+     * so that the human-readable representation is at most 3 digits.
+     */
+    if (hsize < 1000) { /* round up a little to get 3 digits */
+        suffix = 'B';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'K';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'M';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'G';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'T';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'P';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'E';
+    } else if ((hsize /= 1024) < 1000) {
+        suffix = 'Z';
+    } else {
+        suffix = '?';
+    }
+    return snprintf(out, size, "%p-%p %3d%c %c%c%c %s",
+                    (void *)mr->start, (void *)(mr->start + mr->size),
+                    hsize ? (int)hsize : 1, suffix,
+                    (mr->prot & MEM_READ) ? 'r' : '-',
+                    (mr->prot & MEM_WRITE) ? 'w' : '-',
+                    (mr->prot & MEM_EXECUTE) ? 'e' : '-',
+                    mr->path);
+}
+
+void mem_region_destroy(struct mem_region *region)
+{
+    free(region->path);
+    memset(region, 0, sizeof(struct mem_region));
 }

@@ -12,86 +12,93 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct range {
-    uintptr_t start;
-    size_t size;
-};
-
 void search(struct ramfuck *ctx, enum value_type type, const char *expression)
 {
     struct mem_io *mem;
-    struct mem_region *mr;
-    struct range *ranges, *new;
-    size_t ranges_size, ranges_capacity;
-    size_t size_max, range_idx;
-    char *buf;
+    struct mem_region *mr, *regions, *new;
+    size_t regions_size, regions_capacity;
+    size_t region_size_max, region_idx, snprint_len_max;
+    char *region_buf, *snprint_buf;
     struct symbol_table *symtab;
     struct parser parser;
     struct value value;
     unsigned int align;
     uintptr_t addr, end;
     enum value_type addr_type;
-    size_t value_sym;
     union value_data **ppdata;
     struct ast *ast, *opt;
 
-    ranges_size = 0;
-    if (!(ranges = calloc((ranges_capacity = 16), sizeof(struct range)))) {
-        errf("search: out-of-memory for address ranges");
+    ast = NULL;
+    symtab = NULL;
+    region_buf = snprint_buf = NULL;
+
+    regions_size = 0;
+    regions_capacity = 16;
+    if (!(regions = calloc(regions_capacity, sizeof(struct mem_region)))) {
+        errf("search: out-of-memory for address regions");
         return;
     }
 
-    size_max = 0;
     mem = ctx->mem;
     addr_type = U32;
+    region_size_max = snprint_len_max = 0;
     for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
         if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
             addr_type = U64;
         if ((mr->prot & MEM_READ) && (mr->prot & MEM_WRITE)) {
-            if (ranges_size == ranges_capacity) {
-                ranges_capacity *= 2;
-                new = realloc(ranges, sizeof(struct range) * ranges_capacity);
-                if (!new) {
-                    errf("search: out-of-memory for address ranges");
-                    free(ranges);
-                    return;
+            size_t len;
+            if (regions_size == regions_capacity) {
+                size_t new_size;
+                regions_capacity *= 2;
+                new_size = sizeof(struct mem_region) * regions_capacity;
+                if (!(new = realloc(regions, new_size))) {
+                    errf("search: out-of-memory for address regions");
+                    goto fail;
                 }
-                ranges = new;
+                regions = new;
             }
-            if (size_max < mr->size)
-                size_max = mr->size;
-            ranges[ranges_size].start = mr->start;
-            ranges[ranges_size].size = mr->size;
-            ranges_size++;
+
+            mem_region_copy(&regions[regions_size++], mr);
+
+            if (region_size_max < mr->size)
+                region_size_max = mr->size;
+
+            if (snprint_len_max < (len = mem_region_snprint(mr, NULL, 0)))
+                snprint_len_max = len;
         }
     }
-    if (!(new = realloc(ranges, sizeof(struct range) * ranges_size))) {
-        errf("search: error truncating allocated address ranges");
-        free(ranges);
-        return;
-    } else if (!(buf = malloc(size_max))) {
-        errf("search: out-of-memory for memory region buffer");
-        free(ranges);
-        return;
-    } else if (!(symtab = symbol_table_new(ctx))) {
-        errf("search: error creating new symbol table");
-        free(ranges);
-        free(buf);
-        return;
+    if (!(new = realloc(regions, sizeof(struct mem_region) * regions_size))) {
+        errf("search: error truncating allocated address regions");
+        goto fail;
     }
-    value.type = type;
-    symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
-    value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
-    ppdata = &symtab->symbols[value_sym]->pdata;
+    regions = new;
+
+    if (!(region_buf = malloc(region_size_max))) {
+        errf("search: out-of-memory for memory region buffer");
+        goto fail;
+    }
+
+    if (!(snprint_buf = malloc(snprint_len_max + 1))) {
+        errf("search: out-of-memory for memory region text representation");
+        goto fail;
+    }
+
+    if ((symtab = symbol_table_new(ctx))) {
+        size_t value_sym;
+        value.type = type;
+        symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+        value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
+        ppdata = &symtab->symbols[value_sym]->pdata;
+    } else {
+        errf("search: error creating new symbol table");
+        goto fail;
+    }
 
     parser_init(&parser);
     parser.symtab = symtab;
     if (!(ast = parse_expression(&parser, expression))) {
         errf("search: %d parse errors", parser.errors);
-        symbol_table_delete(symtab);
-        free(ranges);
-        free(buf);
-        return;
+        goto fail;
     }
     if ((opt = ast_optimize(ast))) {
         ast_delete(ast);
@@ -100,14 +107,17 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
 
     if (!(align = value_sizeof(&value)))
         align = 1;
-    for (range_idx = 0; range_idx < ranges_size; range_idx++) {
-        addr = ranges[range_idx].start;
-        end = addr + ranges[range_idx].size;
-        if (!mem->read(mem, addr, buf, (size_t)(end - addr)))
-            continue;
-        *ppdata = (union value_data *)buf;
 
-        printf("%p-%p\n", (void *)addr, (void *)end);
+    for (region_idx = 0; region_idx < regions_size; region_idx++) {
+        const struct mem_region *region = &regions[region_idx];
+        addr = region->start;
+        end = addr + region->size;
+        if (!mem->read(mem, addr, region_buf, (size_t)(end - addr)))
+            continue;
+        *ppdata = (union value_data *)region_buf;
+
+        mem_region_snprint(region, snprint_buf, snprint_len_max + 1);
+        printf("%s\n", snprint_buf);
         while (addr < end) {
             if (ast_evaluate(ast, &value)) {
                 if (value_is_nonzero(&value)) {
@@ -120,8 +130,11 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
         }
     }
 
-    ast_delete(ast);
-    symbol_table_delete(symtab);
-    free(ranges);
-    free(buf);
+fail:
+    if (ast) ast_delete(ast);
+    if (symtab) symbol_table_delete(symtab);
+    free(snprint_buf);
+    free(region_buf);
+    while (regions_size) mem_region_destroy(&regions[--regions_size]);
+    free(regions);
 }

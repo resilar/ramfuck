@@ -215,6 +215,8 @@ static int do_explain(struct ramfuck *ctx, const char *in)
  */
 static int do_maps(struct ramfuck *ctx, const char *in)
 {
+    char *buf;
+    size_t size;
     struct mem_io *mem;
     struct mem_region *mr;
 
@@ -228,20 +230,29 @@ static int do_maps(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    mem = ctx->mem;
-    for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
-        fprintf(stdout, "%p-%p %c%c%c",
-                (void *)mr->start, (void *)(mr->start + mr->size),
-                (mr->prot & MEM_READ) ? 'r' : '-',
-                (mr->prot & MEM_WRITE) ? 'w' : '-',
-                (mr->prot & MEM_EXECUTE) ? 'x' : '-');
-        if (mr->path) {
-            fputc(' ', stdout);
-            fprintf(stdout, "%s", mr->path);
-        }
-        fputc('\n', stdout);
+    if (!(buf = malloc((size = 128)))) {
+        errf("maps: cannot allocate line buffer");
+        return 3;
     }
 
+    mem = ctx->mem;
+    for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
+        size_t len = mem_region_snprint(mr, buf, size);
+        if (len + 1 > size) {
+            char *new = realloc(buf, len + 1);
+            if (new) {
+                buf = new;
+                size = len + 1;
+                if (mem_region_snprint(mr, buf, size) != len)
+                    warnf("maps: inconsistent memory region line formatting");
+            } else {
+                errf("maps: error reallocating line buffer (will truncate)");
+            }
+        }
+        fprintf(stdout, "%s\n", buf);
+    }
+
+    free(buf);
     return 0;
 }
 
