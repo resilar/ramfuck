@@ -85,28 +85,27 @@ static int expect(struct parser *p, enum lex_token_type sym)
 
 static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
                                      struct ast *left, struct ast *right,
-                                     enum value_type mask, enum value_type cast)
+                                     enum value_type mask, enum value_type type)
 {
     const char *errfmt;
     if (!left || !right)
         goto delete_operands;
 
     if ((left->value_type & mask) && (right->value_type & mask)) {
-        enum value_type type = HIGHER_TYPE(left->value_type, right->value_type);
-        if (left->value_type < type)
-            left = ast_cast_new(type, left);
-        if (right->value_type < type)
-            right = ast_cast_new(type, right);
+        if (left->value_type < right->value_type)
+            left = ast_cast_new(right->value_type, left);
+        if (right->value_type < left->value_type)
+            right = ast_cast_new(left->value_type, right);
         if (left && right) {
             struct ast *root;
             if ((root = ast_binop_new(node_type, left, right))) {
-                root->value_type = cast ? cast : type;
+                root->value_type = type ? type : left->value_type;
                 return root;
             } else {
                 errfmt = "out-of-memory for AST node '%s'";
             }
         } else {
-            errfmt = "out-of-memory for promoting operands for '%s'";
+            errfmt = "out-of-memory for promoted operands for '%s'";
         }
     } else {
         errfmt = "invalid operand types for '%s'";
@@ -323,7 +322,7 @@ static struct ast *unary_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *child = cast_expression(p);
         if (child) {
-            const char *op, *errfmt;
+            const char *errfmt, *op;
             enum value_type valid_types = INT;
 
             if (type == AST_ADD || type == AST_SUB) {
