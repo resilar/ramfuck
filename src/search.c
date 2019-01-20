@@ -43,7 +43,10 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
 
     size_max = 0;
     mem = ctx->mem;
+    addr_type = U32;
     for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
+        if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
+            addr_type = U64;
         if ((mr->prot & MEM_READ) && (mr->prot & MEM_WRITE)) {
             if (ranges_size == ranges_capacity) {
                 ranges_capacity *= 2;
@@ -77,7 +80,6 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
         return;
     }
     value.type = type;
-    addr_type = (sizeof(uintptr_t) == 8) ? U64 : U32;
     symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
     value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
     ppdata = &symtab->symbols[value_sym]->pdata;
