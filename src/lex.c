@@ -183,7 +183,9 @@ static enum scan_error scan_number(const char **pin, struct lex_token *out)
         out->value.fp = (dvalue + fraction*pow(10, -fraction_digits))
                         * pow(10, has_exponent * exponent);
     } else {
-        if (accept(pin, 'u') || accept(pin, 'U'))
+        if (accept(pin, 'u') || accept(pin, 'U')
+                || (INT32_MAX < value && value <= UINT32_MAX)
+                || (INT64_MAX < value && value <= UINT64_MAX))
             out->type = LEX_UINTEGER;
         else out->type = LEX_INTEGER;
         out->value.integer = value;
