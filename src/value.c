@@ -117,11 +117,6 @@ const char *value_type_to_string(enum value_type type)
     return "void";
 }
 
-size_t value_type_to_string_r(enum value_type type, char *out, size_t size)
-{
-    return snprintf(out, size, "%s", value_type_to_string(type));
-}
-
 size_t value_to_string(const struct value *value, char *out, size_t size)
 {
     switch (value->type)
@@ -144,27 +139,32 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     return snprintf(out, size, "???");
 }
 
-enum value_type value_type_from_string(const char *type)
+enum value_type value_type_from_string(const char *str)
 {
-    if (!strcmp(type, "s8")) {
+    return value_type_from_substring(str, strlen(str));
+}
+
+enum value_type value_type_from_substring(const char *str, size_t len)
+{
+    if (!memcmp(str, "s8", len)) {
         return S8;
-    } else if (!strcmp(type, "s16")) {
+    } else if (!memcmp(str, "s16", len)) {
         return S16;
-    } else if (!strcmp(type, "s32")) {
+    } else if (!memcmp(str, "s32", len)) {
         return S32;
-    } else if (!strcmp(type, "s64")) {
+    } else if (!memcmp(str, "s64", len)) {
         return S64;
-    } else if (!strcmp(type, "u8")) {
+    } else if (!memcmp(str, "u8", len)) {
         return U8;
-    } else if (!strcmp(type, "u16")) {
+    } else if (!memcmp(str, "u16", len)) {
         return U16;
-    } else if (!strcmp(type, "u32")) {
+    } else if (!memcmp(str, "u32", len)) {
         return U32;
-    } else if (!strcmp(type, "u64")) {
+    } else if (!memcmp(str, "u64", len)) {
         return U64;
-    } else if (!strcmp(type, "f32")  || !strcmp(type, "float")) {
+    } else if (!memcmp(str, "f32", len)) {
         return F32;
-    } else if (!strcmp(type, "f64") || !strcmp(type, "double")) {
+    } else if (!memcmp(str, "f64", len)) {
         return F64;
     }
 

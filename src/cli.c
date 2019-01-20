@@ -301,6 +301,9 @@ static int do_p(struct ramfuck *ctx, const char *in)
  */
 static int do_search(struct ramfuck *ctx, const char *in)
 {
+    const char *p;
+    enum value_type type;
+
     if (eol(in)) {
         errf("search: missing type");
         return 1;
@@ -311,7 +314,11 @@ static int do_search(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    search(ctx, S32, in);
+    skip_spaces(&in);
+    for (p = in; *p && !isspace(*p); p++);
+    if (isspace(*p) && (type = value_type_from_substring(in, (size_t)(p - in))))
+        search(ctx, type, p);
+    else search(ctx, S32, in);
     return 0;
 }
 
