@@ -21,11 +21,11 @@ struct parser {
 
 static struct ast *expression(struct parser *p);
 static struct ast *conditional_expression(struct parser *p);
+static struct ast *equality_expression(struct parser *p);
+static struct ast *relational_expression(struct parser *p);
 static struct ast *or_expression(struct parser *p);
 static struct ast *xor_expression(struct parser *p);
 static struct ast *and_expression(struct parser *p);
-static struct ast *equality_expression(struct parser *p);
-static struct ast *relational_expression(struct parser *p);
 static struct ast *shift_expression(struct parser *p);
 static struct ast *addsub_expression(struct parser *p);
 static struct ast *muldiv_expression(struct parser *p);
@@ -162,9 +162,38 @@ static struct ast *expression(struct parser *p)
 
 static struct ast *conditional_expression(struct parser *p)
 {
-    struct ast *root = or_expression(p);
+    struct ast *root = equality_expression(p);
 
     while (root && (accept(p, LEX_AND_COND) || accept(p, LEX_OR_COND))) {
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = equality_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
+    }
+
+    return root;
+}
+
+static struct ast *equality_expression(struct parser *p)
+{
+    struct ast *root = relational_expression(p);
+
+    if (root && (accept(p, LEX_EQ) || accept(p, LEX_NEQ))) {
+        enum ast_type type = lex_to_ast_type(p->accepted->type);
+        struct ast *left = root;
+        struct ast *right = relational_expression(p);
+        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
+    }
+
+    return root;
+}
+
+static struct ast *relational_expression(struct parser *p)
+{
+    struct ast *root = or_expression(p);
+
+    if (root && (accept(p, LEX_LT) || accept(p, LEX_GT)
+              || accept(p, LEX_LE) || accept(p, LEX_GE))) {
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = or_expression(p);
@@ -200,42 +229,12 @@ static struct ast *xor_expression(struct parser *p)
 }
 static struct ast *and_expression(struct parser *p)
 {
-    struct ast *root = equality_expression(p);
+    struct ast *root = shift_expression(p);
 
     while (root && accept(p, LEX_AND)) {
         struct ast *left = root;
-        struct ast *right = equality_expression(p);
-        root = ast_binop_try_new(p, AST_AND, left, right, INT, 0);
-    }
-
-    return root;
-}
-
-static struct ast *equality_expression(struct parser *p)
-{
-    struct ast *root = relational_expression(p);
-
-    if (root && (accept(p, LEX_EQ) || accept(p, LEX_NEQ))) {
-        enum ast_type type = lex_to_ast_type(p->accepted->type);
-        struct ast *left = root;
-        struct ast *right = relational_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
-    }
-
-    return root;
-}
-
-static struct ast *relational_expression(struct parser *p)
-{
-    struct ast *root;
-    root = shift_expression(p);
-
-    if (root && (accept(p, LEX_LT) || accept(p, LEX_GT)
-              || accept(p, LEX_LE) || accept(p, LEX_GE))) {
-        enum ast_type type = lex_to_ast_type(p->accepted->type);
-        struct ast *left = root;
         struct ast *right = shift_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT|FPU, S32);
+        root = ast_binop_try_new(p, AST_AND, left, right, INT, 0);
     }
 
     return root;
