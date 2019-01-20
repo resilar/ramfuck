@@ -1,8 +1,6 @@
 #ifndef MEM_H_INCLUDED
 #define MEM_H_INCLUDED
 
-#include "ramfuck.h"
-
 #include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -10,7 +8,9 @@
 struct mem_region;
 
 struct mem_io {
-    struct ramfuck *ctx;
+    int (*attach_pid)(struct mem_io *, pid_t);
+    int (*detach)(struct mem_io *);
+    int (*attached)(struct mem_io *);
 
     struct mem_region *(*region_first)(struct mem_io *);
     struct mem_region *(*region_next)(struct mem_region *);
@@ -33,7 +33,7 @@ struct mem_region {
 };
 
 /* Get mem_io instance */
-struct mem_io *mem_io_get(struct ramfuck *ctx);
+struct mem_io *mem_io_get();
 
 /* Destroy mem_io instance */
 void mem_io_put(struct mem_io *mem);

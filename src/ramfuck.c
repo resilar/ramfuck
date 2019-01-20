@@ -57,7 +57,6 @@ void dief(const char *format, ...)
 void ramfuck_init(struct ramfuck *ctx)
 {
     ctx->state = RUNNING;
-    ctx->pid = 0;
     ctx->linereader = NULL;
     ctx->mem = mem_io_get(ctx);
 }
@@ -68,11 +67,9 @@ void ramfuck_destroy(struct ramfuck *ctx)
         ctx->state = DEAD;
         if (ctx->linereader)
             linereader_close(ctx->linereader);
-        if (ctx->pid) {
-            ptrace_detach(ctx->pid);
-            ctx->pid = 0;
-        }
         if (ctx->mem) {
+            if (ctx->mem->attached(ctx->mem))
+                ctx->mem->detach(ctx->mem);
             mem_io_put(ctx->mem);
         }
     }
@@ -100,7 +97,8 @@ char *ramfuck_get_line(struct ramfuck *ctx)
     char buf[64], *line, *prompt = NULL;
 
     if (isatty(STDOUT_FILENO)) {
-        size_t len = snprintf(NULL, 0, "%ld> ", (long)ctx->pid);
+        long int hits = 0;
+        size_t len = snprintf(NULL, 0, "%ld> ", hits);
         if (0 < len && len < SIZE_MAX) {
             if (len + 1 > sizeof(buf)) {
                 if (!(prompt = malloc(len + 1)))
@@ -110,7 +108,7 @@ char *ramfuck_get_line(struct ramfuck *ctx)
             }
         }
         if (prompt)
-            snprintf(prompt, len + 1, "%ld> ", (long)ctx->pid);
+            snprintf(prompt, len + 1, "%ld> ", hits);
     }
 
     line = linereader_get_line(ctx->linereader, prompt);

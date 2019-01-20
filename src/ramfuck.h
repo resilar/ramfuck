@@ -18,7 +18,6 @@ enum ramfuck_state {
 
 struct ramfuck {
     enum ramfuck_state state;
-    pid_t pid;
 
     struct linereader *linereader;
     struct mem_io *mem;

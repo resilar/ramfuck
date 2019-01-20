@@ -1,5 +1,7 @@
-CFLAGS ?= -g -Wall -std=c89 -pedantic
+CFLAGS ?= -g
+CFLAGS += -Wall -std=c89 -pedantic
 LDLIBS += -lm
+
 BUILDDIR ?= ./build
 
 OBJS := ramfuck.o ast.o cli.o eval.o lex.o line.o mem.o opt.o parse.o ptrace.o symbol.o value.o

@@ -1,4 +1,6 @@
 #include "mem.h"
+#include "ramfuck.h"
+#include "ptrace.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +8,37 @@
 
 #include <fcntl.h>
 #include <limits.h>
+
+struct mem_process {
+    struct mem_io io;
+    pid_t pid;
+};
+
+static int mem_attach_pid(struct mem_io *io, pid_t pid)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    if (ptrace_attach(pid)) {
+        mem->pid = pid;
+        return 1;
+    }
+    return 0;
+}
+
+static int mem_detach(struct mem_io *io)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    if (mem->pid && ptrace_detach(mem->pid)) {
+        mem->pid = 0;
+        return 1;
+    }
+    return 0;
+}
+
+static int mem_attached(struct mem_io *io)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    return mem->pid != 0;
+}
 
 struct mem_region_iter {
     struct mem_region region;
@@ -15,15 +48,16 @@ struct mem_region_iter {
 
 static struct mem_region *mem_region_iter_next(struct mem_region *it);
 
-static struct mem_region *mem_region_iter_first(struct mem_io *mem)
+static struct mem_region *mem_region_iter_first(struct mem_io *io)
 {
     struct mem_region_iter *it;
+    struct mem_process *mem = (struct mem_process *)io;
     if ((it = malloc(sizeof(struct mem_region_iter)))) {
         char filename[64];
         it->region.path = it->pathbuf;
 
-        if (mem->ctx->pid > 0) {
-            sprintf(filename, "/proc/%lu/maps", (unsigned long)mem->ctx->pid);
+        if (mem->pid > 0) {
+            sprintf(filename, "/proc/%lu/maps", (unsigned long)mem->pid);
         } else {
             memcpy(filename, "/proc/self/maps", sizeof("/proc/self/maps"));
         }
@@ -80,14 +114,15 @@ static struct mem_region *mem_region_find_addr(struct mem_io *mem,
     return (struct mem_region *)it;
 }
 
-static void *mem_region_dump(struct mem_io *mem, struct mem_region *region)
+static void *mem_region_dump(struct mem_io *io, struct mem_region *region)
 {
     int fd;
     size_t count, ret;
     unsigned char *buf;
     char procmem_path[128];
+    struct mem_process *mem = (struct mem_process *)io;
 
-    sprintf(procmem_path, "/proc/%lu/mem", (unsigned long)mem->ctx->pid);
+    sprintf(procmem_path, "/proc/%lu/mem", (unsigned long)mem->pid);
     if (!(fd = open(procmem_path, O_RDONLY))) {
         errf("mem: cannot open '%s' for reading", procmem_path);
         return NULL;
@@ -133,10 +168,12 @@ static void mem_region_put(struct mem_region *region)
     free(region);
 }
 
-struct mem_io *mem_io_get(struct ramfuck *ctx)
+struct mem_io *mem_io_get()
 {
-    static struct mem_io mem_init = {
-        NULL,
+    static struct mem_io mem_io_init = {
+        mem_attach_pid,
+        mem_detach,
+        mem_attached,
         mem_region_iter_first,
         mem_region_iter_next,
         mem_region_find_addr,
@@ -144,15 +181,15 @@ struct mem_io *mem_io_get(struct ramfuck *ctx)
         mem_region_put,
     };
 
-    struct mem_io *mem;
-    if ((mem = malloc(sizeof(struct mem_io)))) {
-        memcpy(mem, &mem_init, sizeof(struct mem_io));
-        mem->ctx = ctx;
+    struct mem_process *mem;
+    if ((mem = malloc(sizeof(*mem)))) {
+        memcpy(&mem->io, &mem_io_init, sizeof(struct mem_io));
+        mem->pid = 0;
     } else {
         errf("mem: out-of-memory for mem_io");
     }
 
-    return mem;
+    return (struct mem_io *)mem;
 }
 
 void mem_io_put(struct mem_io *mem)

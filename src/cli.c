@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 /*
- * Utility function for parsing the CLI input.
+ * Utility functions for parsing the CLI input.
  */
 static void skip_spaces(const char **pin)
 {
@@ -88,9 +88,8 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
 
     /* Confirm that we can attach to the process with PTRACE_ATTACH */
-    if (ptrace_attach((pid_t)pid)) {
+    if (ctx->mem->attach_pid(ctx->mem, (pid_t)pid)) {
         infof("attached to process %lu", pid);
-        ctx->pid = pid;
     }
     return 0;
 }
@@ -105,14 +104,13 @@ static int do_detach(struct ramfuck *ctx, const char *in)
         errf("detach: trailing characters");
         return 1;
     }
-    if (!ctx->pid) {
+    if (!ctx->mem->attached(ctx->mem)) {
         errf("detach: not attached to any process");
         return 1;
     }
 
-    ptrace_detach(ctx->pid);
-    infof("detach: detached from %lu", (unsigned long)ctx->pid);
-    ctx->pid = 0;
+    ctx->mem->detach(ctx->mem);
+    infof("detached");
     return 0;
 }
 
@@ -221,8 +219,8 @@ static int do_maps(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (!ctx->pid) {
-        errf("maps: attach to process first (pid=0)");
+    if (!ctx->mem->attached(ctx->mem)) {
+        errf("maps: attach first");
         return 2;
     }
 
@@ -282,6 +280,26 @@ static int do_p(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Initial search.
+ * Usage: search <type> <expression>
+ * where 'type' is one of: s8, u8, s16, u16, s32, u32, s64, u64, f32, f64.
+ */
+static int do_search(struct ramfuck *ctx, const char *in)
+{
+    if (!eol(in)) {
+        errf("search: trailing characters");
+        return 1;
+    }
+
+    if (!ctx->mem->attached(ctx->mem)) {
+        errf("search: attach to process first (pid=0)");
+        return 2;
+    }
+
+    return 0;
+}
+
+/*
  * Evaluate expression and print its value.
  * Usage: eval <expr>
  */
@@ -317,6 +335,8 @@ static int cli_execute(struct ramfuck *ctx, const char *in)
         rc = do_maps(ctx, in);
     } else if (accept(&in, "p")) {
         rc = do_p(ctx, in);
+    } else if (accept(&in, "search")) {
+        rc = do_search(ctx, in);
     } else if (!eol(in) && do_eval(ctx, in) != 0) {
         size_t i;
         for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);
