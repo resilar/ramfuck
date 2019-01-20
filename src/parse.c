@@ -117,6 +117,10 @@ static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
             left = ast_cast_new(right->value_type, left);
         if (right->value_type < left->value_type)
             right = ast_cast_new(left->value_type, right);
+        if (left && left->value_type < S32)
+            left = ast_cast_new(S32, left);
+        if (right && right->value_type < S32)
+            right = ast_cast_new(S32, right);
         if (left && right) {
             struct ast *root;
             if ((root = ast_binop_new(node_type, left, right))) {
@@ -308,6 +312,7 @@ static struct ast *unary_expression(struct parser *p)
      || accept(p, LEX_NOT) || accept(p, LEX_COMPL)) {
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *child = cast_expression(p);
+        root = NULL;
         if (child) {
             const char *errfmt, *op;
             enum value_type valid_types = INT;
@@ -319,11 +324,17 @@ static struct ast *unary_expression(struct parser *p)
             }
 
             if (child->value_type & valid_types) {
-                if ((root = ast_unop_new(type, child))) {
-                    root->value_type = child->value_type;
-                    return root;
+                if (child->value_type < S32)
+                    child = ast_cast_new(S32, child);
+                if (child) {
+                    if ((root = ast_unop_new(type, child))) {
+                        root->value_type = child->value_type;
+                        return root;
+                    }
+                    errfmt = "out-of-memory for AST node '%s'";
+                } else {
+                    errfmt = "out-of-memory for implicit typecast for '%s'";
                 }
-                errfmt = "out-of-memory for AST node '%s'";
             } else {
                 errfmt = "invalid operand types for '%s'";
             }
@@ -332,7 +343,6 @@ static struct ast *unary_expression(struct parser *p)
             parse_error(p, errfmt, op);
             ast_delete(child);
         }
-        root = NULL;
     } else {
         root = factor(p);
     }

@@ -184,115 +184,136 @@ static int dummy_unop(struct value *op1, struct value *out)
     return 0; /* error */
 }
 
+#define warning(x) fprintf(stderr, "%s\n", x)
+
 static int dummy_add(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_add called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->add(out, op2, out);
 }
 
 static int dummy_sub(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_sub called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->sub(out, op2, out);
 }
 
 static int dummy_mul(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_mul called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->mul(out, op2, out);
 }
 
 static int dummy_div(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_div called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->div(out, op2, out);
 }
 
 static int dummy_mod(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_mod called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->mod(out, op2, out);
 }
 
 static int dummy_and(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_and called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->and(out, op2, out);
 }
 static int dummy_xor(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_xor called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->xor(out, op2, out);
 }
 
 static int dummy_or(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_or called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->or(out, op2, out);
 }
 
 static int dummy_shl(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_shl called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->shl(out, op2, out);
 }
 
 static int dummy_shr(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_shr called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->shr(out, op2, out);
 }
 
 static int dummy_usub(struct value *op1, struct value *out)
 {
+    warning("value: dummy_usub called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->usub(out, out);
 }
 
 static int dummy_not(struct value *op1, struct value *out)
 {
+    warning("value: dummy_not called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->not(out, out);
 }
 
 static int dummy_compl(struct value *op1, struct value *out)
 {
+    warning("value: dummy_compl called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->compl(out, out);
 }
 
 static int dummy_eq(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_eq called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->eq(out, op2, out);
 }
 
 static int dummy_neq(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_neq called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->neq(out, op2, out);
 }
 
 static int dummy_lt(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_lt called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->lt(out, op2, out);
 }
 
 static int dummy_gt(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_gt called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->gt(out, op2, out);
 }
 
 static int dummy_le(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_le called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->le(out, op2, out);
 }
 
 static int dummy_ge(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: dummy_ge called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->ge(out, op2, out);
 }

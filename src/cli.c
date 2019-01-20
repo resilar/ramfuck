@@ -159,6 +159,10 @@ static int do_explain(struct ramfuck *ctx, const char *in)
                         struct ast *ast_check;
                         struct ast *l = ast_value_new(&out);
                         struct ast *r = ast_value_new(&out_opt);
+                        if (l && l->value_type < S32)
+                            l = ast_cast_new(S32, l);
+                        if (r && r->value_type < S32)
+                            r = ast_cast_new(S32, r);
                         if (l && r && (ast_check = ast_eq_new(l, r))) {
                             struct value out_check;
                             if (ast_evaluate(ast_check, &out_check)) {
