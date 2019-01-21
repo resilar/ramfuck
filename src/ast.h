@@ -14,8 +14,6 @@
  *
  * The ordering must match lex token types defined in lex.h file.
  */
-#define lex_to_ast_type(lex_token_type) ((lex_token_type) + AST_ADD-LEX_ADD)
-#define ast_to_lex_type(ast_token_type) ((ast_token_type) + LEX_ADD-AST_ADD)
 enum ast_type {
     AST_VALUE=0, AST_VAR,
 
@@ -36,6 +34,8 @@ enum ast_type {
 
     AST_TYPES
 };
+#define lex_to_ast_type(lex_token_type) ((lex_token_type) + AST_ADD-LEX_ADD)
+#define ast_to_lex_type(ast_token_type) ((ast_token_type) + LEX_ADD-AST_ADD)
 
 /*
  * AST structures.
@@ -120,19 +120,15 @@ struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
 #define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
 #define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))
 
-struct ast *ast_rel_new(enum ast_type node_type,
-        struct ast *left, struct ast *right);
-#define ast_eq_new(l, r)  ast_rel_new(AST_EQ, (l), (r))
-#define ast_neq_new(l, r) ast_rel_new(AST_NEQ, (l), (r))
-#define ast_lt_new(l, r)  ast_rel_new(AST_LT, (l), (r))
-#define ast_gt_new(l, r)  ast_rel_new(AST_GT, (l), (r))
-#define ast_le_new(l, r)  ast_rel_new(AST_LE, (l), (r))
-#define ast_ge_new(l, r)  ast_rel_new(AST_GE, (l), (r))
+#define ast_eq_new(l, r)  ast_binop_new(AST_EQ, (l), (r))
+#define ast_neq_new(l, r) ast_binop_new(AST_NEQ, (l), (r))
+#define ast_lt_new(l, r)  ast_binop_new(AST_LT, (l), (r))
+#define ast_gt_new(l, r)  ast_binop_new(AST_GT, (l), (r))
+#define ast_le_new(l, r)  ast_binop_new(AST_LE, (l), (r))
+#define ast_ge_new(l, r)  ast_binop_new(AST_GE, (l), (r))
 
-struct ast *ast_cond_new(enum ast_type node_type,
-        struct ast *left, struct ast *right);
-#define ast_and_cond_new(l, r) ast_cond_new(AST_AND_COND, (l), (r))
-#define ast_or_cond_new(l, r)  ast_cond_new(AST_OR_COND, (l), (r))
+#define ast_and_cond_new(l, r) ast_binop_new(AST_AND_COND, (l), (r))
+#define ast_or_cond_new(l, r)  ast_binop_new(AST_OR_COND, (l), (r))
 
 /*
  * Delete an AST node and its children.

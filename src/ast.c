@@ -66,18 +66,6 @@ struct ast *ast_unop_new(enum ast_type node_type, struct ast *child)
     return (struct ast *)n;
 }
 
-struct ast *ast_rel_new(enum ast_type node_type,
-        struct ast *left, struct ast *right)
-{
-    return ast_binop_new(node_type, left, right);
-}
-
-struct ast *ast_cond_new(enum ast_type node_type,
-        struct ast *left, struct ast *right)
-{
-    return ast_binop_new(node_type, left, right);
-}
-
 /*
  * Delete.
  */
