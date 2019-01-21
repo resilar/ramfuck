@@ -2,6 +2,7 @@
 
 #include "ast.h"
 #include "eval.h"
+#include "hits.h"
 #include "mem.h"
 #include "opt.h"
 #include "parse.h"
@@ -12,7 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-void search(struct ramfuck *ctx, enum value_type type, const char *expression)
+struct hits *search(struct ramfuck *ctx, enum value_type type,
+                    const char *expression)
 {
     struct mem_io *mem;
     struct mem_region *mr, *regions, *new;
@@ -27,16 +29,18 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
     enum value_type addr_type;
     union value_data **ppdata;
     struct ast *ast, *opt;
+    struct hits *hits, *ret;
 
     ast = NULL;
     symtab = NULL;
+    hits = ret = NULL;
     region_buf = snprint_buf = NULL;
 
     regions_size = 0;
     regions_capacity = 16;
     if (!(regions = calloc(regions_capacity, sizeof(struct mem_region)))) {
         errf("search: out-of-memory for address regions");
-        return;
+        return NULL;
     }
 
     mem = ctx->mem;
@@ -105,6 +109,11 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
         ast = opt;
     }
 
+    if (!(hits = hits_new())) {
+        errf("search: error allocating hits container");
+        goto fail;
+    }
+
     if (!(align = value_sizeof(&value)))
         align = 1;
 
@@ -122,19 +131,24 @@ void search(struct ramfuck *ctx, enum value_type type, const char *expression)
             if (ast_evaluate(ast, &value)) {
                 if (value_is_nonzero(&value)) {
                     printf("%p hit\n", (void *)addr);
+                    hits_add(hits, addr, type, *ppdata);
                 }
             }
-
             *ppdata = (union value_data *)((char *)*ppdata + align);
             addr += align;
         }
     }
 
+    ret = hits;
+    hits = NULL;
+
 fail:
     if (ast) ast_delete(ast);
     if (symtab) symbol_table_delete(symtab);
+    if (hits) hits_delete(hits);
     free(snprint_buf);
     free(region_buf);
     while (regions_size) mem_region_destroy(&regions[--regions_size]);
     free(regions);
+    return ret;
 }

@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE /* snprintf(3) vfprintf(3) */
 #include "ramfuck.h"
 #include "cli.h"
+#include "hits.h"
 #include "line.h"
 #include "mem.h"
 #include "ptrace.h"
@@ -59,6 +60,7 @@ void ramfuck_init(struct ramfuck *ctx)
     ctx->state = RUNNING;
     ctx->linereader = NULL;
     ctx->mem = mem_io_get(ctx);
+    ctx->hits = NULL;
 }
 
 void ramfuck_destroy(struct ramfuck *ctx)
@@ -71,6 +73,9 @@ void ramfuck_destroy(struct ramfuck *ctx)
             if (ctx->mem->attached(ctx->mem))
                 ctx->mem->detach(ctx->mem);
             mem_io_put(ctx->mem);
+        }
+        if (ctx->hits) {
+            hits_delete(ctx->hits);
         }
     }
 }
@@ -97,8 +102,8 @@ char *ramfuck_get_line(struct ramfuck *ctx)
     char buf[64], *line, *prompt = NULL;
 
     if (isatty(STDOUT_FILENO)) {
-        long int hits = 0;
-        size_t len = snprintf(NULL, 0, "%ld> ", hits);
+        unsigned long hits = (unsigned long)(ctx->hits ? ctx->hits->size : 0);
+        size_t len = snprintf(NULL, 0, "%lu> ", hits);
         if (0 < len && len < SIZE_MAX) {
             if (len + 1 > sizeof(buf)) {
                 if (!(prompt = malloc(len + 1)))
@@ -108,7 +113,7 @@ char *ramfuck_get_line(struct ramfuck *ctx)
             }
         }
         if (prompt)
-            snprintf(prompt, len + 1, "%ld> ", hits);
+            snprintf(prompt, len + 1, "%lu> ", hits);
     }
 
     line = linereader_get_line(ctx->linereader, prompt);
@@ -121,6 +126,13 @@ char *ramfuck_get_line(struct ramfuck *ctx)
 void ramfuck_free_line(struct ramfuck *ctx, char *line)
 {
     linereader_free_line(ctx->linereader, line);
+}
+
+void ramfuck_set_hits(struct ramfuck *ctx, struct hits *hits)
+{
+    if (ctx->hits)
+        hits_delete(ctx->hits);
+    ctx->hits = hits;
 }
 
 int main(int argc, char *argv[])

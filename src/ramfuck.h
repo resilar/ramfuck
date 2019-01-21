@@ -21,6 +21,8 @@ struct ramfuck {
 
     struct linereader *linereader;
     struct mem_io *mem;
+    
+    struct hits *hits;
 };
 
 #define ramfuck_dead(ctx) ((ctx)->state == DEAD)
@@ -34,6 +36,8 @@ void ramfuck_stop(struct ramfuck *ctx);
 void ramfuck_set_input_stream(struct ramfuck *ctx, FILE *in);
 char *ramfuck_get_line(struct ramfuck *ctx);
 void ramfuck_free_line(struct ramfuck *ctx, char *line);
+
+void ramfuck_set_hits(struct ramfuck *ctx, struct hits *hits);
 
 int main(int argc, char *argv[]);
 

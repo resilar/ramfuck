@@ -3,6 +3,7 @@
 #include "ramfuck.h"
 
 #include "eval.h"
+#include "hits.h"
 #include "line.h"
 #include "mem.h"
 #include "opt.h"
@@ -213,6 +214,43 @@ static int do_explain(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * List current hits.
+ * Usage: list
+ */
+static int do_list(struct ramfuck *ctx, const char *in)
+{
+    size_t i;
+    struct mem_io *mem;
+
+    if (!eol(in)) {
+        errf("maps: trailing characters");
+        return 1;
+    }
+
+    if (!ctx->hits) {
+        infof("hits: zero hits");
+        return 0;
+    }
+
+    mem = ctx->mem;
+    for (i = 0; i < ctx->hits->size; i++) {
+        struct value value;
+        struct hit *hit = &ctx->hits->items[i];
+        value.type = hit->type;
+        fprintf(stdout, "%lu. *(%s *)%p = ", (unsigned long)(i+1),
+                value_type_to_string(hit->type), (void *)hit->addr);
+        if (mem->read(ctx->mem, hit->addr, &value.data, value_sizeof(&value))) {
+            fprint_value(stdout, &value, 0);
+        } else {
+            fprintf(stdout, "???");
+        }
+        fputc('\n', stdout);
+    }
+
+    return 0;
+}
+
+/*
  * Show memory maps of the attached process.
  * Usage: maps
  */
@@ -321,8 +359,9 @@ static int do_search(struct ramfuck *ctx, const char *in)
     skip_spaces(&in);
     for (p = in; *p && !isspace(*p); p++);
     if (isspace(*p) && (type = value_type_from_substring(in, (size_t)(p - in))))
-        search(ctx, type, p);
-    else search(ctx, S32, in);
+        ramfuck_set_hits(ctx, search(ctx, type, p));
+    else ramfuck_set_hits(ctx, search(ctx, S32, in));
+
     return 0;
 }
 
@@ -360,6 +399,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     } else if (accept(&in, "exit") || accept(&in, "quit") || accept(&in, "q")) {
         ramfuck_stop(ctx);
         rc = 0;
+    } else if (accept(&in, "ls") || accept(&in, "list")) {
+        rc = do_list(ctx, in);
     } else if (accept(&in, "m") || accept(&in, "maps") || accept(&in, "mem")) {
         rc = do_maps(ctx, in);
     } else if (accept(&in, "p")) {
