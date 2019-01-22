@@ -52,6 +52,18 @@ static int mem_attached(struct mem_io *io)
     return mem->pid != 0;
 }
 
+int mem_break(struct mem_io *io)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    return ptrace_break(mem->pid);
+}
+
+int mem_continue(struct mem_io *io)
+{
+    struct mem_process *mem = (struct mem_process *)io;
+    return ptrace_continue(mem->pid);
+}
+
 struct mem_region_iter {
     struct mem_region region;
     char pathbuf[4096];
@@ -163,6 +175,8 @@ struct mem_io *mem_io_get()
         mem_attach_pid,
         mem_detach,
         mem_attached,
+        mem_break,
+        mem_continue,
         mem_region_iter_first,
         mem_region_iter_next,
         mem_region_at,

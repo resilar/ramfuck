@@ -60,6 +60,7 @@ void ramfuck_init(struct ramfuck *ctx)
     ctx->state = RUNNING;
     ctx->linereader = NULL;
     ctx->mem = mem_io_get(ctx);
+    ctx->breaks = 0;
     ctx->hits = NULL;
 }
 
@@ -70,19 +71,23 @@ void ramfuck_destroy(struct ramfuck *ctx)
         if (ctx->linereader)
             linereader_close(ctx->linereader);
         if (ctx->mem) {
-            if (ctx->mem->attached(ctx->mem))
+            if (ctx->mem->attached(ctx->mem)) {
+                if (!ctx->breaks)
+                    ctx->mem->target_break(ctx->mem);
                 ctx->mem->detach(ctx->mem);
+            }
             mem_io_put(ctx->mem);
         }
+        ctx->breaks = 0;
         if (ctx->hits) {
             hits_delete(ctx->hits);
         }
     }
 }
 
-void ramfuck_stop(struct ramfuck *ctx)
+void ramfuck_quit(struct ramfuck *ctx)
 {
-    ctx->state = STOPPING;
+    ctx->state = QUITTING;
 }
 
 void ramfuck_set_input_stream(struct ramfuck *ctx, FILE *in)
@@ -126,6 +131,43 @@ char *ramfuck_get_line(struct ramfuck *ctx)
 void ramfuck_free_line(struct ramfuck *ctx, char *line)
 {
     linereader_free_line(ctx->linereader, line);
+}
+
+int ramfuck_read(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
+{
+    int ret;
+    ramfuck_break(ctx);
+    ret = ctx->mem->read(ctx->mem, addr, buf, len);
+    ramfuck_continue(ctx);
+    return ret;
+}
+
+int ramfuck_write(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
+{
+    int ret;
+    ramfuck_break(ctx);
+    ret = ctx->mem->write(ctx->mem, addr, buf, len);
+    ramfuck_continue(ctx);
+    return ret;
+}
+
+int ramfuck_break(struct ramfuck *ctx)
+{
+    if (ctx->breaks > 0 || ctx->mem->target_break(ctx->mem)) {
+        ctx->breaks++;
+        return 1;
+    }
+    return 0;
+}
+
+int ramfuck_continue(struct ramfuck *ctx)
+{
+    if (ctx->breaks > 0) {
+        if (ctx->breaks > 1 || ctx->mem->target_continue(ctx->mem))
+            ctx->breaks--;
+        return 1;
+    }
+    return 0;
 }
 
 void ramfuck_set_hits(struct ramfuck *ctx, struct hits *hits)

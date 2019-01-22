@@ -6,12 +6,16 @@
 #include <unistd.h>
 
 /*
- * Attach to process.
- * Should be called before trying to read or write process memory.
- * Returns non-zero on success.
+ * Attach/detach process specified by pid.
  */
 int ptrace_attach(pid_t pid);
 int ptrace_detach(pid_t pid);
+
+/*
+ * Break/continue process.
+ */
+int ptrace_break(pid_t pid);
+int ptrace_continue(pid_t pid);
 
 /*
  * Read & write data.

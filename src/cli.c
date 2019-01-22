@@ -101,7 +101,41 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     if (!ctx->mem->attach_pid(ctx->mem, (pid_t)pid))
         return 5;
 
+    ctx->breaks = 1;
+    if ((ctx->breaks = !ramfuck_continue(ctx)))
+        warnf("attach: continuing attached process failed");
+
     infof("attached to process %lu", pid);
+    return 0;
+}
+
+/*
+ * Break (stop) target.
+ * Usage: break
+ */
+static int do_break(struct ramfuck *ctx, const char *in)
+{
+    if (!eol(in)) {
+        errf("break: trailing characters");
+        return 1;
+    }
+
+    if (!ctx->mem->attached(ctx->mem)) {
+        errf("break: not attached to any process");
+        return 2;
+    }
+
+    if (ctx->breaks > 0) {
+        errf("break: target is already stopped");
+        return 3;
+    }
+
+    if (!ramfuck_break(ctx)) {
+        errf("break: stopping failed");
+        return 3;
+    }
+
+    infof("target stopped");
     return 0;
 }
 
@@ -121,6 +155,41 @@ static int do_clear(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Continue target.
+ * Usage: continue
+ */
+static int do_continue(struct ramfuck *ctx, const char *in)
+{
+    int breaks;
+
+    if (!eol(in)) {
+        errf("continue: trailing characters");
+        return 1;
+    }
+
+    if (!ctx->mem->attached(ctx->mem)) {
+        errf("continue: not attached to any process");
+        return 2;
+    }
+
+    if (!ctx->breaks) {
+        errf("continue: target is already running");
+        return 3;
+    }
+
+    breaks = ctx->breaks;
+    ctx->breaks = 1;
+    if (!ramfuck_continue(ctx)) {
+        ctx->breaks = breaks;
+        errf("continue: continuing failed");
+        return 4;
+    }
+
+    infof("target continued");
+    return 0;
+}
+
+/*
  * Detach from the target process.
  * Usage: detach
  */
@@ -134,6 +203,9 @@ static int do_detach(struct ramfuck *ctx, const char *in)
         errf("detach: not attached to any process");
         return 1;
     }
+
+    if (!ctx->breaks && !ramfuck_break(ctx))
+        warnf("detach: stopping attached process failed");
 
     ctx->mem->detach(ctx->mem);
     infof("detached");
@@ -276,6 +348,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
     }
 
     mem = ctx->mem;
+    ramfuck_break(ctx);
     for (i = 0; i < ctx->hits->size; i++) {
         struct value value;
         struct hit *hit = &ctx->hits->items[i];
@@ -289,6 +362,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
         }
         fputc('\n', stdout);
     }
+    ramfuck_continue(ctx);
 
     return 0;
 }
@@ -354,6 +428,7 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     uint64_t addr;
     int64_t index;
     struct value out;
+    int ret;
 
     if (eol(in)) {
         errf("peek: type & addr or index expected");
@@ -384,12 +459,12 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     }
     ast = cast;
 
-    if (!ast_evaluate(ast, &out)) {
+    ret = ast_evaluate(ast, &out);
+    ast_delete(ast);
+    if (!ret) {
         errf("peek: evaluating %s failed", (type ? "address" : "hit index"));
-        ast_delete(ast);
         return 5;
     }
-    ast_delete(ast);
 
     if (type) {
         addr = out.data.u64;
@@ -415,7 +490,7 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     if (index != -1)
         fprintf(stdout, "%ld. ", (long)(index + 1));
     fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
-    if (ctx->mem->read(ctx->mem, addr, &out.data, value_sizeof(&out))) {
+    if (ramfuck_read(ctx, addr, &out.data, value_sizeof(&out))) {
         fprint_value(stdout, &out, 0);
     } else {
         fprintf(stdout, "%s", "???");
@@ -519,7 +594,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         }
         if (strstr(in, "value")) {
             out.type = type;
-            if (ctx->mem->read(ctx->mem, addr, &out.data, value_sizeof(&out))) {
+            if (ramfuck_read(ctx, addr, &out.data, value_sizeof(&out))) {
                 symbol_table_add(symtab, "value", out.type, &out.data);
             } else {
                 errf("poke: error reading %lu-byte value from address %p",
@@ -552,7 +627,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         return 13;
     }
 
-    if (!ctx->mem->write(ctx->mem, addr, &out.data, value_sizeof(&out))) {
+    if (!ramfuck_write(ctx, addr, &out.data, value_sizeof(&out))) {
         errf("poke: error writing %lu bytes to address %p",
              (unsigned long)value_sizeof(&out), (void *)addr);
         return 14;
@@ -622,15 +697,16 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     skip_spaces(&in);
     if (accept(&in, "attach")) {
         rc = do_attach(ctx, in);
+    } else if (accept(&in, "break") || accept(&in, "stop")) {
+        rc = do_break(ctx, in);
     } else if (accept(&in, "clear")) {
         rc = do_clear(ctx, in);
+    } else if (accept(&in, "continue")) {
+        rc = do_continue(ctx, in);
     } else if (accept(&in, "detach")) {
         rc = do_detach(ctx, in);
     } else if (accept(&in, "explain")) {
         rc = do_explain(ctx, in);
-    } else if (accept(&in, "exit") || accept(&in, "quit") || accept(&in, "q")) {
-        ramfuck_stop(ctx);
-        rc = 0;
     } else if (accept(&in, "filter")) {
         rc = do_filter(ctx, in);
     } else if (accept(&in, "ls") || accept(&in, "list")) {
@@ -643,6 +719,9 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_poke(ctx, in);
     } else if (accept(&in, "search")) {
         rc = do_search(ctx, in);
+    } else if (accept(&in, "quit") || accept(&in, "q") || accept(&in, "exit")) {
+        ramfuck_quit(ctx);
+        rc = 0;
     } else if (!eol(in) && do_eval(ctx, in) != 0) {
         size_t i;
         for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);
@@ -696,7 +775,7 @@ int cli_main_loop(struct ramfuck *ctx)
             rc = cli_execute_line(ctx, line);
             ramfuck_free_line(ctx, line);
         } else {
-            ramfuck_stop(ctx);
+            ramfuck_quit(ctx);
         }
     }
     return rc;

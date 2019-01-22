@@ -120,6 +120,7 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
     if (!(align = value_sizeof(&value)))
         align = 1;
 
+    ramfuck_break(ctx);
     for (region_idx = 0; region_idx < regions_size; region_idx++) {
         const struct mem_region *region = &regions[region_idx];
         if (!mem->read(mem, region->start, region_buf, region->size))
@@ -141,6 +142,7 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
             addr += align;
         }
     }
+    ramfuck_continue(ctx);
 
     ret = hits;
     hits = NULL;
@@ -204,6 +206,7 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
         ast = opt;
     }
 
+    ramfuck_break(ctx);
     for (i = 0; i < hits->size; i++) {
         addr = hits->items[i].addr;
         value.type = hits->items[i].type;
@@ -218,6 +221,7 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
             }
         }
     }
+    ramfuck_continue(ctx);
 
     ret = filtered;
     filtered = NULL;

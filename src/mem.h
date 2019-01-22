@@ -8,10 +8,16 @@
 struct mem_region;
 
 struct mem_io {
+    /* Attach/detach target */
     int (*attach_pid)(struct mem_io *, pid_t);
     int (*detach)(struct mem_io *);
     int (*attached)(struct mem_io *);
 
+    /* Target break and continue */
+    int (*target_break)(struct mem_io *);
+    int (*target_continue)(struct mem_io *);
+
+    /* Iterate memory regions */
     struct mem_region *(*region_first)(struct mem_io *);
     struct mem_region *(*region_next)(struct mem_region *);
 	struct mem_region *(*region_at)(struct mem_io *, uintptr_t addr);
@@ -19,6 +25,7 @@ struct mem_io {
     /* For freeing regions returned by the functions above */
     void (*region_put)(struct mem_region *);
 
+    /* Read/write target memory */
     int (*read)(struct mem_io *, uintptr_t addr, void *buf, size_t len);
     int (*write)(struct mem_io *, uintptr_t addr, void *buf, size_t len);
 };

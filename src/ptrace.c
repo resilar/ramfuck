@@ -1,9 +1,12 @@
+#define _DEFAULT_SOURCE /* kill(3) */
 #include "ptrace.h"
 
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 int ptrace_attach(pid_t pid)
@@ -14,18 +17,41 @@ int ptrace_attach(pid_t pid)
         perror("ptrace(ATTACH)");
         return 0;
     }
-    if (waitpid(pid, &status, WUNTRACED) == -1 || !WIFSTOPPED(status)) {
-        perror("ptrace(ATTACH)");
+    if (waitpid(pid, &status, 0) == -1) {
+        perror("waitpid(ATTACH)");
         return 0;
     }
 
-    return 1;
+    return !!WIFSTOPPED(status);
 }
 
 int ptrace_detach(pid_t pid)
 {
     if (ptrace(PTRACE_DETACH, pid, NULL, NULL) == -1) {
         perror("ptrace(DETACH)");
+        return 0;
+    }
+    return 1;
+}
+
+int ptrace_break(pid_t pid)
+{
+    int status;
+    if (kill(pid, SIGSTOP) == -1) {
+        perror("ptrace(BREAK)");
+        return 0;
+    }
+    if (waitpid(pid, &status, 0) == -1) {
+        perror("waitpid(BREAK))");
+        return 0;
+    }
+    return !!WIFSTOPPED(status);
+}
+
+int ptrace_continue(pid_t pid)
+{
+    if (ptrace(PTRACE_CONT, pid, NULL, NULL) == -1) {
+        perror("ptrace(CONT)");
         return 0;
     }
     return 1;
