@@ -1,3 +1,3 @@
 Linux memory editor.
 
-Work in progress; not in a workable state yet.
+Work in progress. Almost in usable state.
