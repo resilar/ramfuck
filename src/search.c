@@ -21,8 +21,8 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
     size_t regions_size, regions_capacity;
     size_t region_size_max, region_idx, snprint_len_max;
     char *region_buf, *snprint_buf;
-    struct symbol_table *symtab;
     struct parser parser;
+    struct symbol_table *symtab;
     struct value value;
     unsigned int align;
     uintptr_t addr, end;
@@ -109,7 +109,10 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
         ast = opt;
     }
 
-    if (!(hits = hits_new())) {
+    if ((hits = hits_new())) {
+        hits->addr_type = addr_type;
+        hits->value_type = value.type;
+    } else {
         errf("search: error allocating hits container");
         goto fail;
     }
@@ -150,5 +153,73 @@ fail:
     free(region_buf);
     while (regions_size) mem_region_destroy(&regions[--regions_size]);
     free(regions);
+    return ret;
+}
+
+struct hits *filter(struct ramfuck *ctx, struct hits *hits,
+                    const char *expression)
+{
+    struct parser parser;
+    struct symbol_table *symtab;
+    struct ast *ast, *opt;
+    struct hits *filtered, *ret;
+    struct value value;
+    enum value_type addr_type;
+    uintptr_t addr;
+    size_t i;
+
+    symtab = NULL;
+    ast = NULL;
+    filtered = ret = NULL;
+
+    addr_type = hits->addr_type;
+    value.type = hits->value_type;
+    if ((symtab = symbol_table_new(ctx))) {
+        symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+        symbol_table_add(symtab, "value", value.type, &value.data);
+    } else {
+        errf("filter: error creating new symbol table");
+        goto fail;
+    }
+
+    parser_init(&parser);
+    parser.symtab = symtab;
+
+    if ((filtered = hits_new())) {
+        filtered->addr_type = addr_type;
+    } else {
+        errf("filter: error allocating filtered hits container");
+        goto fail;
+    }
+    if (!(ast = parse_expression(&parser, expression))) {
+        errf("filter: %d parse errors", parser.errors);
+        goto fail;
+    }
+    if ((opt = ast_optimize(ast))) {
+        ast_delete(ast);
+        ast = opt;
+    }
+
+    for (i = 0; i < hits->size; i++) {
+        addr = hits->items[i].addr;
+        value.type = hits->items[i].type;
+        if (!ctx->mem->read(ctx->mem, addr, &value.data, value_sizeof(&value)))
+            continue;
+
+        if (ast_evaluate(ast, &value)) {
+            if (value_is_nonzero(&value)) {
+                printf("%p hit\n", (void *)addr);
+                hits_add(filtered, addr, value.type, &value.data);
+            }
+        }
+    }
+
+    ret = filtered;
+    filtered = NULL;
+
+fail:
+    if (filtered) hits_delete(filtered);
+    if (ast) ast_delete(ast);
+    if (symtab) symbol_table_delete(symtab);
     return ret;
 }

@@ -10,6 +10,8 @@ struct hits *hits_new()
     if ((hits = malloc(sizeof(struct hits)))) {
         hits->size = 0;
         hits->capacity = 256;
+        hits->addr_type = U64;
+        hits->value_type = S32;
         if (!(hits->items = malloc(sizeof(struct hit) * hits->capacity))) {
             free(hits);
             hits = NULL;

@@ -99,6 +99,21 @@ static int do_attach(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Clear hits.
+ * Usage: hits
+ */
+static int do_clear(struct ramfuck *ctx, const char *in)
+{
+    if (!eol(in)) {
+        errf("clear: trailing characters");
+        return 1;
+    }
+
+    ramfuck_set_hits(ctx, NULL);
+    return 0;
+}
+
+/*
  * Detach from the target process.
  * Usage: detach
  */
@@ -214,6 +229,27 @@ static int do_explain(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Filter current hits.
+ * Usage: filter <expression>
+ */
+static int do_filter(struct ramfuck *ctx, const char *in)
+{
+    if (eol(in)) {
+        errf("filter: expression expected");
+        return 1;
+    }
+
+    if (!ctx->hits || !ctx->hits->size) {
+        infof("filter: zero hits");
+        return 2;
+    }
+
+    ramfuck_set_hits(ctx, filter(ctx, ctx->hits, in));
+
+    return 0;
+}
+
+/*
  * List current hits.
  * Usage: list
  */
@@ -223,13 +259,18 @@ static int do_list(struct ramfuck *ctx, const char *in)
     struct mem_io *mem;
 
     if (!eol(in)) {
-        errf("maps: trailing characters");
+        errf("list: trailing characters");
         return 1;
     }
 
-    if (!ctx->hits) {
-        infof("hits: zero hits");
+    if (!ctx->hits || !ctx->hits->size) {
+        infof("list: zero hits");
         return 0;
+    }
+
+    if (!ctx->mem->attached(ctx->mem)) {
+        errf("filter: attach to process first (pid=0)");
+        return 2;
     }
 
     mem = ctx->mem;
@@ -392,6 +433,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     skip_spaces(&in);
     if (accept(&in, "attach")) {
         rc = do_attach(ctx, in);
+    } else if (accept(&in, "clear")) {
+        rc = do_clear(ctx, in);
     } else if (accept(&in, "detach")) {
         rc = do_detach(ctx, in);
     } else if (accept(&in, "explain")) {
@@ -399,6 +442,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     } else if (accept(&in, "exit") || accept(&in, "quit") || accept(&in, "q")) {
         ramfuck_stop(ctx);
         rc = 0;
+    } else if (accept(&in, "filter")) {
+        rc = do_filter(ctx, in);
     } else if (accept(&in, "ls") || accept(&in, "list")) {
         rc = do_list(ctx, in);
     } else if (accept(&in, "m") || accept(&in, "maps") || accept(&in, "mem")) {

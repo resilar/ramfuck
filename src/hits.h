@@ -17,6 +17,8 @@ struct hit {
 struct hits {
     struct hit *items;
     size_t size, capacity;
+    enum value_type addr_type;
+    enum value_type value_type;
 };
 
 /*

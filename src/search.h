@@ -13,4 +13,11 @@
 struct hits *search(struct ramfuck *ctx, enum value_type type,
                     const char *expression);
 
+/*
+ * Filter results of a previous search.
+ * Returns a filtered set of hits.
+ */
+struct hits *filter(struct ramfuck *ctx, struct hits *hits,
+                    const char *expression);
+
 #endif
