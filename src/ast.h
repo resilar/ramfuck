@@ -18,7 +18,7 @@ enum ast_type {
     AST_VALUE=0, AST_VAR,
 
     /* Unary operators */
-    AST_CAST, AST_USUB, AST_NOT, AST_COMPL,
+    AST_CAST, AST_NEG, AST_NOT, AST_COMPL,
 
     /* Binary operators */
     AST_ADD, AST_SUB, AST_MUL, AST_DIV, AST_MOD,
@@ -68,27 +68,27 @@ struct ast_var {
 };
 
 struct ast_cast  { struct ast_unop root; };
-struct ast_usub  { struct ast_unop root; };
+struct ast_neg   { struct ast_unop root; };
 struct ast_not   { struct ast_unop root; };
 struct ast_compl { struct ast_unop root; };
 
-struct ast_add   { struct ast_binop root; };
-struct ast_sub   { struct ast_binop root; };
-struct ast_mul   { struct ast_binop root; };
-struct ast_div   { struct ast_binop root; };
+struct ast_add { struct ast_binop root; };
+struct ast_sub { struct ast_binop root; };
+struct ast_mul { struct ast_binop root; };
+struct ast_div { struct ast_binop root; };
 
-struct ast_and   { struct ast_binop root; };
-struct ast_xor   { struct ast_binop root; };
-struct ast_or    { struct ast_binop root; };
-struct ast_shl   { struct ast_binop root; };
-struct ast_shr   { struct ast_binop root; };
+struct ast_and { struct ast_binop root; };
+struct ast_xor { struct ast_binop root; };
+struct ast_or  { struct ast_binop root; };
+struct ast_shl { struct ast_binop root; };
+struct ast_shr { struct ast_binop root; };
 
-struct ast_eq    { struct ast_binop root; };
-struct ast_neq   { struct ast_binop root; };
-struct ast_lt    { struct ast_binop root; };
-struct ast_gt    { struct ast_binop root; };
-struct ast_le    { struct ast_binop root; };
-struct ast_ge    { struct ast_binop root; };
+struct ast_eq  { struct ast_binop root; };
+struct ast_neq { struct ast_binop root; };
+struct ast_lt  { struct ast_binop root; };
+struct ast_gt  { struct ast_binop root; };
+struct ast_le  { struct ast_binop root; };
+struct ast_ge  { struct ast_binop root; };
 
 struct ast_and_cond { struct ast_binop root; };
 struct ast_or_cond  { struct ast_binop root; };
@@ -101,7 +101,7 @@ struct ast *ast_var_new(struct symbol_table *symtab, size_t sym);
 struct ast *ast_cast_new(enum value_type value_type, struct ast *child);
 
 struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
-#define ast_usub_new(c)  ast_unop_new(AST_USUB, (c))
+#define ast_neg_new(c)  ast_unop_new(AST_NEG, (c))
 #define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
 #define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))
 

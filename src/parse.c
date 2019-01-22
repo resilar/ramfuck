@@ -319,11 +319,13 @@ static struct ast *unary_expression(struct parser *p)
         root = NULL;
         if (child) {
             const char *errfmt, *op;
-            enum value_type valid_types = INT;
+            enum value_type valid_types;
 
             if (type == AST_SUB) {
-                type = AST_USUB;
-                valid_types |= FPU;
+                type = AST_NEG;
+                valid_types = INT|FPU;
+            } else {
+                valid_types = INT;
             }
 
             if (child->value_type & valid_types) {

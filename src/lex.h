@@ -12,7 +12,7 @@ enum lex_token_type {
     LEX_INTEGER, LEX_UINTEGER, LEX_FLOATING_POINT, LEX_IDENTIFIER,
 
     /* The order must match ast_types in ast.h */
-    LEX_CAST, LEX_USUB, LEX_NOT, LEX_COMPL, /* LEX_CAST & LEX_USUB reserved */
+    LEX_CAST, LEX_NEG, LEX_NOT, LEX_COMPL, /* LEX_CAST & LEX_NEG reserved */
 
     LEX_ADD, LEX_SUB, LEX_MUL, LEX_DIV, LEX_MOD,
 

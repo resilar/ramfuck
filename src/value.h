@@ -82,7 +82,7 @@ struct value_operations {
     /* this = (typeof(this))src; */
     int (*assign)(struct value *this, struct value *src);
 
-    int (*usub)(struct value *op1, struct value *out);
+    int (*neg)(struct value *op1, struct value *out);
     int (*not)(struct value *op1, struct value *out);
     int (*compl)(struct value *op1, struct value *out);
 

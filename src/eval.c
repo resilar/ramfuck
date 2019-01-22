@@ -21,11 +21,11 @@ static int ast_cast_evaluate(struct ast *this, struct value *out)
         && value_type_vtable(this->value_type)->assign(out, &value);
 }
 
-static int ast_usub_evaluate(struct ast *this, struct value *out)
+static int ast_neg_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
     return ast_evaluate(((struct ast_unop *)this)->child, &value)
-        && value_vtable(&value)->usub(&value, out);
+        && value_vtable(&value)->neg(&value, out);
 }
 
 static int ast_not_evaluate(struct ast *this, struct value *out)
@@ -219,7 +219,7 @@ int (*ast_evaluate_funcs[AST_TYPES])(struct ast *, struct value *) = {
     /* AST_VAR   */ ast_var_evaluate,
 
     /* AST_CAST  */ ast_cast_evaluate,
-    /* AST_USUB  */ ast_usub_evaluate,
+    /* AST_NEG   */ ast_neg_evaluate,
     /* AST_NOT   */ ast_not_evaluate,
     /* AST_COMPL */ ast_compl_evaluate,
 
