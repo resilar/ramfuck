@@ -308,8 +308,12 @@ static struct ast *unary_expression(struct parser *p)
 {
     struct ast *root;
 
-    if (accept(p, LEX_ADD) || accept(p, LEX_SUB)
-     || accept(p, LEX_NOT) || accept(p, LEX_COMPL)) {
+    if (accept(p, LEX_ADD)) {
+        /* Unary add is no-op */
+        return cast_expression(p);
+    }
+
+    if (accept(p, LEX_SUB) || accept(p, LEX_NOT) || accept(p, LEX_COMPL)) {
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *child = cast_expression(p);
         root = NULL;
@@ -317,9 +321,8 @@ static struct ast *unary_expression(struct parser *p)
             const char *errfmt, *op;
             enum value_type valid_types = INT;
 
-            if (type == AST_ADD || type == AST_SUB) {
-                /* AST_ADD -> AST_UADD, AST_SUB -> LEX_USUB */
-                type += AST_UADD - AST_ADD;
+            if (type == AST_SUB) {
+                type = AST_USUB;
                 valid_types |= FPU;
             }
 

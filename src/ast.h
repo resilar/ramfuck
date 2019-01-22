@@ -18,7 +18,7 @@ enum ast_type {
     AST_VALUE=0, AST_VAR,
 
     /* Unary operators */
-    AST_CAST, AST_UADD, AST_USUB, AST_NOT, AST_COMPL,
+    AST_CAST, AST_USUB, AST_NOT, AST_COMPL,
 
     /* Binary operators */
     AST_ADD, AST_SUB, AST_MUL, AST_DIV, AST_MOD,
@@ -68,7 +68,6 @@ struct ast_var {
 };
 
 struct ast_cast  { struct ast_unop root; };
-struct ast_uadd  { struct ast_unop root; };
 struct ast_usub  { struct ast_unop root; };
 struct ast_not   { struct ast_unop root; };
 struct ast_compl { struct ast_unop root; };
@@ -102,7 +101,6 @@ struct ast *ast_var_new(struct symbol_table *symtab, size_t sym);
 struct ast *ast_cast_new(enum value_type value_type, struct ast *child);
 
 struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
-#define ast_uadd_new(c)  ast_unop_new(AST_UADD, (c))
 #define ast_usub_new(c)  ast_unop_new(AST_USUB, (c))
 #define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
 #define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))

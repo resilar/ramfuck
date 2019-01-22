@@ -296,7 +296,6 @@ const char *lex_token_type_string[LEX_TYPES] = {
     "var",  /* LEX_IDENTIFIER */
 
     "(T)",  /* LEX_CAST */
-    "u+",   /* LEX_UADD */
     "u-",   /* LEX_USUB */
     "!",    /* LEX_NOT */
     "~",    /* LEX_COMPL */

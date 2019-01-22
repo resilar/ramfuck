@@ -55,7 +55,6 @@ struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *) = {
     /* AST_VAR   */ ast_var_optimize,
 
     /* AST_CAST  */ ast_unop_optimize,
-    /* AST_UADD  */ ast_unop_optimize,
     /* AST_USUB  */ ast_unop_optimize,
     /* AST_NOT   */ ast_unop_optimize,
     /* AST_COMPL */ ast_unop_optimize,

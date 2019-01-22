@@ -92,7 +92,6 @@ void (*ast_delete_funcs[AST_TYPES])(struct ast *) = {
     /* AST_VAR   */ ast_leaf_delete,
 
     /* AST_CAST  */ ast_unop_delete,
-    /* AST_UADD  */ ast_unop_delete,
     /* AST_USUB  */ ast_unop_delete,
     /* AST_NOT   */ ast_unop_delete,
     /* AST_COMPL */ ast_unop_delete,
@@ -225,11 +224,6 @@ static size_t ast_binop_snprint(struct ast *this, const char *op,
     return len;
 }
 
-static size_t ast_uadd_snprint(struct ast *this, char *out, size_t size)
-{
-    return ast_unop_snprint(this, "u+", out, size);
-}
-
 static size_t ast_usub_snprint(struct ast *this, char *out, size_t size)
 {
     return ast_unop_snprint(this, "u-", out, size);
@@ -340,7 +334,6 @@ size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *, size_t) = {
     /* AST_VAR   */ ast_var_snprint,
 
     /* AST_CAST  */ ast_cast_snprint,
-    /* AST_UADD  */ ast_uadd_snprint,
     /* AST_USUB  */ ast_usub_snprint,
     /* AST_NOT   */ ast_not_snprint,
     /* AST_COMPL */ ast_compl_snprint,
