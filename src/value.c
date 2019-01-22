@@ -186,6 +186,27 @@ static int dummy_unop(struct value *op1, struct value *out)
 
 #define warning(x) fprintf(stderr, "%s\n", x)
 
+static int dummy_usub(struct value *op1, struct value *out)
+{
+    warning("value: dummy_usub called");
+    value_vtable(op1)->cast_to_s32(op1, out);
+    return value_vtable(out)->usub(out, out);
+}
+
+static int dummy_not(struct value *op1, struct value *out)
+{
+    warning("value: dummy_not called");
+    value_vtable(op1)->cast_to_s32(op1, out);
+    return value_vtable(out)->not(out, out);
+}
+
+static int dummy_compl(struct value *op1, struct value *out)
+{
+    warning("value: dummy_compl called");
+    value_vtable(op1)->cast_to_s32(op1, out);
+    return value_vtable(out)->compl(out, out);
+}
+
 static int dummy_add(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_add called");
@@ -253,27 +274,6 @@ static int dummy_shr(struct value *op1, struct value *op2, struct value *out)
     warning("value: dummy_shr called");
     value_vtable(op1)->cast_to_s32(op1, out);
     return value_vtable(out)->shr(out, op2, out);
-}
-
-static int dummy_usub(struct value *op1, struct value *out)
-{
-    warning("value: dummy_usub called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->usub(out, out);
-}
-
-static int dummy_not(struct value *op1, struct value *out)
-{
-    warning("value: dummy_not called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->not(out, out);
-}
-
-static int dummy_compl(struct value *op1, struct value *out)
-{
-    warning("value: dummy_compl called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->compl(out, out);
 }
 
 static int dummy_eq(struct value *op1, struct value *op2, struct value *out)
@@ -608,6 +608,27 @@ static int s32_assign(struct value *this, struct value *src)
     return value_vtable(src)->cast_to_s32(src, this);
 }
 
+static int s32_usub(struct value *op1, struct value *out)
+{
+    out->type = S32;
+    out->data.s32 = -op1->data.s32;
+    return 1;
+}
+
+static int s32_not(struct value *op1, struct value *out)
+{
+    out->type = S32;
+    out->data.s32 = !op1->data.s32;
+    return 1;
+}
+
+static int s32_compl(struct value *op1, struct value *out)
+{
+    out->type = S32;
+    out->data.s32 = ~op1->data.s32;
+    return 1;
+}
+
 static int s32_add(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
@@ -675,27 +696,6 @@ static int s32_shr(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S32;
     out->data.s32 = op1->data.s32 >> op2->data.s32;
-    return 1;
-}
-
-static int s32_usub(struct value *op1, struct value *out)
-{
-    out->type = S32;
-    out->data.s32 = -op1->data.s32;
-    return 1;
-}
-
-static int s32_not(struct value *op1, struct value *out)
-{
-    out->type = S32;
-    out->data.s32 = !op1->data.s32;
-    return 1;
-}
-
-static int s32_compl(struct value *op1, struct value *out)
-{
-    out->type = S32;
-    out->data.s32 = ~op1->data.s32;
     return 1;
 }
 
@@ -799,6 +799,27 @@ static int u32_assign(struct value *this, struct value *src)
     return value_vtable(src)->cast_to_u32(src, this);
 }
 
+static int u32_usub(struct value *op1, struct value *out)
+{
+    out->type = U32;
+    out->data.u32 = -op1->data.u32;
+    return 1;
+}
+
+static int u32_not(struct value *op1, struct value *out)
+{
+    out->type = U32;
+    out->data.u32 = !op1->data.u32;
+    return 1;
+}
+
+static int u32_compl(struct value *op1, struct value *out)
+{
+    out->type = U32;
+    out->data.u32 = ~op1->data.u32;
+    return 1;
+}
+
 static int u32_add(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U32;
@@ -866,27 +887,6 @@ static int u32_shr(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U32;
     out->data.u32 = op1->data.u32 >> op2->data.u32;
-    return 1;
-}
-
-static int u32_usub(struct value *op1, struct value *out)
-{
-    out->type = U32;
-    out->data.u32 = -op1->data.u32;
-    return 1;
-}
-
-static int u32_not(struct value *op1, struct value *out)
-{
-    out->type = U32;
-    out->data.u32 = !op1->data.u32;
-    return 1;
-}
-
-static int u32_compl(struct value *op1, struct value *out)
-{
-    out->type = U32;
-    out->data.u32 = ~op1->data.u32;
     return 1;
 }
 
@@ -990,6 +990,27 @@ static int s64_assign(struct value *this, struct value *src)
     return value_vtable(src)->cast_to_s64(src, this);
 }
 
+static int s64_usub(struct value *op1, struct value *out)
+{
+    out->type = S64;
+    out->data.s64 = -op1->data.s64;
+    return 1;
+}
+
+static int s64_not(struct value *op1, struct value *out)
+{
+    out->type = S64;
+    out->data.s64 = !op1->data.s64;
+    return 1;
+}
+
+static int s64_compl(struct value *op1, struct value *out)
+{
+    out->type = S64;
+    out->data.s64 = ~op1->data.s64;
+    return 1;
+}
+
 static int s64_add(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S64;
@@ -1057,27 +1078,6 @@ static int s64_shr(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = S64;
     out->data.s64 = op1->data.s64 >> op2->data.s64;
-    return 1;
-}
-
-static int s64_usub(struct value *op1, struct value *out)
-{
-    out->type = S64;
-    out->data.s64 = -op1->data.s64;
-    return 1;
-}
-
-static int s64_not(struct value *op1, struct value *out)
-{
-    out->type = S64;
-    out->data.s64 = !op1->data.s64;
-    return 1;
-}
-
-static int s64_compl(struct value *op1, struct value *out)
-{
-    out->type = S64;
-    out->data.s64 = ~op1->data.s64;
     return 1;
 }
 
@@ -1181,6 +1181,27 @@ static int u64_assign(struct value *this, struct value *src)
     return value_vtable(src)->cast_to_u64(src, this);
 }
 
+static int u64_usub(struct value *op1, struct value *out)
+{
+    out->type = U64;
+    out->data.u64 = -op1->data.u64;
+    return 1;
+}
+
+static int u64_not(struct value *op1, struct value *out)
+{
+    out->type = U64;
+    out->data.u64 = !op1->data.u64;
+    return 1;
+}
+
+static int u64_compl(struct value *op1, struct value *out)
+{
+    out->type = U64;
+    out->data.u64 = ~op1->data.u64;
+    return 1;
+}
+
 static int u64_add(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U64;
@@ -1248,27 +1269,6 @@ static int u64_shr(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = U64;
     out->data.u64 = op1->data.u64 >> op2->data.u64;
-    return 1;
-}
-
-static int u64_usub(struct value *op1, struct value *out)
-{
-    out->type = U64;
-    out->data.u64 = -op1->data.u64;
-    return 1;
-}
-
-static int u64_not(struct value *op1, struct value *out)
-{
-    out->type = U64;
-    out->data.u64 = !op1->data.u64;
-    return 1;
-}
-
-static int u64_compl(struct value *op1, struct value *out)
-{
-    out->type = U64;
-    out->data.u64 = ~op1->data.u64;
     return 1;
 }
 
@@ -1372,6 +1372,18 @@ static int f32_assign(struct value *this, struct value *src)
     return value_vtable(src)->cast_to_f32(src, this);
 }
 
+static int f32_usub(struct value *op1, struct value *out)
+{
+    value_vtable(op1)->cast_to_f64(op1, out);
+    return value_vtable(out)->usub(out, out);
+}
+
+static int f32_not(struct value *op1, struct value *out)
+{
+    value_vtable(op1)->cast_to_f64(op1, out);
+    return value_vtable(out)->not(out, out);
+}
+
 static int f32_add(struct value *op1, struct value *op2, struct value *out)
 {
     value_vtable(op1)->cast_to_f64(op1, out);
@@ -1394,18 +1406,6 @@ static int f32_div(struct value *op1, struct value *op2, struct value *out)
 {
     value_vtable(op1)->cast_to_f64(op1, out);
     return value_vtable(out)->div(out, op2, out);
-}
-
-static int f32_usub(struct value *op1, struct value *out)
-{
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->usub(out, out);
-}
-
-static int f32_not(struct value *op1, struct value *out)
-{
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->not(out, out);
 }
 
 static int f32_eq(struct value *op1, struct value *op2, struct value *out)
@@ -1502,6 +1502,20 @@ static int f64_assign(struct value *this, struct value *src)
     return value_vtable(src)->cast_to_f64(src, this);
 }
 
+static int f64_usub(struct value *op1, struct value *out)
+{
+    out->type = F64;
+    out->data.f64 = -op1->data.f64;
+    return 1;
+}
+
+static int f64_not(struct value *op1, struct value *out)
+{
+    out->type = S32;
+    out->data.s32 = !op1->data.f64;
+    return 1;
+}
+
 static int f64_add(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = F64;
@@ -1527,20 +1541,6 @@ static int f64_div(struct value *op1, struct value *op2, struct value *out)
 {
     out->type = F64;
     out->data.f64 = op1->data.f64 / op2->data.f64;
-    return 1;
-}
-
-static int f64_usub(struct value *op1, struct value *out)
-{
-    out->type = F64;
-    out->data.f64 = -op1->data.f64;
-    return 1;
-}
-
-static int f64_not(struct value *op1, struct value *out)
-{
-    out->type = S32;
-    out->data.s32 = !op1->data.f64;
     return 1;
 }
 
@@ -1602,6 +1602,10 @@ static const struct value_operations s32_vtable = {
     /*.cast_to_f64 = */ s32_to_f64,
     /*.assign =      */ s32_assign,
 
+    /*.usub = */ s32_usub,
+    /*.not =  */ s32_not,
+    /*.compl =*/ s32_compl,
+
     /*.add =*/ s32_add,
     /*.sub =*/ s32_sub,
     /*.mul =*/ s32_mul,
@@ -1613,10 +1617,6 @@ static const struct value_operations s32_vtable = {
     /*.or = */ s32_or,
     /*.shl =*/ s32_shl,
     /*.shr =*/ s32_shr,
-
-    /*.usub = */ s32_usub,
-    /*.not =  */ s32_not,
-    /*.compl =*/ s32_compl,
 
     /*.eq = */ s32_eq,
     /*.neq =*/ s32_neq,
@@ -1632,9 +1632,9 @@ static const struct value_operations u32_vtable = {
     u32_to_f32, u32_to_f64,
     u32_assign,
 
+    u32_usub, u32_not, u32_compl,
     u32_add, u32_sub, u32_mul, u32_div, u32_mod,
     u32_and, u32_xor, u32_or, u32_shl, u32_shr,
-    u32_usub, u32_not, u32_compl,
     u32_eq, u32_neq, u32_lt, u32_gt, u32_le, u32_ge
 };
 
@@ -1644,9 +1644,9 @@ static const struct value_operations s64_vtable = {
     s64_to_f32, s64_to_f64,
     s64_assign,
 
+    s64_usub, s64_not, s64_compl,
     s64_add, s64_sub, s64_mul, s64_div, s64_mod,
     s64_and, s64_xor, s64_or, s64_shl, s64_shr,
-    s64_usub, s64_not, s64_compl,
     s64_eq, s64_neq, s64_lt, s64_gt, s64_le, s64_ge
 };
 
@@ -1656,9 +1656,9 @@ static const struct value_operations u64_vtable = {
     u64_to_f32, u64_to_f64,
     u64_assign,
 
+    u64_usub, u64_not, u64_compl,
     u64_add, u64_sub, u64_mul, u64_div, u64_mod,
     u64_and, u64_xor, u64_or, u64_shl, u64_shr,
-    u64_usub, u64_not, u64_compl,
     u64_eq, u64_neq, u64_lt, u64_gt, u64_le, u64_ge
 };
 
@@ -1668,9 +1668,9 @@ static const struct value_operations s8_vtable = {
     s8_to_f32, s8_to_f64,
     s8_assign,
 
+    dummy_usub, dummy_not, dummy_compl,
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
     dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_usub, dummy_not, dummy_compl,
     dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
 };
 
@@ -1680,9 +1680,9 @@ static const struct value_operations u8_vtable = {
     u8_to_f32, u8_to_f64,
     u8_assign,
 
+    dummy_usub, dummy_not, dummy_compl,
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
     dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_usub, dummy_not, dummy_compl,
     dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
 };
 
@@ -1692,9 +1692,9 @@ static const struct value_operations s16_vtable = {
     s16_to_f32, s16_to_f64,
     s16_assign,
 
+    dummy_usub, dummy_not, dummy_compl,
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
     dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_usub, dummy_not, dummy_compl,
     dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
 };
 
@@ -1704,9 +1704,9 @@ static const struct value_operations u16_vtable = {
     u16_to_f32, u16_to_f64,
     u16_assign,
 
+    dummy_usub, dummy_not, dummy_compl,
     dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
     dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_usub, dummy_not, dummy_compl,
     dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
 };
 
@@ -1716,9 +1716,9 @@ static const struct value_operations f32_vtable = {
     f32_to_f32, f32_to_f64,
     f32_assign,
 
+    f32_usub, f32_not, dummy_unop,
     f32_add, f32_sub, f32_mul, f32_div, dummy_mod,
     dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
-    f32_usub, f32_not, dummy_unop,
     f32_eq, f32_neq, f32_lt, f32_gt, f32_le, f32_ge
 };
 
@@ -1728,9 +1728,9 @@ static const struct value_operations f64_vtable = {
     f64_to_f32, f64_to_f64,
     f64_assign,
 
+    f64_usub, f64_not, dummy_unop,
     f64_add, f64_sub, f64_mul, f64_div, dummy_mod,
     dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
-    f64_usub, f64_not, dummy_unop,
     f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge
 };
 

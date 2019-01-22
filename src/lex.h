@@ -11,16 +11,13 @@ enum lex_token_type {
 
     LEX_INTEGER, LEX_UINTEGER, LEX_FLOATING_POINT, LEX_IDENTIFIER,
 
-    /*STRING,
-    WIDE_STRING,*/
-
     /* The order must match ast_types in ast.h */
+    LEX_CAST, LEX_UADD, LEX_USUB, /* LEX_CAST & LEX_USUB reserved */
+    LEX_NOT, LEX_COMPL,
+
     LEX_ADD, LEX_SUB, LEX_MUL, LEX_DIV, LEX_MOD,
 
     LEX_AND, LEX_XOR, LEX_OR, LEX_SHL, LEX_SHR,
-    
-    LEX_CAST, LEX_UADD, LEX_USUB, /* reserved */
-    LEX_NOT, LEX_COMPL,
 
     LEX_EQ, LEX_NEQ, LEX_LT, LEX_GT, LEX_LE, LEX_GE,
 

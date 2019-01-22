@@ -82,6 +82,10 @@ struct value_operations {
     /* this = (typeof(this))src; */
     int (*assign)(struct value *this, struct value *src);
 
+    int (*usub)(struct value *op1, struct value *out);
+    int (*not)(struct value *op1, struct value *out);
+    int (*compl)(struct value *op1, struct value *out);
+
     int (*add)(struct value *op1, struct value *op2, struct value *out);
     int (*sub)(struct value *op1, struct value *op2, struct value *out);
     int (*mul)(struct value *op1, struct value *op2, struct value *out);
@@ -93,10 +97,6 @@ struct value_operations {
     int (*or)(struct value *op1, struct value *op2, struct value *out);
     int (*shl)(struct value *op1, struct value *op2, struct value *out);
     int (*shr)(struct value *op1, struct value *op2, struct value *out);
-
-    int (*usub)(struct value *op1, struct value *out);
-    int (*not)(struct value *op1, struct value *out);
-    int (*compl)(struct value *op1, struct value *out);
 
     int (*eq)(struct value *op1, struct value *op2, struct value *out);
     int (*neq)(struct value *op1, struct value *op2, struct value *out);

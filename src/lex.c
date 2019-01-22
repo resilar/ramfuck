@@ -295,6 +295,12 @@ const char *lex_token_type_string[LEX_TYPES] = {
     "fp",   /* LEX_FLOATING_POINT */
     "var",  /* LEX_IDENTIFIER */
 
+    "(T)",  /* LEX_CAST */
+    "u+",   /* LEX_UADD */
+    "u-",   /* LEX_USUB */
+    "!",    /* LEX_NOT */
+    "~",    /* LEX_COMPL */
+
     "+",    /* LEX_ADD */
     "-",    /* LEX_SUB */
     "*",    /* LEX_MUL */
@@ -306,12 +312,6 @@ const char *lex_token_type_string[LEX_TYPES] = {
     "|",    /* LEX_OR */
     "<<",   /* LEX_SHL */
     ">>",   /* LEX_SHR */
-
-    "(T)",  /* LEX_CAST */
-    "u+",   /* LEX_UADD */
-    "u-",   /* LEX_USUB */
-    "!",    /* LEX_NOT */
-    "~",    /* LEX_COMPL */
 
     "==",   /* LEX_EQ */
     "!=",   /* LEX_NEQ */

@@ -17,14 +17,14 @@
 enum ast_type {
     AST_VALUE=0, AST_VAR,
 
+    /* Unary operators */
+    AST_CAST, AST_UADD, AST_USUB, AST_NOT, AST_COMPL,
+
     /* Binary operators */
     AST_ADD, AST_SUB, AST_MUL, AST_DIV, AST_MOD,
     
     /* Bitwise operators */
     AST_AND, AST_XOR, AST_OR, AST_SHL, AST_SHR,
-
-    /* Unary opertators */
-    AST_CAST, AST_UADD, AST_USUB, AST_NOT, AST_COMPL,
 
     /* Relational operators */
     AST_EQ, AST_NEQ, AST_LT, AST_GT, AST_LE, AST_GE,
@@ -67,6 +67,12 @@ struct ast_var {
     size_t sym;
 };
 
+struct ast_cast  { struct ast_unop root; };
+struct ast_uadd  { struct ast_unop root; };
+struct ast_usub  { struct ast_unop root; };
+struct ast_not   { struct ast_unop root; };
+struct ast_compl { struct ast_unop root; };
+
 struct ast_add   { struct ast_binop root; };
 struct ast_sub   { struct ast_binop root; };
 struct ast_mul   { struct ast_binop root; };
@@ -77,12 +83,6 @@ struct ast_xor   { struct ast_binop root; };
 struct ast_or    { struct ast_binop root; };
 struct ast_shl   { struct ast_binop root; };
 struct ast_shr   { struct ast_binop root; };
-
-struct ast_cast  { struct ast_unop root; };
-struct ast_uadd  { struct ast_unop root; };
-struct ast_usub  { struct ast_unop root; };
-struct ast_not   { struct ast_unop root; };
-struct ast_compl { struct ast_unop root; };
 
 struct ast_eq    { struct ast_binop root; };
 struct ast_neq   { struct ast_binop root; };
@@ -99,6 +99,13 @@ struct ast_or_cond  { struct ast_binop root; };
  */
 struct ast *ast_value_new(struct value *value);
 struct ast *ast_var_new(struct symbol_table *symtab, size_t sym);
+struct ast *ast_cast_new(enum value_type value_type, struct ast *child);
+
+struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
+#define ast_uadd_new(c)  ast_unop_new(AST_UADD, (c))
+#define ast_usub_new(c)  ast_unop_new(AST_USUB, (c))
+#define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
+#define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))
 
 struct ast *ast_binop_new(enum ast_type node_type,
                           struct ast *left, struct ast *right);
@@ -111,14 +118,6 @@ struct ast *ast_binop_new(enum ast_type node_type,
 #define ast_or_new(l, r)  ast_binop_new(AST_OR, (l), (r))
 #define ast_shl_new(l, r) ast_binop_new(AST_SHL, (l), (r))
 #define ast_shr_new(l, r) ast_binop_new(AST_SHR, (l), (r))
-
-struct ast *ast_cast_new(enum value_type value_type, struct ast *child);
-
-struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
-#define ast_uadd_new(c)  ast_unop_new(AST_UADD, (c))
-#define ast_usub_new(c)  ast_unop_new(AST_USUB, (c))
-#define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
-#define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))
 
 #define ast_eq_new(l, r)  ast_binop_new(AST_EQ, (l), (r))
 #define ast_neq_new(l, r) ast_binop_new(AST_NEQ, (l), (r))
