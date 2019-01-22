@@ -164,6 +164,7 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
     struct ast *ast, *opt;
     struct hits *filtered, *ret;
     struct value value;
+    union value_data **ppdata;
     enum value_type addr_type;
     uintptr_t addr;
     size_t i;
@@ -175,8 +176,11 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
     addr_type = hits->addr_type;
     value.type = hits->value_type;
     if ((symtab = symbol_table_new(ctx))) {
+        size_t prev_sym;
         symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
         symbol_table_add(symtab, "value", value.type, &value.data);
+        prev_sym = symbol_table_add(symtab, "prev", value.type, NULL);
+        ppdata = &symtab->symbols[prev_sym]->pdata;
     } else {
         errf("filter: error creating new symbol table");
         goto fail;
@@ -206,6 +210,7 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
         if (!ctx->mem->read(ctx->mem, addr, &value.data, value_sizeof(&value)))
             continue;
 
+        *ppdata = &hits->items[i].prev;
         if (ast_evaluate(ast, &value)) {
             if (value_is_nonzero(&value)) {
                 printf("%p hit\n", (void *)addr);
