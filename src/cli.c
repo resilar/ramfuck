@@ -4,6 +4,7 @@
 
 #include "eval.h"
 #include "hits.h"
+#include "lex.h"
 #include "line.h"
 #include "mem.h"
 #include "opt.h"
@@ -18,6 +19,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * Utility functions for parsing the CLI input.
@@ -78,21 +80,26 @@ static int do_attach(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
+    if (ctx->mem->attached(ctx->mem)) {
+        errf("attach: already attached (detach first)");
+        return 2;
+    }
+
     pid = strtoul(in, &end, 10);
     if (*end != '\0' || pid != (pid_t)pid) {
         errf("attach: invalid pid");
-        return 1;
+        return 3;
     }
     in = end;
 
     if (!eol(in)) {
         errf("attach: trailing characters after pid");
-        return 1;
+        return 4;
     }
 
     /* Confirm that we can attach to the process with PTRACE_ATTACH */
     if (!ctx->mem->attach_pid(ctx->mem, (pid_t)pid))
-        return 1;
+        return 5;
 
     infof("attached to process %lu", pid);
     return 0;
@@ -268,11 +275,6 @@ static int do_list(struct ramfuck *ctx, const char *in)
         return 0;
     }
 
-    if (!ctx->mem->attached(ctx->mem)) {
-        errf("filter: attach to process first (pid=0)");
-        return 2;
-    }
-
     mem = ctx->mem;
     for (i = 0; i < ctx->hits->size; i++) {
         struct value value;
@@ -339,42 +341,229 @@ static int do_maps(struct ramfuck *ctx, const char *in)
 }
 
 /*
- * Print expression and its value.
- * Usage: p <expr>
+ * Peek address.
+ * Usage: peek <type> <addr>
+ *        peek <hit_index>
  */
-static int do_p(struct ramfuck *ctx, const char *in)
+static int do_peek(struct ramfuck *ctx, const char *in)
 {
+    const char *p;
+    enum value_type type;
     struct parser parser;
-    struct ast *ast;
-    int rc;
+    struct ast *ast, *cast;
+    uint64_t addr;
+    int64_t index;
     struct value out;
 
     if (eol(in)) {
-        errf("p: expression expected");
+        errf("peek: type & addr or index expected");
         return 1;
+    }
+
+    type = 0;
+    skip_spaces(&in);
+    for (p = in; *p && !isspace(*p); p++);
+    if ((type = value_type_from_substring(in, (size_t)(p - in)))) {
+        skip_spaces(&p);
+        in = p;
+    }
+    if (eol(in)) {
+        errf("peek: address expression expected");
+        return 2;
     }
 
     parser_init(&parser);
     if (!(ast = parse_expression(&parser, in))) {
-        errf("p: %d parse errors", parser.errors);
-        return 2;
+        errf("peek: %d parse errors", parser.errors);
+        return 3;
     }
+    if (!(cast = ast_cast_new(type ? U64 : S64, ast))) {
+        errf("peek: out-of-memory for typecast AST");
+        ast_delete(ast);
+        return 4;
+    }
+    ast = cast;
 
-    printf("rpn: ");
-    ast_print(ast);
-    printf("\n");
-
-    rc = 0;
-    if (ast_evaluate(ast, &out)) {
-        fprint_value(stdout, &out, 1);
-        fputc('\n', stdout);
-    } else {
-        errf("p: evaluation failed");
-        rc = 3;
+    if (!ast_evaluate(ast, &out)) {
+        errf("peek: evaluating %s failed", (type ? "address" : "hit index"));
+        ast_delete(ast);
+        return 5;
     }
     ast_delete(ast);
 
-    return rc;
+    if (type) {
+        addr = out.data.u64;
+        index = -1;
+    } else {
+        if (!ctx->hits || !ctx->hits->size) {
+            errf("peek: bad index %ld (0 hits)", out.data.s64);
+            return 6;
+        }
+        index = out.data.s64;
+        index = (index < 0) ? index + ctx->hits->size : index - 1;
+        if (0 <= index && index < ctx->hits->size) {
+            addr = ctx->hits->items[index].addr;
+            type = ctx->hits->items[index].type;
+        } else {
+            errf("peek: bad index %ld not in 1..%lu",
+                 (long)out.data.s64, (unsigned long)ctx->hits->size);
+            return 6;
+        }
+    }
+
+    out.type = type;
+    if (index != -1)
+        fprintf(stdout, "%ld. ", (long)(index + 1));
+    fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
+    if (ctx->mem->read(ctx->mem, addr, &out.data, value_sizeof(&out))) {
+        fprint_value(stdout, &out, 0);
+    } else {
+        fprintf(stdout, "%s", "???");
+    }
+    fputc('\n', stdout);
+    return 0;
+}
+
+/*
+ * Poke value.
+ * Usage: poke <type> <addr> <value>
+ *        poke <hit_index> <value>
+ */
+static int do_poke(struct ramfuck *ctx, const char *in)
+{
+    const char *p;
+    enum value_type type;
+    long index;
+    uintptr_t addr;
+    uint32_t addr32;
+    uint64_t addr64;
+    struct symbol_table *symtab;
+    struct parser parser;
+    struct ast *ast, *cast;
+    struct value out;
+    int ret;
+
+    if (eol(in)) {
+        errf("poke: type & addr & value or index & value expected");
+        return 1;
+    }
+
+    if (!ctx->mem->attached(ctx->mem)) {
+        errf("poke: attach to process first (pid=0)");
+        return 2;
+    }
+
+    type = 0;
+    skip_spaces(&in);
+    for (p = in; *p && !isspace(*p); p++);
+    if ((type = value_type_from_substring(in, (size_t)(p - in)))) {
+        struct lex_token token;
+        skip_spaces(&p);
+        if (eol(p)) {
+            errf("poke: address expected");
+            return 3;
+        }
+        if (!lexer(&p, &token) || (token.type != LEX_INTEGER
+                                && token.type != LEX_UINTEGER)) {
+            errf("poke: invalid address");
+            return 4;
+        }
+        addr = (uintptr_t)token.value.integer;
+        in = p;
+    }
+
+    if (type) {
+        index = -1;
+    } else {
+        char *end;
+        if (!('0' <= *in && *in <= '9')) {
+            errf("poke: invalid hit index (not a number)");
+            return 5;
+        }
+        index = strtol(in, &end, 0);
+        if (!ctx->hits || !ctx->hits->size) {
+            errf("poke: bad index %ld (0 hits)");
+            return 6;
+        }
+        index = (index < 0) ? index + ctx->hits->size : index - 1;
+        if (!(0 <= index && index < ctx->hits->size)) {
+            errf("poke: bad index %ld not in 1..%lu",
+                 index, (unsigned long)ctx->hits->size);
+            return 6;
+        }
+        addr = ctx->hits->items[index].addr;
+        type = ctx->hits->items[index].type;
+        in = end;
+    }
+
+    skip_spaces(&in);
+    if (eol(in)) {
+        errf("poke: value expression expected");
+        return 7;
+    }
+
+    parser_init(&parser);
+    if (strstr(in, "addr") || strstr(in, "value") /* hack ... */) {
+        if (!(symtab = symbol_table_new(ctx))) {
+            errf("poke: out-of-memory for symbol table");
+            return 9;
+        }
+        if (strstr(in, "addr")) {
+            if (addr <= UINT32_MAX) {
+                addr32 = (uint32_t)addr;
+                symbol_table_add(symtab, "addr", U32, (void *)&addr32);
+            } else {
+                addr64 = (uint64_t)addr;
+                symbol_table_add(symtab, "addr", U64, (void *)&addr64);
+            }
+        }
+        if (strstr(in, "value")) {
+            out.type = type;
+            if (ctx->mem->read(ctx->mem, addr, &out.data, value_sizeof(&out))) {
+                symbol_table_add(symtab, "value", out.type, &out.data);
+            } else {
+                errf("poke: error reading %lu-byte value from address %p",
+                     (unsigned long)value_sizeof(&out), (void *)addr);
+                return 10;
+            }
+        }
+        parser.symtab = symtab;
+    } else {
+        symtab = NULL;
+    }
+
+    if (!(ast = parse_expression(&parser, in))) {
+        errf("poke: %d parse errors", parser.errors);
+        return 11;
+    }
+    if (!(cast = ast_cast_new(type, ast))) {
+        errf("poke: out-of-memory for typecast AST");
+        if (symtab) symbol_table_delete(symtab);
+        ast_delete(ast);
+        return 12;
+    }
+    ast = cast;
+
+    ret = ast_evaluate(ast, &out);
+    if (symtab) symbol_table_delete(symtab);
+    ast_delete(ast);
+    if (!ret) {
+        errf("poke: evaluating value expression failed");
+        return 13;
+    }
+
+    if (!ctx->mem->write(ctx->mem, addr, &out.data, value_sizeof(&out))) {
+        errf("poke: error writing %lu bytes to address %p",
+             (unsigned long)value_sizeof(&out), (void *)addr);
+        return 14;
+    }
+
+    if (index != -1)
+        fprintf(stdout, "%ld. ", index + 1);
+    fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
+    fprint_value(stdout, &out, 0);
+    fputc('\n', stdout);
+    return 0;
 }
 
 /*
@@ -448,8 +637,10 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_list(ctx, in);
     } else if (accept(&in, "m") || accept(&in, "maps") || accept(&in, "mem")) {
         rc = do_maps(ctx, in);
-    } else if (accept(&in, "p")) {
-        rc = do_p(ctx, in);
+    } else if (accept(&in, "peek")) {
+        rc = do_peek(ctx, in);
+    } else if (accept(&in, "poke")) {
+        rc = do_poke(ctx, in);
     } else if (accept(&in, "search")) {
         rc = do_search(ctx, in);
     } else if (!eol(in) && do_eval(ctx, in) != 0) {

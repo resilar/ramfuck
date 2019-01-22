@@ -34,10 +34,7 @@ int ptrace_detach(pid_t pid)
 int ptrace_read(pid_t pid, const void *addr, void *buf, size_t len)
 {
     int errnold = errno;
-    if (!pid) {
-        memmove(buf, addr, len);
-        return 1;
-    }
+    if (!pid) return 0;
 
     errno = 0;
     while (!errno && len > 0) {
@@ -75,6 +72,7 @@ size_t ptrace_write(pid_t pid, void *addr, void *buf, size_t len)
 {
     size_t n = len;
     int errnold = errno;
+    if (!pid) return 0;
     errno = 0;
     while (!errno && len > 0) {
         size_t i, j;
