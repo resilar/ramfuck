@@ -28,7 +28,9 @@ enum value_type {
     F64 = 0x090400 | sizeof(double),
 
     PTR = 0x100000,
-    ARR = 0x200000
+    ARR = 0x200000,
+
+    VALUE_TYPES = 4 + 4 + 2
 };
 
 #define HIGHER_TYPE(t1, t2) (((t1) < (t2)) ? (t2) : (t1))
@@ -59,10 +61,6 @@ struct value {
 };
 
 #define value_sizeof(v) (((v)->type) & 0xFF)
-
-extern const struct value_operations *value_vtables[];
-#define value_vtable(v) (value_vtables[(v)->type >> 16])
-#define value_type_vtable(t) (value_vtables[(t) >> 16])
 
 /*
  * Value operations.
@@ -105,6 +103,10 @@ struct value_operations {
     int (*le)(struct value *op1, struct value *op2, struct value *out);
     int (*ge)(struct value *op1, struct value *op2, struct value *out);
 };
+
+const struct value_operations value_ops[VALUE_TYPES];
+#define value_ops(v) (&value_ops[(v)->type >> 16])
+#define value_type_ops(t) (&value_ops[(t) >> 16])
 
 /*
  * Initialize value structure.

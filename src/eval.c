@@ -18,28 +18,28 @@ static int ast_cast_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
     return ast_evaluate(((struct ast_unop *)this)->child, &value)
-        && value_type_vtable(this->value_type)->assign(out, &value);
+        && value_type_ops(this->value_type)->assign(out, &value);
 }
 
 static int ast_neg_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
     return ast_evaluate(((struct ast_unop *)this)->child, &value)
-        && value_vtable(&value)->neg(&value, out);
+        && value_ops(&value)->neg(&value, out);
 }
 
 static int ast_not_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
     return ast_evaluate(((struct ast_unop *)this)->child, &value)
-        && value_vtable(&value)->not(&value, out);
+        && value_ops(&value)->not(&value, out);
 }
 
 static int ast_compl_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
     return ast_evaluate(((struct ast_unop *)this)->child, &value)
-        && value_vtable(&value)->compl(&value, out);
+        && value_ops(&value)->compl(&value, out);
 }
 
 static int ast_add_evaluate(struct ast *this, struct value *out)
@@ -47,7 +47,7 @@ static int ast_add_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->add(&left, &right, out);
+        && value_ops(&left)->add(&left, &right, out);
 }
 
 static int ast_sub_evaluate(struct ast *this, struct value *out)
@@ -55,7 +55,7 @@ static int ast_sub_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->sub(&left, &right, out);
+        && value_ops(&left)->sub(&left, &right, out);
 }
 
 static int ast_mul_evaluate(struct ast *this, struct value *out)
@@ -63,7 +63,7 @@ static int ast_mul_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->mul(&left, &right, out);
+        && value_ops(&left)->mul(&left, &right, out);
 }
 
 static int ast_div_evaluate(struct ast *this, struct value *out)
@@ -71,7 +71,7 @@ static int ast_div_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->div(&left, &right, out);
+        && value_ops(&left)->div(&left, &right, out);
 }
 
 static int ast_mod_evaluate(struct ast *this, struct value *out)
@@ -79,7 +79,7 @@ static int ast_mod_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->mod(&left, &right, out);
+        && value_ops(&left)->mod(&left, &right, out);
 }
 
 static int ast_and_evaluate(struct ast *this, struct value *out)
@@ -87,7 +87,7 @@ static int ast_and_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->and(&left, &right, out);
+        && value_ops(&left)->and(&left, &right, out);
 }
 
 static int ast_xor_evaluate(struct ast *this, struct value *out)
@@ -95,7 +95,7 @@ static int ast_xor_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->xor(&left, &right, out);
+        && value_ops(&left)->xor(&left, &right, out);
 }
 
 static int ast_or_evaluate(struct ast *this, struct value *out)
@@ -103,7 +103,7 @@ static int ast_or_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->or(&left, &right, out);
+        && value_ops(&left)->or(&left, &right, out);
 }
 
 static int ast_shl_evaluate(struct ast *this, struct value *out)
@@ -111,7 +111,7 @@ static int ast_shl_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->shl(&left, &right, out);
+        && value_ops(&left)->shl(&left, &right, out);
 }
 
 static int ast_shr_evaluate(struct ast *this, struct value *out)
@@ -119,7 +119,7 @@ static int ast_shr_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->shr(&left, &right, out);
+        && value_ops(&left)->shr(&left, &right, out);
 }
 
 static int ast_eq_evaluate(struct ast *this, struct value *out)
@@ -127,7 +127,7 @@ static int ast_eq_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->eq(&left, &right, out);
+        && value_ops(&left)->eq(&left, &right, out);
 }
 
 static int ast_neq_evaluate(struct ast *this, struct value *out)
@@ -135,7 +135,7 @@ static int ast_neq_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->neq(&left, &right, out);
+        && value_ops(&left)->neq(&left, &right, out);
 }
 
 static int ast_lt_evaluate(struct ast *this, struct value *out)
@@ -143,7 +143,7 @@ static int ast_lt_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->lt(&left, &right, out);
+        && value_ops(&left)->lt(&left, &right, out);
 }
 
 static int ast_gt_evaluate(struct ast *this, struct value *out)
@@ -151,7 +151,7 @@ static int ast_gt_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->gt(&left, &right, out);
+        && value_ops(&left)->gt(&left, &right, out);
 }
 
 static int ast_le_evaluate(struct ast *this, struct value *out)
@@ -159,7 +159,7 @@ static int ast_le_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->le(&left, &right, out);
+        && value_ops(&left)->le(&left, &right, out);
 }
 
 static int ast_ge_evaluate(struct ast *this, struct value *out)
@@ -167,7 +167,7 @@ static int ast_ge_evaluate(struct ast *this, struct value *out)
     struct value left, right;
     return ast_evaluate(((struct ast_binop *)this)->left, &left)
         && ast_evaluate(((struct ast_binop *)this)->right, &right)
-        && value_vtable(&left)->ge(&left, &right, out);
+        && value_ops(&left)->ge(&left, &right, out);
 }
 
 static int ast_and_cond_evaluate(struct ast *this, struct value *out)

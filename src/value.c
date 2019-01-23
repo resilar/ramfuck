@@ -189,133 +189,133 @@ static int dummy_unop(struct value *op1, struct value *out)
 static int dummy_neg(struct value *op1, struct value *out)
 {
     warning("value: dummy_neg called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->neg(out, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->neg(out, out);
 }
 
 static int dummy_not(struct value *op1, struct value *out)
 {
     warning("value: dummy_not called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->not(out, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->not(out, out);
 }
 
 static int dummy_compl(struct value *op1, struct value *out)
 {
     warning("value: dummy_compl called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->compl(out, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->compl(out, out);
 }
 
 static int dummy_add(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_add called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->add(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->add(out, op2, out);
 }
 
 static int dummy_sub(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_sub called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->sub(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->sub(out, op2, out);
 }
 
 static int dummy_mul(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_mul called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->mul(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->mul(out, op2, out);
 }
 
 static int dummy_div(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_div called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->div(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->div(out, op2, out);
 }
 
 static int dummy_mod(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_mod called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->mod(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->mod(out, op2, out);
 }
 
 static int dummy_and(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_and called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->and(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->and(out, op2, out);
 }
 static int dummy_xor(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_xor called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->xor(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->xor(out, op2, out);
 }
 
 static int dummy_or(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_or called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->or(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->or(out, op2, out);
 }
 
 static int dummy_shl(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_shl called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->shl(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->shl(out, op2, out);
 }
 
 static int dummy_shr(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_shr called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->shr(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->shr(out, op2, out);
 }
 
 static int dummy_eq(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_eq called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->eq(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->eq(out, op2, out);
 }
 
 static int dummy_neq(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_neq called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->neq(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->neq(out, op2, out);
 }
 
 static int dummy_lt(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_lt called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->lt(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->lt(out, op2, out);
 }
 
 static int dummy_gt(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_gt called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->gt(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->gt(out, op2, out);
 }
 
 static int dummy_le(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_le called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->le(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->le(out, op2, out);
 }
 
 static int dummy_ge(struct value *op1, struct value *op2, struct value *out)
 {
     warning("value: dummy_ge called");
-    value_vtable(op1)->cast_to_s32(op1, out);
-    return value_vtable(out)->ge(out, op2, out);
+    value_ops(op1)->cast_to_s32(op1, out);
+    return value_ops(out)->ge(out, op2, out);
 }
 
 /*
@@ -373,7 +373,7 @@ static int s8_to_f64(struct value *this, struct value *out)
 
 static int s8_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_s8(src, this);
+    return value_ops(src)->cast_to_s8(src, this);
 }
 
 /*
@@ -431,7 +431,7 @@ static int u8_to_f64(struct value *this, struct value *out)
 
 static int u8_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_u8(src, this);
+    return value_ops(src)->cast_to_u8(src, this);
 }
 
 /*
@@ -489,7 +489,7 @@ static int s16_to_f64(struct value *this, struct value *out)
 
 static int s16_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_s16(src, this);
+    return value_ops(src)->cast_to_s16(src, this);
 }
 
 /*
@@ -547,7 +547,7 @@ static int u16_to_f64(struct value *this, struct value *out)
 
 static int u16_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_u16(src, this);
+    return value_ops(src)->cast_to_u16(src, this);
 }
 
 /*
@@ -605,7 +605,7 @@ static int s32_to_f64(struct value *this, struct value *out)
 
 static int s32_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_s32(src, this);
+    return value_ops(src)->cast_to_s32(src, this);
 }
 
 static int s32_neg(struct value *op1, struct value *out)
@@ -796,7 +796,7 @@ static int u32_to_f64(struct value *this, struct value *out)
 
 static int u32_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_u32(src, this);
+    return value_ops(src)->cast_to_u32(src, this);
 }
 
 static int u32_neg(struct value *op1, struct value *out)
@@ -987,7 +987,7 @@ static int s64_to_f64(struct value *this, struct value *out)
 
 static int s64_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_s64(src, this);
+    return value_ops(src)->cast_to_s64(src, this);
 }
 
 static int s64_neg(struct value *op1, struct value *out)
@@ -1178,7 +1178,7 @@ static int u64_to_f64(struct value *this, struct value *out)
 
 static int u64_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_u64(src, this);
+    return value_ops(src)->cast_to_u64(src, this);
 }
 
 static int u64_neg(struct value *op1, struct value *out)
@@ -1369,79 +1369,79 @@ static int f32_to_f64(struct value *this, struct value *out)
 
 static int f32_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_f32(src, this);
+    return value_ops(src)->cast_to_f32(src, this);
 }
 
 static int f32_neg(struct value *op1, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->neg(out, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->neg(out, out);
 }
 
 static int f32_not(struct value *op1, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->not(out, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->not(out, out);
 }
 
 static int f32_add(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->add(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->add(out, op2, out);
 }
 
 static int f32_sub(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->sub(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->sub(out, op2, out);
 }
 
 static int f32_mul(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->mul(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->mul(out, op2, out);
 }
 
 static int f32_div(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->div(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->div(out, op2, out);
 }
 
 static int f32_eq(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->eq(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->eq(out, op2, out);
 }
 
 static int f32_neq(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->neq(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->neq(out, op2, out);
 }
 
 static int f32_lt(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->lt(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->lt(out, op2, out);
 }
 
 static int f32_gt(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->gt(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->gt(out, op2, out);
 }
 
 static int f32_le(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->le(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->le(out, op2, out);
 }
 
 static int f32_ge(struct value *op1, struct value *op2, struct value *out)
 {
-    value_vtable(op1)->cast_to_f64(op1, out);
-    return value_vtable(out)->ge(out, op2, out);
+    value_ops(op1)->cast_to_f64(op1, out);
+    return value_ops(out)->ge(out, op2, out);
 }
 
 /*
@@ -1499,7 +1499,7 @@ static int f64_to_f64(struct value *this, struct value *out)
 
 static int f64_assign(struct value *this, struct value *src)
 {
-    return value_vtable(src)->cast_to_f64(src, this);
+    return value_ops(src)->cast_to_f64(src, this);
 }
 
 static int f64_neg(struct value *op1, struct value *out)
@@ -1589,156 +1589,115 @@ static int f64_ge(struct value *op1, struct value *op2, struct value *out)
 /*
  * Method tables.
  */
-static const struct value_operations s32_vtable = {
-    /*.cast_to_s8 =  */ s32_to_s8,
-    /*.cast_to_u8 =  */ s32_to_u8,
-    /*.cast_to_s16 = */ s32_to_s16,
-    /*.cast_to_u16 = */ s32_to_u16,
-    /*.cast_to_s32 = */ s32_to_s32,
-    /*.cast_to_u32 = */ s32_to_u32,
-    /*.cast_to_s64 = */ s32_to_s64,
-    /*.cast_to_u64 = */ s32_to_u64,
-    /*.cast_to_f32 = */ s32_to_f32,
-    /*.cast_to_f64 = */ s32_to_f64,
-    /*.assign =      */ s32_assign,
+const struct value_operations value_ops[VALUE_TYPES] = {
+    {   /* S8 */
+        s8_to_s8, s8_to_u8, s8_to_s16, s8_to_u16,
+        s8_to_s32, s8_to_u32, s8_to_s64, s8_to_u64,
+        s8_to_f32, s8_to_f64,
+        s8_assign,
 
-    /*.neg = */ s32_neg,
-    /*.not =  */ s32_not,
-    /*.compl =*/ s32_compl,
+        dummy_neg, dummy_not, dummy_compl,
+        dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
+        dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
+        dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
+    }, 
+    {   /* U8 */
+        u8_to_s8, u8_to_u8, u8_to_s16, u8_to_u16,
+        u8_to_s32, u8_to_u32, u8_to_s64, u8_to_u64,
+        u8_to_f32, u8_to_f64,
+        u8_assign,
 
-    /*.add =*/ s32_add,
-    /*.sub =*/ s32_sub,
-    /*.mul =*/ s32_mul,
-    /*.div =*/ s32_div,
-    /*.mod =*/ s32_mod,
+        dummy_neg, dummy_not, dummy_compl,
+        dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
+        dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
+        dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
+    },
+    {   /* S16 */
+        s16_to_s8, s16_to_u8, s16_to_s16, s16_to_u16,
+        s16_to_s32, s16_to_u32, s16_to_s64, s16_to_u64,
+        s16_to_f32, s16_to_f64,
+        s16_assign,
 
-    /*.and =*/ s32_and,
-    /*.xor =*/ s32_xor,
-    /*.or = */ s32_or,
-    /*.shl =*/ s32_shl,
-    /*.shr =*/ s32_shr,
+        dummy_neg, dummy_not, dummy_compl,
+        dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
+        dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
+        dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
+    },
+    {   /* U16 */
+        u16_to_s8, u16_to_u8, u16_to_s16, u16_to_u16,
+        u16_to_s32, u16_to_u32, u16_to_s64, u16_to_u64,
+        u16_to_f32, u16_to_f64,
+        u16_assign,
 
-    /*.eq = */ s32_eq,
-    /*.neq =*/ s32_neq,
-    /*.lt = */ s32_lt,
-    /*.gt = */ s32_gt,
-    /*.le = */ s32_le,
-    /*.ge = */ s32_ge
+        dummy_neg, dummy_not, dummy_compl,
+        dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
+        dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
+        dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
+    },
+    {   /* S32 */
+        s32_to_s8, s32_to_u8, s32_to_s16, s32_to_u16,
+        s32_to_s32, s32_to_u32, s32_to_s64, s32_to_u64,
+        s32_to_f32, s32_to_f64,
+        s32_assign,
+
+        s32_neg, s32_not, s32_compl,
+        s32_add, s32_sub, s32_mul, s32_div, s32_mod,
+        s32_and, s32_xor, s32_or, s32_shl, s32_shr,
+        s32_eq, s32_neq, s32_lt, s32_gt, s32_le, s32_ge
+    },
+    {   /* U32 */
+        u32_to_s8, u32_to_u8, u32_to_s16, u32_to_u16,
+        u32_to_s32, u32_to_u32, u32_to_s64, u32_to_u64,
+        u32_to_f32, u32_to_f64,
+        u32_assign,
+
+        u32_neg, u32_not, u32_compl,
+        u32_add, u32_sub, u32_mul, u32_div, u32_mod,
+        u32_and, u32_xor, u32_or, u32_shl, u32_shr,
+        u32_eq, u32_neq, u32_lt, u32_gt, u32_le, u32_ge
+    },
+    {   /* S64 */
+        s64_to_s8, s64_to_u8, s64_to_s16, s64_to_u16,
+        s64_to_s32, s64_to_u32, s64_to_s64, s64_to_u64,
+        s64_to_f32, s64_to_f64,
+        s64_assign,
+
+        s64_neg, s64_not, s64_compl,
+        s64_add, s64_sub, s64_mul, s64_div, s64_mod,
+        s64_and, s64_xor, s64_or, s64_shl, s64_shr,
+        s64_eq, s64_neq, s64_lt, s64_gt, s64_le, s64_ge
+    },
+    {   /* U64 */
+        u64_to_s8, u64_to_u8, u64_to_s16, u64_to_u16,
+        u64_to_s32, u64_to_u32, u64_to_s64, u64_to_u64,
+        u64_to_f32, u64_to_f64,
+        u64_assign,
+
+        u64_neg, u64_not, u64_compl,
+        u64_add, u64_sub, u64_mul, u64_div, u64_mod,
+        u64_and, u64_xor, u64_or, u64_shl, u64_shr,
+        u64_eq, u64_neq, u64_lt, u64_gt, u64_le, u64_ge
+    },
+    {   /* F32 */
+        f32_to_s8, f32_to_u8, f32_to_s16, f32_to_u16,
+        f32_to_s32, f32_to_u32, f32_to_s64, f32_to_u64,
+        f32_to_f32, f32_to_f64,
+        f32_assign,
+
+        f32_neg, f32_not, dummy_unop,
+        f32_add, f32_sub, f32_mul, f32_div, dummy_mod,
+        dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
+        f32_eq, f32_neq, f32_lt, f32_gt, f32_le, f32_ge
+    },
+    {   /* F64 */
+        f64_to_s8, f64_to_u8, f64_to_s16, f64_to_u16,
+        f64_to_s32, f64_to_u32, f64_to_s64, f64_to_u64,
+        f64_to_f32, f64_to_f64,
+        f64_assign,
+
+        f64_neg, f64_not, dummy_unop,
+        f64_add, f64_sub, f64_mul, f64_div, dummy_mod,
+        dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
+        f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge
+    }
 };
-
-static const struct value_operations u32_vtable = {
-    u32_to_s8, u32_to_u8, u32_to_s16, u32_to_u16,
-    u32_to_s32, u32_to_u32, u32_to_s64, u32_to_u64,
-    u32_to_f32, u32_to_f64,
-    u32_assign,
-
-    u32_neg, u32_not, u32_compl,
-    u32_add, u32_sub, u32_mul, u32_div, u32_mod,
-    u32_and, u32_xor, u32_or, u32_shl, u32_shr,
-    u32_eq, u32_neq, u32_lt, u32_gt, u32_le, u32_ge
-};
-
-static const struct value_operations s64_vtable = {
-    s64_to_s8, s64_to_u8, s64_to_s16, s64_to_u16,
-    s64_to_s32, s64_to_u32, s64_to_s64, s64_to_u64,
-    s64_to_f32, s64_to_f64,
-    s64_assign,
-
-    s64_neg, s64_not, s64_compl,
-    s64_add, s64_sub, s64_mul, s64_div, s64_mod,
-    s64_and, s64_xor, s64_or, s64_shl, s64_shr,
-    s64_eq, s64_neq, s64_lt, s64_gt, s64_le, s64_ge
-};
-
-static const struct value_operations u64_vtable = {
-    u64_to_s8, u64_to_u8, u64_to_s16, u64_to_u16,
-    u64_to_s32, u64_to_u32, u64_to_s64, u64_to_u64,
-    u64_to_f32, u64_to_f64,
-    u64_assign,
-
-    u64_neg, u64_not, u64_compl,
-    u64_add, u64_sub, u64_mul, u64_div, u64_mod,
-    u64_and, u64_xor, u64_or, u64_shl, u64_shr,
-    u64_eq, u64_neq, u64_lt, u64_gt, u64_le, u64_ge
-};
-
-static const struct value_operations s8_vtable = {
-    s8_to_s8, s8_to_u8, s8_to_s16, s8_to_u16,
-    s8_to_s32, s8_to_u32, s8_to_s64, s8_to_u64,
-    s8_to_f32, s8_to_f64,
-    s8_assign,
-
-    dummy_neg, dummy_not, dummy_compl,
-    dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
-    dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
-};
-
-static const struct value_operations u8_vtable = {
-    u8_to_s8, u8_to_u8, u8_to_s16, u8_to_u16,
-    u8_to_s32, u8_to_u32, u8_to_s64, u8_to_u64,
-    u8_to_f32, u8_to_f64,
-    u8_assign,
-
-    dummy_neg, dummy_not, dummy_compl,
-    dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
-    dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
-};
-
-static const struct value_operations s16_vtable = {
-    s16_to_s8, s16_to_u8, s16_to_s16, s16_to_u16,
-    s16_to_s32, s16_to_u32, s16_to_s64, s16_to_u64,
-    s16_to_f32, s16_to_f64,
-    s16_assign,
-
-    dummy_neg, dummy_not, dummy_compl,
-    dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
-    dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
-};
-
-static const struct value_operations u16_vtable = {
-    u16_to_s8, u16_to_u8, u16_to_s16, u16_to_u16,
-    u16_to_s32, u16_to_u32, u16_to_s64, u16_to_u64,
-    u16_to_f32, u16_to_f64,
-    u16_assign,
-
-    dummy_neg, dummy_not, dummy_compl,
-    dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
-    dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
-    dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
-};
-
-static const struct value_operations f32_vtable = {
-    f32_to_s8, f32_to_u8, f32_to_s16, f32_to_u16,
-    f32_to_s32, f32_to_u32, f32_to_s64, f32_to_u64,
-    f32_to_f32, f32_to_f64,
-    f32_assign,
-
-    f32_neg, f32_not, dummy_unop,
-    f32_add, f32_sub, f32_mul, f32_div, dummy_mod,
-    dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
-    f32_eq, f32_neq, f32_lt, f32_gt, f32_le, f32_ge
-};
-
-static const struct value_operations f64_vtable = {
-    f64_to_s8, f64_to_u8, f64_to_s16, f64_to_u16,
-    f64_to_s32, f64_to_u32, f64_to_s64, f64_to_u64,
-    f64_to_f32, f64_to_f64,
-    f64_assign,
-
-    f64_neg, f64_not, dummy_unop,
-    f64_add, f64_sub, f64_mul, f64_div, dummy_mod,
-    dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
-    f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge
-};
-
-const struct value_operations *value_vtables[] = {
-    &s8_vtable, &u8_vtable,
-    &s16_vtable, &u16_vtable,
-    &s32_vtable, &u32_vtable,
-    &s64_vtable, &u64_vtable,
-    &f32_vtable, &f64_vtable
-};
-
