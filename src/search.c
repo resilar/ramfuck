@@ -132,10 +132,10 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
         addr = region->start;
         end = addr + region->size;
         while (addr < end) {
-            if (ast_evaluate(ast, &value)) {
-                if (value_is_nonzero(&value)) {
-                    printf("%p hit\n", (void *)addr);
-                    hits_add(hits, addr, type, *ppdata);
+            if (ast_evaluate(ast, &value) && value_is_nonzero(&value)) {
+                if (!hits_add(hits, addr, type, *ppdata)) {
+                    region_idx = regions_size;
+                    break;
                 }
             }
             *ppdata = (union value_data *)((char *)*ppdata + align);
@@ -218,11 +218,9 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
             continue;
 
         *ppdata = &hits->items[i].prev;
-        if (ast_evaluate(ast, &result)) {
-            if (value_is_nonzero(&result)) {
-                printf("%p hit\n", (void *)addr);
-                hits_add(filtered, addr, value_type, &value.data);
-            }
+        if (ast_evaluate(ast, &result) && value_is_nonzero(&result)) {
+            if (!hits_add(filtered, addr, value_type, &value.data))
+                break;
         }
     }
     ramfuck_continue(ctx);
