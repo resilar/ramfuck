@@ -130,7 +130,7 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
             continue;
         *ppdata = (union value_data *)region_buf;
         region_snprint(region, snprint_buf, snprint_len_max + 1);
-        printf("%s\n", snprint_buf);
+        fprintf(stderr, "%s\n", snprint_buf);
 
         addr = region->start;
         end = addr + region->size;
