@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /*
  * Utility functions for parsing the CLI input.
@@ -693,6 +694,23 @@ static int do_search(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Measure running time of a command.
+ * Usage: time <command>
+ */
+static int do_time(struct ramfuck *ctx, const char *in)
+{
+    int rc;
+    clock_t start, end;
+
+    start = clock();
+    rc = cli_execute_line(ctx, in);
+    end = clock();
+
+    printf("%gs\n", (double)(end - start) / CLOCKS_PER_SEC);
+    return rc;
+}
+
+/*
  * Undo.
  * Usage: undo
  */
@@ -765,6 +783,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_redo(ctx, in);
     } else if (accept(&in, "search")) {
         rc = do_search(ctx, in);
+    } else if (accept(&in, "time")) {
+        rc = do_time(ctx, in);
     } else if (accept(&in, "undo")) {
         rc = do_undo(ctx, in);
     } else if (!eol(in) && do_eval(ctx, in) != 0) {
@@ -813,7 +833,7 @@ int cli_execute_format(struct ramfuck *ctx, const char *format, ...)
 
 int cli_main_loop(struct ramfuck *ctx)
 {
-    int rc;
+    int rc = 0;
     while (ramfuck_running(ctx)) {
         char *line = ramfuck_get_line(ctx);
         if (line) {
