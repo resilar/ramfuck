@@ -19,6 +19,7 @@ enum ramfuck_state {
 struct ramfuck {
     enum ramfuck_state state;
 
+    struct config *config;
     struct linereader *linereader;
 
     struct target *target;
@@ -32,7 +33,7 @@ struct ramfuck {
 #define ramfuck_running(ctx) ((ctx)->state == RUNNING)
 #define ramfuck_attached(ctx) ((ctx)->pid != 0)
 
-void ramfuck_init(struct ramfuck *ctx);
+int ramfuck_init(struct ramfuck *ctx);
 void ramfuck_destroy(struct ramfuck *ctx);
 void ramfuck_quit(struct ramfuck *ctx);
 

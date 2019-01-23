@@ -44,7 +44,6 @@ static void parse_error(struct parser *p, const char *format, ...)
 static int next_symbol(struct parser *p)
 {
     if (!lexer(&p->in, p->symbol)) {
-        parse_error(p, "lexer error");
         do { lexer(&p->in, p->symbol); } while (p->symbol->type != LEX_EOL);
         return 0;
     }

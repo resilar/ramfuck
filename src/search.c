@@ -1,6 +1,7 @@
 #include "search.h"
 
 #include "ast.h"
+#include "config.h"
 #include "eval.h"
 #include "hits.h"
 #include "opt.h"
@@ -49,7 +50,7 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
     for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
         if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
             addr_type = U64;
-        if ((mr->prot & MEM_READ) && (mr->prot & MEM_WRITE)) {
+        if ((mr->prot & ctx->config->search.prot) == ctx->config->search.prot) {
             size_t len;
             if (regions_size == regions_capacity) {
                 size_t new_size;
@@ -117,8 +118,10 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
         goto fail;
     }
 
-    if (!(align = value_sizeof(&value)))
-        align = 1;
+    if (!(align = ctx->config->search.align)) {
+        if (!(align = value_sizeof(&value)))
+            align = 1;
+    }
 
     ramfuck_break(ctx);
     for (region_idx = 0; region_idx < regions_size; region_idx++) {

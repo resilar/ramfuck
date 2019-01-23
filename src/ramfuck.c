@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE /* snprintf(3) vfprintf(3) */
 #include "ramfuck.h"
+#include "config.h"
 #include "cli.h"
 #include "hits.h"
 #include "line.h"
@@ -55,21 +56,28 @@ void dief(const char *format, ...)
     abort();
 }
 
-void ramfuck_init(struct ramfuck *ctx)
+int ramfuck_init(struct ramfuck *ctx)
 {
     ctx->state = RUNNING;
+    if (!(ctx->config = config_new()))
+        return 0;
     ctx->linereader = NULL;
     ctx->target = NULL;
     ctx->breaks = 0;
     ctx->hits = NULL;
     ctx->undo = NULL;
     ctx->redo = NULL;
+    return 1;
 }
 
 void ramfuck_destroy(struct ramfuck *ctx)
 {
     if (!ramfuck_dead(ctx)) {
         ctx->state = DEAD;
+        if (ctx->config) {
+            config_delete(ctx->config);
+            ctx->config = NULL;
+        }
         if (ctx->linereader) {
             linereader_close(ctx->linereader);
             ctx->linereader = NULL;
@@ -234,23 +242,26 @@ int main(int argc, char *argv[])
     struct ramfuck ctx;
     int rc = 0;
 
-    ramfuck_init(&ctx);
-    ramfuck_set_input_stream(&ctx, stdin);
+    if (!ramfuck_init(&ctx)) {
+        errf("main: out-of-memory for ramfuck context");
+        return 1;
+    }
 
     if (argc == 2) {
        char *end;
        unsigned long pidlu = strtoul(argv[1], &end, 10);
        if (*argv[1] && !*end) {
-           if ((rc = cli_execute_format(&ctx, "attach %lu", pidlu))) {
-               errf("main: error attaching to pid '%s'", argv[1]);
-           }
+           rc = cli_execute_format(&ctx, "attach %lu", pidlu);
        } else {
            errf("main: bad pid '%s'", argv[1]);
            rc = 1;
        }
     }
 
-    rc = rc ? rc : cli_main_loop(&ctx);
+    if (!rc) {
+        ramfuck_set_input_stream(&ctx, stdin);
+        rc = cli_main_loop(&ctx);
+    }
 
     ramfuck_destroy(&ctx);
     return rc;

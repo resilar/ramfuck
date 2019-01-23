@@ -2,6 +2,7 @@
 #include "cli.h"
 #include "ramfuck.h"
 
+#include "config.h"
 #include "eval.h"
 #include "hits.h"
 #include "lex.h"
@@ -154,6 +155,17 @@ static int do_clear(struct ramfuck *ctx, const char *in)
 
     ramfuck_set_hits(ctx, NULL);
     return 0;
+}
+
+/*
+ * Get or set config.
+ * Usage: config
+ *        config <item>
+ *        config <item> = <value>
+ */
+static int do_config(struct ramfuck *ctx, const char *in)
+{
+    return config_process_line(ctx->config, in);
 }
 
 /*
@@ -760,6 +772,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_break(ctx, in);
     } else if (accept(&in, "clear")) {
         rc = do_clear(ctx, in);
+    } else if (accept(&in, "config")) {
+        rc = do_config(ctx, in);
     } else if (accept(&in, "continue")) {
         rc = do_continue(ctx, in);
     } else if (accept(&in, "detach")) {
