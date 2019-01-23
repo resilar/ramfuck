@@ -644,8 +644,28 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Undo undo.
+ * Usage: redo
+ */
+static int do_redo(struct ramfuck *ctx, const char *in)
+{
+    if (!eol(in)) {
+        errf("redo: trailing characters");
+        return 1;
+    }
+
+    if (!ramfuck_redo(ctx)) {
+        errf("redo: redo unavailable");
+        return 2;
+    }
+
+    return 0;
+}
+
+/*
  * Initial search.
- * Usage: search <type> <expression>
+ * Usage: search <expression>
+ *        search <type> <expression>
  * where 'type' is one of: s8, u8, s16, u16, s32, u32, s64, u64, f32, f64.
  */
 static int do_search(struct ramfuck *ctx, const char *in)
@@ -670,6 +690,25 @@ static int do_search(struct ramfuck *ctx, const char *in)
     else ramfuck_set_hits(ctx, search(ctx, S32, in));
 
     return 0;
+}
+
+/*
+ * Undo.
+ * Usage: undo
+ */
+static int do_undo(struct ramfuck *ctx, const char *in)
+{
+    if (!eol(in)) {
+        errf("undo: trailing characters");
+        return 1;
+    }
+
+    if (!ramfuck_undo(ctx)) {
+        errf("undo: undo unavailable");
+        return 2;
+    }
+
+    return 1;
 }
 
 /*
@@ -719,11 +758,15 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_peek(ctx, in);
     } else if (accept(&in, "poke")) {
         rc = do_poke(ctx, in);
-    } else if (accept(&in, "search")) {
-        rc = do_search(ctx, in);
     } else if (accept(&in, "quit") || accept(&in, "q") || accept(&in, "exit")) {
         ramfuck_quit(ctx);
         rc = 0;
+    } else if (accept(&in, "redo")) {
+        rc = do_redo(ctx, in);
+    } else if (accept(&in, "search")) {
+        rc = do_search(ctx, in);
+    } else if (accept(&in, "undo")) {
+        rc = do_undo(ctx, in);
     } else if (!eol(in) && do_eval(ctx, in) != 0) {
         size_t i;
         for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);

@@ -62,6 +62,8 @@ void ramfuck_init(struct ramfuck *ctx)
     ctx->target = NULL;
     ctx->breaks = 0;
     ctx->hits = NULL;
+    ctx->undo = NULL;
+    ctx->redo = NULL;
 }
 
 void ramfuck_destroy(struct ramfuck *ctx)
@@ -82,6 +84,14 @@ void ramfuck_destroy(struct ramfuck *ctx)
         if (ctx->hits) {
             hits_delete(ctx->hits);
             ctx->hits = NULL;
+        }
+        if (ctx->undo) {
+            hits_delete(ctx->undo);
+            ctx->undo = NULL;
+        }
+        if (ctx->redo) {
+            hits_delete(ctx->redo);
+            ctx->redo = NULL;
         }
     }
 }
@@ -182,10 +192,41 @@ int ramfuck_continue(struct ramfuck *ctx)
 void ramfuck_set_hits(struct ramfuck *ctx, struct hits *hits)
 {
     if (ctx->hits != hits) {
-        if (ctx->hits)
-            hits_delete(ctx->hits);
+        if (ctx->undo)
+            hits_delete(ctx->undo);
+        ctx->undo = ctx->hits;
         ctx->hits = hits;
+        if (ctx->redo) {
+            hits_delete(ctx->redo);
+            ctx->redo = NULL;
+        }
     }
+}
+
+int ramfuck_undo(struct ramfuck *ctx)
+{
+    if (ctx->undo) {
+        if (ctx->redo)
+            hits_delete(ctx->redo);
+        ctx->redo = ctx->hits;
+        ctx->hits = ctx->undo;
+        ctx->undo = NULL;
+        return 1;
+    }
+    return 0;
+}
+
+int ramfuck_redo(struct ramfuck *ctx)
+{
+    if (ctx->redo) {
+        if (ctx->undo)
+            hits_delete(ctx->undo);
+        ctx->undo = ctx->hits;
+        ctx->hits = ctx->redo;
+        ctx->redo = NULL;
+        return 1;
+    }
+    return 0;
 }
 
 int main(int argc, char *argv[])

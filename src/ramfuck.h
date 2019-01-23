@@ -24,6 +24,8 @@ struct ramfuck {
     struct target *target;
     int breaks;
     struct hits *hits;
+    struct hits *undo;
+    struct hits *redo;
 };
 
 #define ramfuck_dead(ctx) ((ctx)->state == DEAD)
@@ -45,6 +47,8 @@ int ramfuck_break(struct ramfuck *ctx);
 int ramfuck_continue(struct ramfuck *ctx);
 
 void ramfuck_set_hits(struct ramfuck *ctx, struct hits *hits);
+int ramfuck_undo(struct ramfuck *ctx);
+int ramfuck_redo(struct ramfuck *ctx);
 
 int main(int argc, char *argv[]);
 
