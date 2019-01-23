@@ -4,7 +4,7 @@ LDLIBS += -lm
 
 BUILDDIR ?= ./build
 
-OBJS := ramfuck.o ast.o cli.o eval.o hits.o lex.o line.o mem.o opt.o parse.o ptrace.o search.o symbol.o value.o
+OBJS := ramfuck.o ast.o cli.o eval.o hits.o lex.o line.o opt.o parse.o ptrace.o search.o symbol.o target.o value.o
 OBJS := $(OBJS:%.o=$(BUILDDIR)/obj/%.o)
 
 all: $(BUILDDIR)/ramfuck

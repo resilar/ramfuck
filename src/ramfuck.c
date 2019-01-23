@@ -3,8 +3,8 @@
 #include "cli.h"
 #include "hits.h"
 #include "line.h"
-#include "mem.h"
 #include "ptrace.h"
+#include "target.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -59,7 +59,7 @@ void ramfuck_init(struct ramfuck *ctx)
 {
     ctx->state = RUNNING;
     ctx->linereader = NULL;
-    ctx->mem = mem_io_get(ctx);
+    ctx->target = NULL;
     ctx->breaks = 0;
     ctx->hits = NULL;
 }
@@ -68,19 +68,20 @@ void ramfuck_destroy(struct ramfuck *ctx)
 {
     if (!ramfuck_dead(ctx)) {
         ctx->state = DEAD;
-        if (ctx->linereader)
+        if (ctx->linereader) {
             linereader_close(ctx->linereader);
-        if (ctx->mem) {
-            if (ctx->mem->attached(ctx->mem)) {
-                if (!ctx->breaks)
-                    ctx->mem->target_break(ctx->mem);
-                ctx->mem->detach(ctx->mem);
-            }
-            mem_io_put(ctx->mem);
+            ctx->linereader = NULL;
+        }
+        if (ctx->target) {
+            if (!ctx->breaks)
+                ctx->target->stop(ctx->target);
+            target_detach(ctx->target);
+            ctx->target = NULL;
         }
         ctx->breaks = 0;
         if (ctx->hits) {
             hits_delete(ctx->hits);
+            ctx->hits = NULL;
         }
     }
 }
@@ -136,24 +137,32 @@ void ramfuck_free_line(struct ramfuck *ctx, char *line)
 int ramfuck_read(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
 {
     int ret;
-    ramfuck_break(ctx);
-    ret = ctx->mem->read(ctx->mem, addr, buf, len);
-    ramfuck_continue(ctx);
+    if (ctx->target) {
+        ramfuck_break(ctx);
+        ret = ctx->target->read(ctx->target, addr, buf, len);
+        ramfuck_continue(ctx);
+    } else {
+        ret = 0;
+    }
     return ret;
 }
 
 int ramfuck_write(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
 {
     int ret;
-    ramfuck_break(ctx);
-    ret = ctx->mem->write(ctx->mem, addr, buf, len);
-    ramfuck_continue(ctx);
+    if (ctx->target) {
+        ramfuck_break(ctx);
+        ret = ctx->target->write(ctx->target, addr, buf, len);
+        ramfuck_continue(ctx);
+    } else {
+        ret = 0;
+    }
     return ret;
 }
 
 int ramfuck_break(struct ramfuck *ctx)
 {
-    if (ctx->breaks > 0 || ctx->mem->target_break(ctx->mem)) {
+    if (ctx->target && (ctx->breaks > 0 || ctx->target->stop(ctx->target))) {
         ctx->breaks++;
         return 1;
     }
@@ -162,8 +171,8 @@ int ramfuck_break(struct ramfuck *ctx)
 
 int ramfuck_continue(struct ramfuck *ctx)
 {
-    if (ctx->breaks > 0) {
-        if (ctx->breaks > 1 || ctx->mem->target_continue(ctx->mem))
+    if (ctx->target && ctx->breaks > 0) {
+        if (ctx->breaks > 1 || ctx->target->run(ctx->target))
             ctx->breaks--;
         return 1;
     }

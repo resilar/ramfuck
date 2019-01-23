@@ -6,12 +6,12 @@
 #include "hits.h"
 #include "lex.h"
 #include "line.h"
-#include "mem.h"
 #include "opt.h"
 #include "parse.h"
 #include "ptrace.h"
 #include "search.h"
 #include "symbol.h"
+#include "target.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -80,7 +80,7 @@ static int do_attach(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (ctx->mem->attached(ctx->mem)) {
+    if (ctx->target) {
         errf("attach: already attached (detach first)");
         return 2;
     }
@@ -97,13 +97,14 @@ static int do_attach(struct ramfuck *ctx, const char *in)
         return 4;
     }
 
-    /* Confirm that we can attach to the process with PTRACE_ATTACH */
-    if (!ctx->mem->attach_pid(ctx->mem, (pid_t)pid))
+    if (!(ctx->target = target_attach_pid((pid_t)pid))) {
+        errf("attach: attaching to pid=%lu failed", (unsigned long)pid);
         return 5;
+    }
 
     ctx->breaks = 1;
     if ((ctx->breaks = !ramfuck_continue(ctx)))
-        warnf("attach: continuing attached process failed");
+        warnf("attach: continuing attached target failed");
 
     infof("attached to process %lu", pid);
     return 0;
@@ -120,8 +121,8 @@ static int do_break(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (!ctx->mem->attached(ctx->mem)) {
-        errf("break: not attached to any process");
+    if (!ctx->target) {
+        errf("break: not attached to any target");
         return 2;
     }
 
@@ -167,8 +168,8 @@ static int do_continue(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (!ctx->mem->attached(ctx->mem)) {
-        errf("continue: not attached to any process");
+    if (!ctx->target) {
+        errf("continue: not attached to any target");
         return 2;
     }
 
@@ -190,7 +191,7 @@ static int do_continue(struct ramfuck *ctx, const char *in)
 }
 
 /*
- * Detach from the target process.
+ * Detach from target.
  * Usage: detach
  */
 static int do_detach(struct ramfuck *ctx, const char *in)
@@ -199,15 +200,16 @@ static int do_detach(struct ramfuck *ctx, const char *in)
         errf("detach: trailing characters");
         return 1;
     }
-    if (!ctx->mem->attached(ctx->mem)) {
-        errf("detach: not attached to any process");
+    if (!ctx->target) {
+        errf("detach: not attached to any target");
         return 1;
     }
 
     if (!ctx->breaks && !ramfuck_break(ctx))
-        warnf("detach: stopping attached process failed");
+        warnf("detach: stopping target failed");
 
-    ctx->mem->detach(ctx->mem);
+    ctx->target->detach(ctx->target);
+    ctx->target = NULL;
     infof("detached");
     return 0;
 }
@@ -335,7 +337,7 @@ static int do_filter(struct ramfuck *ctx, const char *in)
 static int do_list(struct ramfuck *ctx, const char *in)
 {
     size_t i;
-    struct mem_io *mem;
+    struct target *mem;
 
     if (!eol(in)) {
         errf("list: trailing characters");
@@ -347,7 +349,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
         return 0;
     }
 
-    mem = ctx->mem;
+    mem = ctx->target;
     ramfuck_break(ctx);
     for (i = 0; i < ctx->hits->size; i++) {
         struct value value;
@@ -355,7 +357,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
         value.type = hit->type;
         fprintf(stdout, "%lu. *(%s *)%p = ", (unsigned long)(i+1),
                 value_type_to_string(hit->type), (void *)hit->addr);
-        if (mem->read(ctx->mem, hit->addr, &value.data, value_sizeof(&value))) {
+        if (mem->read(mem, hit->addr, &value.data, value_sizeof(&value))) {
             fprint_value(stdout, &value, 0);
         } else {
             fprintf(stdout, "???");
@@ -368,22 +370,22 @@ static int do_list(struct ramfuck *ctx, const char *in)
 }
 
 /*
- * Show memory maps of the attached process.
+ * Show memory maps of target.
  * Usage: maps
  */
 static int do_maps(struct ramfuck *ctx, const char *in)
 {
     char *buf;
     size_t size;
-    struct mem_io *mem;
-    struct mem_region *mr;
+    struct target *target;
+    struct region *mr;
 
     if (!eol(in)) {
         errf("maps: trailing characters");
         return 1;
     }
 
-    if (!ctx->mem->attached(ctx->mem)) {
+    if (!ctx->target) {
         errf("maps: attach first");
         return 2;
     }
@@ -393,15 +395,15 @@ static int do_maps(struct ramfuck *ctx, const char *in)
         return 3;
     }
 
-    mem = ctx->mem;
-    for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
-        size_t len = mem_region_snprint(mr, buf, size);
+    target = ctx->target;
+    for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
+        size_t len = region_snprint(mr, buf, size);
         if (len + 1 > size) {
             char *new = realloc(buf, len + 1);
             if (new) {
                 buf = new;
                 size = len + 1;
-                if (mem_region_snprint(mr, buf, size) != len)
+                if (region_snprint(mr, buf, size) != len)
                     warnf("maps: inconsistent memory region line formatting");
             } else {
                 errf("maps: error reallocating line buffer (will truncate)");
@@ -523,8 +525,8 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (!ctx->mem->attached(ctx->mem)) {
-        errf("poke: attach to process first (pid=0)");
+    if (!ctx->target) {
+        errf("poke: attach to target first");
         return 2;
     }
 
@@ -656,8 +658,8 @@ static int do_search(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (!ctx->mem->attached(ctx->mem)) {
-        errf("search: attach to process first (pid=0)");
+    if (!ctx->target) {
+        errf("search: attach to target first");
         return 2;
     }
 
@@ -697,7 +699,7 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     skip_spaces(&in);
     if (accept(&in, "attach")) {
         rc = do_attach(ctx, in);
-    } else if (accept(&in, "break") || accept(&in, "stop")) {
+    } else if (accept(&in, "break")) {
         rc = do_break(ctx, in);
     } else if (accept(&in, "clear")) {
         rc = do_clear(ctx, in);

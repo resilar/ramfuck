@@ -3,10 +3,10 @@
 #include "ast.h"
 #include "eval.h"
 #include "hits.h"
-#include "mem.h"
 #include "opt.h"
 #include "parse.h"
 #include "symbol.h"
+#include "target.h"
 #include "value.h"
 
 #include <stdint.h>
@@ -16,8 +16,8 @@
 struct hits *search(struct ramfuck *ctx, enum value_type type,
                     const char *expression)
 {
-    struct mem_io *mem;
-    struct mem_region *mr, *regions, *new;
+    struct target *target;
+    struct region *mr, *regions, *new;
     size_t regions_size, regions_capacity;
     size_t region_size_max, region_idx, snprint_len_max;
     char *region_buf, *snprint_buf;
@@ -38,15 +38,15 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
 
     regions_size = 0;
     regions_capacity = 16;
-    if (!(regions = calloc(regions_capacity, sizeof(struct mem_region)))) {
+    if (!(regions = calloc(regions_capacity, sizeof(struct region)))) {
         errf("search: out-of-memory for address regions");
         return NULL;
     }
 
-    mem = ctx->mem;
     addr_type = U32;
     region_size_max = snprint_len_max = 0;
-    for (mr = mem->region_first(mem); mr; mr = mem->region_next(mr)) {
+    target = ctx->target;
+    for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
         if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
             addr_type = U64;
         if ((mr->prot & MEM_READ) && (mr->prot & MEM_WRITE)) {
@@ -54,7 +54,7 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
             if (regions_size == regions_capacity) {
                 size_t new_size;
                 regions_capacity *= 2;
-                new_size = sizeof(struct mem_region) * regions_capacity;
+                new_size = sizeof(struct region) * regions_capacity;
                 if (!(new = realloc(regions, new_size))) {
                     errf("search: out-of-memory for address regions");
                     goto fail;
@@ -62,16 +62,16 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
                 regions = new;
             }
 
-            mem_region_copy(&regions[regions_size++], mr);
+            region_copy(&regions[regions_size++], mr);
 
             if (region_size_max < mr->size)
                 region_size_max = mr->size;
 
-            if (snprint_len_max < (len = mem_region_snprint(mr, NULL, 0)))
+            if (snprint_len_max < (len = region_snprint(mr, NULL, 0)))
                 snprint_len_max = len;
         }
     }
-    if (!(new = realloc(regions, sizeof(struct mem_region) * regions_size))) {
+    if (!(new = realloc(regions, sizeof(struct region) * regions_size))) {
         errf("search: error truncating allocated address regions");
         goto fail;
     }
@@ -122,11 +122,11 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
 
     ramfuck_break(ctx);
     for (region_idx = 0; region_idx < regions_size; region_idx++) {
-        const struct mem_region *region = &regions[region_idx];
-        if (!mem->read(mem, region->start, region_buf, region->size))
+        const struct region *region = &regions[region_idx];
+        if (!target->read(target, region->start, region_buf, region->size))
             continue;
         *ppdata = (union value_data *)region_buf;
-        mem_region_snprint(region, snprint_buf, snprint_len_max + 1);
+        region_snprint(region, snprint_buf, snprint_len_max + 1);
         printf("%s\n", snprint_buf);
 
         addr = region->start;
@@ -153,7 +153,7 @@ fail:
     if (hits) hits_delete(hits);
     free(snprint_buf);
     free(region_buf);
-    while (regions_size) mem_region_destroy(&regions[--regions_size]);
+    while (regions_size) region_destroy(&regions[--regions_size]);
     free(regions);
     return ret;
 }
@@ -161,8 +161,8 @@ fail:
 struct hits *filter(struct ramfuck *ctx, struct hits *hits,
                     const char *expression)
 {
-    struct parser parser;
     struct symbol_table *symtab;
+    struct parser parser;
     struct ast *ast, *opt;
     struct hits *filtered, *ret;
     struct value value;
@@ -208,9 +208,10 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
 
     ramfuck_break(ctx);
     for (i = 0; i < hits->size; i++) {
+        struct target *target = ctx->target;
         addr = hits->items[i].addr;
         value.type = hits->items[i].type;
-        if (!ctx->mem->read(ctx->mem, addr, &value.data, value_sizeof(&value)))
+        if (!target->read(target, addr, &value.data, value_sizeof(&value)))
             continue;
 
         *ppdata = &hits->items[i].prev;

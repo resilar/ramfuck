@@ -20,10 +20,9 @@ struct ramfuck {
     enum ramfuck_state state;
 
     struct linereader *linereader;
-    struct mem_io *mem;
-    
-    int breaks;
 
+    struct target *target;
+    int breaks;
     struct hits *hits;
 };
 

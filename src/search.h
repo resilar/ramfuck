@@ -3,8 +3,6 @@
 
 #include "ramfuck.h"
 #include "hits.h"
-#include "mem.h"
-#include "value.h"
 
 /*
  * Search a value of type 'type' from a process specified by 'pid'.
