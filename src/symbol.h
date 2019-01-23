@@ -49,8 +49,6 @@ void symbol_table_delete(struct symbol_table *symtab);
  */
 size_t symbol_table_add(struct symbol_table *symtab, const char *name,
                         enum value_type type, union value_data *pdata);
-size_t symbol_table_add_value(struct symbol_table *symtab, const char *name,
-                              struct value *value);
 
 /*
  * Symbol table lookup by name of length `len`.

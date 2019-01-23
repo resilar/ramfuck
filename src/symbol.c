@@ -76,12 +76,6 @@ size_t symbol_table_add(struct symbol_table *symtab, const char *name,
     return symtab->size;
 }
 
-size_t symbol_table_add_value(struct symbol_table *symtab, const char *name,
-                              struct value *value)
-{
-    return symbol_table_add(symtab, name, value->type, &value->data);
-}
-
 size_t symbol_table_lookup(struct symbol_table *symtab,
                            const char *name, size_t len)
 {
