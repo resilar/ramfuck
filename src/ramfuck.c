@@ -59,6 +59,7 @@ void dief(const char *format, ...)
 int ramfuck_init(struct ramfuck *ctx)
 {
     ctx->state = RUNNING;
+    ctx->rc = 0;
     if (!(ctx->config = config_new()))
         return 0;
     ctx->linereader = NULL;
@@ -74,6 +75,7 @@ void ramfuck_destroy(struct ramfuck *ctx)
 {
     if (!ramfuck_dead(ctx)) {
         ctx->state = DEAD;
+        ctx->rc = 0;
         if (ctx->config) {
             config_delete(ctx->config);
             ctx->config = NULL;

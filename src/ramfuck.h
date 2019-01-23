@@ -18,6 +18,7 @@ enum ramfuck_state {
 
 struct ramfuck {
     enum ramfuck_state state;
+    int rc;
 
     struct config *config;
     struct linereader *linereader;

@@ -26,6 +26,11 @@
 /*
  * Utility functions for parsing the CLI input.
  */
+static int eol(const char *p)
+{
+    return !*p;
+}
+
 static void skip_spaces(const char **pin)
 {
     while (**pin && isspace(**pin)) (*pin)++;
@@ -43,11 +48,6 @@ static int accept(const char **pin, const char *what)
     return 0;
 }
 
-static int eol(const char *p)
-{
-    return *p == '\0';
-}
-
 static size_t fprint_value(FILE *stream, const struct value *value, int typed)
 {
     char buf[256], *p;
@@ -56,7 +56,7 @@ static size_t fprint_value(FILE *stream, const struct value *value, int typed)
         if (len < SIZE_MAX && (p = malloc(len + 1))) {
             value_to_string(value, p, len + 1);
         } else {
-            errf("p: out-of-memory for %lu-byte value string", (unsigned long)len);;
+            errf("cli: out-of-memory for %lu-byte value string", (unsigned long)len);
             p = buf;
         }
     }
@@ -88,7 +88,7 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
 
     pid = strtoul(in, &end, 10);
-    if (*end != '\0' || pid != (pid_t)pid) {
+    if (*end || pid != (pid_t)pid) {
         errf("attach: invalid pid");
         return 3;
     }
@@ -165,7 +165,7 @@ static int do_clear(struct ramfuck *ctx, const char *in)
  */
 static int do_config(struct ramfuck *ctx, const char *in)
 {
-    return config_process_line(ctx->config, in);
+    return !config_process_line(ctx->config, in);
 }
 
 /*
@@ -328,6 +328,8 @@ static int do_explain(struct ramfuck *ctx, const char *in)
  */
 static int do_filter(struct ramfuck *ctx, const char *in)
 {
+    struct hits *hits;
+
     if (eol(in)) {
         errf("filter: expression expected");
         return 1;
@@ -338,8 +340,11 @@ static int do_filter(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    ramfuck_set_hits(ctx, filter(ctx, ctx->hits, in));
+    hits = filter(ctx, ctx->hits, in);
+    if (hits == ctx->hits)
+        return 3;
 
+    ramfuck_set_hits(ctx, hits);
     return 0;
 }
 
@@ -350,7 +355,7 @@ static int do_filter(struct ramfuck *ctx, const char *in)
 static int do_list(struct ramfuck *ctx, const char *in)
 {
     size_t i;
-    struct target *mem;
+    struct target *tg;
 
     if (!eol(in)) {
         errf("list: trailing characters");
@@ -362,7 +367,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
         return 0;
     }
 
-    mem = ctx->target;
+    tg = ctx->target;
     ramfuck_break(ctx);
     for (i = 0; i < ctx->hits->size; i++) {
         struct value value;
@@ -370,7 +375,8 @@ static int do_list(struct ramfuck *ctx, const char *in)
         value.type = hit->type;
         fprintf(stdout, "%lu. *(%s *)%p = ", (unsigned long)(i+1),
                 value_type_to_string(hit->type), (void *)hit->addr);
-        if (mem->read(mem, hit->addr, &value.data, value_sizeof(&value))) {
+
+        if (tg && tg->read(tg, hit->addr, &value.data, value_sizeof(&value))) {
             fprint_value(stdout, &value, 0);
         } else {
             fprintf(stdout, "???");
@@ -565,20 +571,21 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     if (type) {
         index = -1;
     } else {
+        long index1;
         char *end;
-        if (!('0' <= *in && *in <= '9')) {
+        if (!isdigit(*(in + (*in == '-')))) {
             errf("poke: invalid hit index (not a number)");
             return 5;
         }
-        index = strtol(in, &end, 0);
         if (!ctx->hits || !ctx->hits->size) {
             errf("poke: bad index %ld (0 hits)");
             return 6;
         }
-        index = (index < 0) ? index + ctx->hits->size : index - 1;
+        index1 = strtol(in, &end, 0);
+        index = (index1 < 0) ? index1 + ctx->hits->size : index1 - 1;
         if (!(0 <= index && index < ctx->hits->size)) {
             errf("poke: bad index %ld not in 1..%lu",
-                 index, (unsigned long)ctx->hits->size);
+                 index1, (unsigned long)ctx->hits->size);
             return 6;
         }
         addr = ctx->hits->items[index].addr;
@@ -685,6 +692,7 @@ static int do_search(struct ramfuck *ctx, const char *in)
 {
     const char *p;
     enum value_type type;
+    struct hits *hits;
 
     if (eol(in)) {
         errf("search: missing type");
@@ -699,9 +707,13 @@ static int do_search(struct ramfuck *ctx, const char *in)
     skip_spaces(&in);
     for (p = in; *p && !isspace(*p); p++);
     if (isspace(*p) && (type = value_type_from_substring(in, (size_t)(p - in))))
-        ramfuck_set_hits(ctx, search(ctx, type, p));
-    else ramfuck_set_hits(ctx, search(ctx, S32, in));
+        hits = search(ctx, type, p);
+    else hits = search(ctx, S32, in);
 
+    if (!hits)
+        return 3;
+
+    ramfuck_set_hits(ctx, hits);
     return 0;
 }
 
@@ -738,7 +750,7 @@ static int do_undo(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    return 1;
+    return 0;
 }
 
 /*
@@ -766,7 +778,9 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
 {
     int rc = 0;
     skip_spaces(&in);
-    if (accept(&in, "attach")) {
+    if (accept(&in, "and")) {
+        rc = ctx->rc ? ctx->rc : cli_execute_line(ctx, in);
+    } else if (accept(&in, "attach")) {
         rc = do_attach(ctx, in);
     } else if (accept(&in, "break")) {
         rc = do_break(ctx, in);
@@ -782,6 +796,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_explain(ctx, in);
     } else if (accept(&in, "filter") || accept(&in, "next")) {
         rc = do_filter(ctx, in);
+    } else if (accept(&in, "or")) {
+        rc = ctx->rc ? cli_execute_line(ctx, in) : ctx->rc;
     } else if (accept(&in, "ls") || accept(&in, "list")) {
         rc = do_list(ctx, in);
     } else if (accept(&in, "m") || accept(&in, "maps") || accept(&in, "mem")) {
@@ -805,8 +821,10 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         size_t i;
         for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);
         errf("cli: unknown command '%.*s'", (int)i, in);
+        rc = 1;
     }
-    return rc;
+
+    return (ctx->rc = rc);
 }
 
 int cli_execute_format(struct ramfuck *ctx, const char *format, ...)
@@ -847,15 +865,20 @@ int cli_execute_format(struct ramfuck *ctx, const char *format, ...)
 
 int cli_main_loop(struct ramfuck *ctx)
 {
-    int rc = 0;
     while (ramfuck_running(ctx)) {
         char *line = ramfuck_get_line(ctx);
         if (line) {
-            rc = cli_execute_line(ctx, line);
+            char *start, *end;
+            for (start = line; (end = strchr(start, ';')); start = end + 1) {
+                *end = '\0';
+                cli_execute_line(ctx, start);
+                *end = ';';
+            }
+            cli_execute_line(ctx, start);
             ramfuck_free_line(ctx, line);
         } else {
             ramfuck_quit(ctx);
         }
     }
-    return rc;
+    return ctx->rc;
 }
