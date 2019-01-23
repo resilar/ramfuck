@@ -161,27 +161,29 @@ fail:
 struct hits *filter(struct ramfuck *ctx, struct hits *hits,
                     const char *expression)
 {
+    struct target *target;
     struct symbol_table *symtab;
     struct parser parser;
     struct ast *ast, *opt;
     struct hits *filtered, *ret;
-    struct value value;
+    struct value value, result;
     union value_data **ppdata;
-    enum value_type addr_type;
+    enum value_type addr_type, value_type;
     uintptr_t addr;
     size_t i;
 
-    symtab = NULL;
     ast = NULL;
-    filtered = ret = NULL;
+    symtab = NULL;
+    filtered = NULL;
 
+    ret = hits;
     addr_type = hits->addr_type;
-    value.type = hits->value_type;
+    value_type = hits->value_type;
     if ((symtab = symbol_table_new(ctx))) {
         size_t prev_sym;
         symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
-        symbol_table_add(symtab, "value", value.type, &value.data);
-        prev_sym = symbol_table_add(symtab, "prev", value.type, NULL);
+        symbol_table_add(symtab, "value", value_type, &value.data);
+        prev_sym = symbol_table_add(symtab, "prev", value_type, NULL);
         ppdata = &symtab->symbols[prev_sym]->pdata;
     } else {
         errf("filter: error creating new symbol table");
@@ -193,6 +195,7 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
 
     if ((filtered = hits_new())) {
         filtered->addr_type = addr_type;
+        filtered->value_type = value_type;
     } else {
         errf("filter: error allocating filtered hits container");
         goto fail;
@@ -207,18 +210,18 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
     }
 
     ramfuck_break(ctx);
+    target = ctx->target;
     for (i = 0; i < hits->size; i++) {
-        struct target *target = ctx->target;
         addr = hits->items[i].addr;
         value.type = hits->items[i].type;
         if (!target->read(target, addr, &value.data, value_sizeof(&value)))
             continue;
 
         *ppdata = &hits->items[i].prev;
-        if (ast_evaluate(ast, &value)) {
-            if (value_is_nonzero(&value)) {
+        if (ast_evaluate(ast, &result)) {
+            if (value_is_nonzero(&result)) {
                 printf("%p hit\n", (void *)addr);
-                hits_add(filtered, addr, value.type, &value.data);
+                hits_add(filtered, addr, value_type, &value.data);
             }
         }
     }

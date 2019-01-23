@@ -181,9 +181,11 @@ int ramfuck_continue(struct ramfuck *ctx)
 
 void ramfuck_set_hits(struct ramfuck *ctx, struct hits *hits)
 {
-    if (ctx->hits)
-        hits_delete(ctx->hits);
-    ctx->hits = hits;
+    if (ctx->hits != hits) {
+        if (ctx->hits)
+            hits_delete(ctx->hits);
+        ctx->hits = hits;
+    }
 }
 
 int main(int argc, char *argv[])

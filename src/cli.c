@@ -709,7 +709,7 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_detach(ctx, in);
     } else if (accept(&in, "explain")) {
         rc = do_explain(ctx, in);
-    } else if (accept(&in, "filter")) {
+    } else if (accept(&in, "filter") || accept(&in, "next")) {
         rc = do_filter(ctx, in);
     } else if (accept(&in, "ls") || accept(&in, "list")) {
         rc = do_list(ctx, in);
