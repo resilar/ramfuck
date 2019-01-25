@@ -22,7 +22,7 @@ static int process_detach(struct target *target)
 {
     struct target_process *process = (struct target_process *)target;
     int rc = 1;
-    if (process->pid && ptrace_detach(process->pid)) {
+    if (process->pid) {
         process->pid = 0;
     } else rc = 0;
     if (process->mem_fd != -1) {
@@ -36,13 +36,13 @@ static int process_detach(struct target *target)
 int process_stop(struct target *target)
 {
     struct target_process *process = (struct target_process *)target;
-    return ptrace_break(process->pid);
+    return ptrace_attach(process->pid);
 }
 
 int process_run(struct target *target)
 {
     struct target_process *process = (struct target_process *)target;
-    return ptrace_continue(process->pid);
+    return ptrace_detach(process->pid);
 }
 
 struct process_region_iter {
@@ -168,7 +168,7 @@ struct target *target_attach_pid(pid_t pid)
 
     struct target_process *process;
     if ((process = malloc(sizeof(*process)))) {
-        if (ptrace_attach(pid)) {
+        if (ptrace_attach(pid) && ptrace_detach(pid)) {
             char mem_path[128];
             memcpy(&process->target, &process_init, sizeof(struct target));
             process->pid = pid;

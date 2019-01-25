@@ -90,7 +90,6 @@ int ptrace_read(pid_t pid, const void *addr, void *buf, size_t len)
     }
     if (!errno)
         errno = errnold;
-    else perror("ptrace: PEEKDATA");
     return !len;
 }
 
@@ -129,6 +128,5 @@ size_t ptrace_write(pid_t pid, void *addr, void *buf, size_t len)
     }
     if (!errno)
         errno = errnold;
-    else perror("ptrace: PEEKDATA");
     return n - len;
 }

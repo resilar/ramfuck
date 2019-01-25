@@ -103,10 +103,7 @@ static int do_attach(struct ramfuck *ctx, const char *in)
         errf("attach: attaching to pid=%lu failed", (unsigned long)pid);
         return 5;
     }
-
-    ctx->breaks = 1;
-    if ((ctx->breaks = !ramfuck_continue(ctx)))
-        warnf("attach: continuing attached target failed");
+    ctx->breaks = 0;
 
     infof("attached to process %lu", pid);
     return 0;

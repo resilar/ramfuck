@@ -212,7 +212,8 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
         ast = opt;
     }
 
-    ramfuck_break(ctx);
+    if (!ramfuck_break(ctx))
+        goto fail;
     target = ctx->target;
     for (i = 0; i < hits->size; i++) {
         addr = hits->items[i].addr;
