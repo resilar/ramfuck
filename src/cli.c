@@ -808,7 +808,7 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_poke(ctx, in);
     } else if (accept(&in, "quit") || accept(&in, "q") || accept(&in, "exit")) {
         ramfuck_quit(ctx);
-        rc = 0;
+        rc = ctx->rc;
     } else if (accept(&in, "redo")) {
         rc = do_redo(ctx, in);
     } else if (accept(&in, "search")) {
@@ -827,6 +827,22 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     return (ctx->rc = rc);
 }
 
+int cli_execute(struct ramfuck *ctx, char *in)
+{
+    int rc = 0;
+    char *start, *end, *comment;
+    for (start = in; start; start = end ? end + 1 : NULL) {
+        if ((end = strchr(start, '\n')))
+            *end = '\0';
+        if ((comment = strchr(start, '#')))
+            *comment = '\0';
+        rc = cli_execute_line(ctx, start);
+        if (comment) *comment = '#';
+        if (end) *end = '\n';
+    }
+    return rc;
+}
+
 int cli_execute_format(struct ramfuck *ctx, const char *format, ...)
 {
     va_list args;
@@ -839,19 +855,19 @@ int cli_execute_format(struct ramfuck *ctx, const char *format, ...)
     va_end(args);
 
     if (len < sizeof(buf)-1) {
-        rc = cli_execute_line(ctx, buf);
+        rc = cli_execute(ctx, buf);
     } else {
         int ok;
         char *p;
         if ((p = malloc(len + 1))) {
             va_start(args, format);
-            ok = (vsnprintf(p, len + 1, format, args) == len);
+            ok = vsnprintf(p, len + 1, format, args) == len;
             va_end(args);
             if (ok) {
-                rc = cli_execute_line(ctx, p);
+                rc = cli_execute(ctx, p);
             } else {
                 errf("cli: inconsistent command formatting");
-                rc = 1;
+                rc = 2;
             }
             free(p);
         } else {
@@ -868,13 +884,7 @@ int cli_main_loop(struct ramfuck *ctx)
     while (ramfuck_running(ctx)) {
         char *line = ramfuck_get_line(ctx);
         if (line) {
-            char *start, *end;
-            for (start = line; (end = strchr(start, ';')); start = end + 1) {
-                *end = '\0';
-                cli_execute_line(ctx, start);
-                *end = ';';
-            }
-            cli_execute_line(ctx, start);
+            cli_execute(ctx, line);
             ramfuck_free_line(ctx, line);
         } else {
             ramfuck_quit(ctx);
