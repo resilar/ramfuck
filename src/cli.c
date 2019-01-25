@@ -228,7 +228,7 @@ static int do_detach(struct ramfuck *ctx, const char *in)
 }
 
 /*
- * Explain expression, i.e., print in Reverse Polish Notation RPN).
+ * Explain expression, i.e., print in Reverse Polish Notation (RPN).
  * Usage: explain <expr>
  */
 static int do_explain(struct ramfuck *ctx, const char *in)
