@@ -87,7 +87,10 @@ struct ast *parse_expression(struct parser *p, const char *in)
     p->accepted = &p->tokens[1];
     memset(p->tokens, 0, sizeof(p->tokens));
     next_symbol(p);
-    if ((out = expression(p))) {
+    if (accept(p, LEX_EOL)) {
+        parse_error(p, "empty input");
+        out = NULL;
+    } else if ((out = expression(p))) {
         if (p->symbol->type != LEX_EOL) {
             parse_error(p, "EOL expected");
             do { next_symbol(p); } while (p->symbol->type != LEX_EOL);
@@ -96,8 +99,6 @@ struct ast *parse_expression(struct parser *p, const char *in)
             ast_delete(out);
             out = NULL;
         }
-    } else if (p->errors == errors) {
-        parse_error(p, "empty input");
     }
 
     return out;
