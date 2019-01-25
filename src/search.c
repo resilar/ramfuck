@@ -72,6 +72,10 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
                 snprint_len_max = len;
         }
     }
+    if (!regions_size) {
+        errf("search: no memory regions to scan");
+        goto fail;
+    }
     if (!(new = realloc(regions, sizeof(struct region) * regions_size))) {
         errf("search: error truncating allocated address regions");
         goto fail;
