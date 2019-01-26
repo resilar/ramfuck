@@ -827,15 +827,21 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
 int cli_execute(struct ramfuck *ctx, char *in)
 {
     int rc = 0;
-    char *start, *end, *comment;
-    for (start = in; start; start = end ? end + 1 : NULL) {
-        if ((end = strchr(start, '\n')))
-            *end = '\0';
-        if ((comment = strchr(start, '#')))
+    char *ln_start, *ln_end;
+    for (ln_start = in; ln_start; ln_start = ln_end ? ln_end + 1 : NULL) {
+        char *comment, *start, *end;
+        if ((ln_end = strchr(ln_start, '\n')))
+            *ln_end = '\0';
+        if ((comment = strchr(ln_start, '#')))
             *comment = '\0';
-        rc = cli_execute_line(ctx, start);
+        for (start = ln_start; start; start = end ? end + 1 : NULL) {
+            if ((end = strchr(start, ';')))
+                *end = '\0';
+            rc = cli_execute_line(ctx, start);
+            if (end) *end = ';';
+        }
         if (comment) *comment = '#';
-        if (end) *end = '\n';
+        if (ln_end) *end = '\n';
     }
     return rc;
 }
