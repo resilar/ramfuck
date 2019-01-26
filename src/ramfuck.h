@@ -10,6 +10,8 @@ void dbgf(const char *format, ...);
 void errf(const char *format, ...);
 void dief(const char *format, ...);
 
+void human_readable_size(size_t bytes, int *size, char *suffix);
+
 enum ramfuck_state {
     DEAD = 0,
     RUNNING,
@@ -25,6 +27,7 @@ struct ramfuck {
 
     struct target *target;
     int breaks;
+    int addr_size;
     struct hits *hits;
     struct hits *undo;
     struct hits *redo;

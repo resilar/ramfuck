@@ -1,15 +1,9 @@
 #define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "value.h"
 
+#include <ctype.h>
 #include <memory.h>
 #include <stdio.h>
-
-int value_init(struct value *dest, enum value_type type, void *pvalue)
-{
-    dest->type = type;
-    memcpy(&dest->data, pvalue, value_sizeof(dest));
-    return 1;
-}
 
 int value_init_s8(struct value *dest, int8_t value)
 {
@@ -95,9 +89,10 @@ const char *value_type_to_string(enum value_type type)
 {
     switch (type)
     {
-    case SINT: return "sint";
-    case UINT: return "uint";
-    case FPU:  return "fpu";
+    case INT: return "int";
+    case FPU: return "fpu";
+
+    case PTR: return "void *";
 
     case S8:  return "s8";
     case S16: return "s16";
@@ -111,6 +106,19 @@ const char *value_type_to_string(enum value_type type)
 
     case F32: return "f32";
     case F64: return "f64";
+
+    case S8PTR:  return "s8 *";
+    case S16PTR: return "s16 *";
+    case S32PTR: return "s32 *";
+    case S64PTR: return "s64 *";
+
+    case U8PTR:  return "u8 *";
+    case U16PTR: return "u16 *";
+    case U32PTR: return "u32 *";
+    case U64PTR: return "u64 *";
+
+    case F32PTR: return "f32 *";
+    case F64PTR: return "f64 *";
 
     default: break;
     }
@@ -134,6 +142,13 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     case F32: return snprintf(out, size, "%g", value->data.f32);
     case F64: return snprintf(out, size, "%g", value->data.f64);
 
+    case S8PTR: case U8PTR:
+    case S16PTR: case U16PTR:
+    case S32PTR: case U32PTR:
+    case S64PTR: case U64PTR:
+    case F32PTR: case F64PTR:
+    return snprintf(out, size, "%p", (void *)value->data.u64);
+
     default: break;
     }
     return snprintf(out, size, "???");
@@ -146,26 +161,50 @@ enum value_type value_type_from_string(const char *str)
 
 enum value_type value_type_from_substring(const char *str, size_t len)
 {
-    if (!memcmp(str, "s8", len)) {
-        return S8;
-    } else if (!memcmp(str, "s16", len)) {
-        return S16;
-    } else if (!memcmp(str, "s32", len)) {
-        return S32;
-    } else if (!memcmp(str, "s64", len)) {
-        return S64;
-    } else if (!memcmp(str, "u8", len)) {
-        return U8;
-    } else if (!memcmp(str, "u16", len)) {
-        return U16;
-    } else if (!memcmp(str, "u32", len)) {
-        return U32;
-    } else if (!memcmp(str, "u64", len)) {
-        return U64;
-    } else if (!memcmp(str, "f32", len)) {
-        return F32;
-    } else if (!memcmp(str, "f64", len)) {
-        return F64;
+    size_t i, j;
+    enum value_type mask = 0;
+    while (len && isspace(*str)) { len--; str++; }
+    for (i = 0; i < len && !isspace(str[i]) && str[i] != '*'; i++);
+    for (j = i; j < len && isspace(str[j]); j++);
+    if (j < len) {
+        if (str[j] == '*') {
+            for (j++; j < len && isspace(str[j]); j++);
+            mask |= PTR;
+        } /* else if (str[j] == '[') { ... } */
+    }
+
+    if (j == len && (i == 2 || i == 3)) {
+        len = i;
+        if (*str == 's') {
+            if (len == 2) {
+                if (str[1] == '8')
+                    return S8 | mask;
+            } else {
+                if (str[1] == '1' && str[2] == '6')
+                    return S16 | mask;
+                if (str[1] == '3' && str[2] == '2')
+                    return S32 | mask;
+                if (str[1] == '6' && str[2] == '4')
+                    return S64 | mask;
+            }
+        } else if (*str == 'u') {
+            if (len == 2) {
+                if (str[1] == '8')
+                    return U8 | mask;
+            } else  {
+                if (str[1] == '1' && str[2] == '6')
+                    return U16 | mask;
+                if (str[1] == '3' && str[2] == '2')
+                    return U32 | mask;
+                if (str[1] == '6' && str[2] == '4')
+                    return U64 | mask;
+            }
+        } else if (*str == 'f' && len == 3) {
+            if (str[1] == '3' && str[2] == '2')
+                return F32 | mask;
+            if (str[1] == '6' && str[2] == '4')
+                return F64 | mask;
+        }
     }
 
     return 0;

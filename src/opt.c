@@ -3,8 +3,10 @@
 
 static struct ast *ast_var_optimize(struct ast *this)
 {
-    return ast_var_new(((struct ast_var *)this)->symtab,
-                       ((struct ast_var *)this)->sym);
+    struct ast_var *var = (struct ast_var *)this;
+    struct ast *opt = ast_var_new(var->symtab, var->sym, var->size);
+    if (opt) opt->value_type = this->value_type;
+    return opt;
 }
 
 static struct ast *ast_value_optimize(struct ast *this)
@@ -50,11 +52,28 @@ static struct ast *ast_binop_optimize(struct ast *this)
     return ast;
 }
 
+static struct ast *ast_cast_optimize(struct ast *this)
+{
+    if ((this->value_type & PTR)) {
+        struct ast *child = ast_optimize(((struct ast_unop *)this)->child);
+        return ast_cast_new(this->value_type, child);
+    }
+    return ast_unop_optimize(this);
+}
+
+static struct ast *ast_deref_optimize(struct ast *this)
+{
+    struct target *target = ((struct ast_deref *)this)->target;
+    struct ast *child = ast_optimize(((struct ast_unop *)this)->child);
+    return ast_deref_new(child, this->value_type, target);
+}
+
 struct ast *(*ast_optimize_funcs[AST_TYPES])(struct ast *) = {
     /* AST_VALUE */ ast_value_optimize,
     /* AST_VAR   */ ast_var_optimize,
 
-    /* AST_CAST  */ ast_unop_optimize,
+    /* AST_CAST  */ ast_cast_optimize,
+    /* AST_DEREF */ ast_deref_optimize,
     /* AST_USUB  */ ast_unop_optimize,
     /* AST_NOT   */ ast_unop_optimize,
     /* AST_COMPL */ ast_unop_optimize,

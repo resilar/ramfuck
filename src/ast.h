@@ -18,7 +18,7 @@ enum ast_type {
     AST_VALUE=0, AST_VAR,
 
     /* Unary operators */
-    AST_CAST, AST_NEG, AST_NOT, AST_COMPL,
+    AST_CAST, AST_DEREF, AST_NEG, AST_NOT, AST_COMPL,
 
     /* Binary operators */
     AST_ADD, AST_SUB, AST_MUL, AST_DIV, AST_MOD,
@@ -45,7 +45,10 @@ struct ast {
     enum value_type value_type;
 };
 
-#define ast_is_constant(t) ((t)->node_type < AST_VAR)
+#define ast_is_constant(ast) ((ast)->node_type < AST_VAR)
+#define ast_is_compare(ast) ((ast)->node_type >= AST_EQ)
+#define ast_type_is_compare(type) ((type) >= AST_EQ)
+#define ast_type_is_conditional(type) ((type) >= AST_AND_COND)
 
 struct ast_binop {
     struct ast root;
@@ -60,14 +63,25 @@ struct ast_unop {
 /*
  * AST nodes.
  */
-struct ast_value { struct ast root; struct value value; };
+struct ast_value {
+    struct ast root;
+    struct value value;
+};
+
 struct ast_var {
     struct ast root;
     struct symbol_table *symtab;
     size_t sym;
+    size_t size;
 };
 
 struct ast_cast  { struct ast_unop root; };
+
+struct ast_deref {
+    struct ast_unop root;
+    struct target *target;
+};
+
 struct ast_neg   { struct ast_unop root; };
 struct ast_not   { struct ast_unop root; };
 struct ast_compl { struct ast_unop root; };
@@ -97,11 +111,14 @@ struct ast_or_cond  { struct ast_binop root; };
  * Routines and macros for allocating & initializing AST nodes.
  */
 struct ast *ast_value_new(struct value *value);
-struct ast *ast_var_new(struct symbol_table *symtab, size_t sym);
+struct ast *ast_var_new(struct symbol_table *symtab, size_t sym, size_t size);
+
 struct ast *ast_cast_new(enum value_type value_type, struct ast *child);
+struct ast *ast_deref_new(struct ast *child, enum value_type value_type,
+                          struct target *target);
 
 struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
-#define ast_neg_new(c)  ast_unop_new(AST_NEG, (c))
+#define ast_neg_new(c)   ast_unop_new(AST_NEG, (c))
 #define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
 #define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))
 

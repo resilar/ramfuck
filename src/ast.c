@@ -21,7 +21,7 @@ struct ast *ast_value_new(struct value *value)
     return (struct ast *)n;
 }
 
-struct ast *ast_var_new(struct symbol_table *symtab, size_t sym)
+struct ast *ast_var_new(struct symbol_table *symtab, size_t sym, size_t size)
 {
     struct ast_var *n;
     if ((n = malloc(sizeof(struct ast_var)))) {
@@ -29,6 +29,7 @@ struct ast *ast_var_new(struct symbol_table *symtab, size_t sym)
         n->root.value_type = symtab->symbols[sym]->type;
         n->symtab = symtab;
         n->sym = sym;
+        n->size = size ? size : value_type_sizeof(n->root.value_type);
     }
     return (struct ast *)n;
 }
@@ -40,6 +41,19 @@ struct ast *ast_cast_new(enum value_type value_type, struct ast *child)
         n->root.node_type = AST_CAST;
         n->root.value_type = value_type;
         n->child = child;
+    }
+    return (struct ast *)n;
+}
+
+struct ast *ast_deref_new(struct ast *child, enum value_type value_type,
+                          struct target *target)
+{
+    struct ast_unop *n;
+    if ((n = malloc(sizeof(struct ast_deref)))) {
+        n->root.node_type = AST_DEREF;
+        n->root.value_type = value_type;
+        n->child = child;
+        ((struct ast_deref *)n)->target = target;
     }
     return (struct ast *)n;
 }
@@ -92,6 +106,7 @@ void (*ast_delete_funcs[AST_TYPES])(struct ast *) = {
     /* AST_VAR   */ ast_leaf_delete,
 
     /* AST_CAST  */ ast_unop_delete,
+    /* AST_DEREF */ ast_unop_delete,
     /* AST_NEG   */ ast_unop_delete,
     /* AST_NOT   */ ast_unop_delete,
     /* AST_COMPL */ ast_unop_delete,
@@ -163,8 +178,9 @@ static size_t ast_value_snprint(struct ast *this, char *out, size_t size)
 static size_t ast_var_snprint(struct ast *this, char *out, size_t size)
 {
     struct ast_var *var = (struct ast_var *)this;
+    const char *type = value_type_to_string(this->value_type);
     const char *name = symbol_name(var->symtab->symbols[var->sym]);
-    return snprintf(out, size, "%s", name);
+    return snprintf(out, size, "(%s)%s", type, name);
 }
 
 static size_t ast_cast_snprint(struct ast *this, char *out, size_t size)
@@ -196,6 +212,11 @@ static size_t ast_unop_snprint(struct ast *this, const char *op,
         len += snprintf(out+len, size-len, " %s", op);
     else len += snprintf(NULL, 0, " %s", op);
     return len;
+}
+
+static size_t ast_deref_snprint(struct ast *this, char *out, size_t size)
+{
+    return ast_unop_snprint(this, "u*", out, size);
 }
 
 static size_t ast_binop_snprint(struct ast *this, const char *op,
@@ -334,6 +355,7 @@ size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *, size_t) = {
     /* AST_VAR   */ ast_var_snprint,
 
     /* AST_CAST  */ ast_cast_snprint,
+    /* AST_DEREF */ ast_deref_snprint,
     /* AST_NEG   */ ast_neg_snprint,
     /* AST_NOT   */ ast_not_snprint,
     /* AST_COMPL */ ast_compl_snprint,

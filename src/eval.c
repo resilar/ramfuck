@@ -1,5 +1,8 @@
 #include "eval.h"
 #include "symbol.h"
+#include "target.h"
+
+#include <string.h>
 
 static int ast_value_evaluate(struct ast *this, struct value *out)
 {
@@ -10,15 +13,39 @@ static int ast_value_evaluate(struct ast *this, struct value *out)
 static int ast_var_evaluate(struct ast *this, struct value *out)
 {
     struct ast_var *var = (struct ast_var *)this;
-    const struct symbol *sym = var->symtab->symbols[var->sym];
-    return value_init(out, sym->type, sym->pdata);
+    out->type = this->value_type;
+    memcpy(&out->data, var->symtab->symbols[var->sym]->pdata, var->size);
+    return 1;
 }
 
 static int ast_cast_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
+    if ((this->value_type & PTR)) {
+        struct ast_cast *cast = (struct ast_cast *)this;
+        if (ast_evaluate(cast->root.child, &value)) {
+            enum value_type addr_type = cast->root.child->value_type;
+            if (value_type_ops(addr_type)->assign(out, &value)) {
+                out->type = this->value_type;
+                return 1;
+            }
+        }
+        return 0;
+    }
     return ast_evaluate(((struct ast_unop *)this)->child, &value)
         && value_type_ops(this->value_type)->assign(out, &value);
+}
+
+static int ast_deref_evaluate(struct ast *this, struct value *out)
+{
+    struct value value;
+    if (ast_evaluate(((struct ast_unop *)this)->child, &value)) {
+        struct target *target = ((struct ast_deref *)this)->target;
+        uintptr_t addr = (value.type == U64) ? value.data.u64 : value.data.u32;
+        out->type = this->value_type;
+        return target->read(target, addr, &out->data, value_sizeof(out));
+    }
+    return 0;
 }
 
 static int ast_neg_evaluate(struct ast *this, struct value *out)
@@ -219,6 +246,7 @@ int (*ast_evaluate_funcs[AST_TYPES])(struct ast *, struct value *) = {
     /* AST_VAR   */ ast_var_evaluate,
 
     /* AST_CAST  */ ast_cast_evaluate,
+    /* AST_DEREF */ ast_deref_evaluate,
     /* AST_NEG   */ ast_neg_evaluate,
     /* AST_NOT   */ ast_not_evaluate,
     /* AST_COMPL */ ast_compl_evaluate,

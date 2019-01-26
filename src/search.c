@@ -105,6 +105,8 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
 
     parser_init(&parser);
     parser.symtab = symtab;
+    parser.addr_type = addr_type;
+    parser.target = ctx->target;
     if (!(ast = parse_expression(&parser, expression))) {
         errf("search: %d parse errors", parser.errors);
         goto fail;
@@ -199,6 +201,8 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
 
     parser_init(&parser);
     parser.symtab = symtab;
+    parser.addr_type = addr_type;
+    parser.target = ctx->target;
 
     if ((filtered = hits_new())) {
         filtered->addr_type = addr_type;
@@ -220,9 +224,11 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
         goto fail;
     target = ctx->target;
     for (i = 0; i < hits->size; i++) {
+        size_t size;
         addr = hits->items[i].addr;
         value.type = hits->items[i].type;
-        if (!target->read(target, addr, &value.data, value_sizeof(&value)))
+        size = value_type_sizeof((value.type & PTR) ? addr_type : value.type);
+        if (!target->read(target, addr, &value.data, size))
             continue;
 
         *ppdata = &hits->items[i].prev;

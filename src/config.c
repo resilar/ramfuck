@@ -10,9 +10,9 @@ static int accept(const char **pin, const char *what)
     size_t i;
     for (i = 0; what[i] && what[i] == (*pin)[i]; i++);
     if (!what[i] && (!(*pin)[i] || (*pin)[i] == '=' || isspace((*pin)[i]))) {
-        for (*pin += i; **pin && isspace(**pin); (*pin)++);
+        for (*pin += i; isspace(**pin); (*pin)++);
         i = **pin == '=';
-        for (*pin += i; **pin && isspace(**pin); (*pin)++);
+        for (*pin += i; isspace(**pin); (*pin)++);
         return 1;
     }
     return 0;

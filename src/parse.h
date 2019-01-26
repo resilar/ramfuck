@@ -5,12 +5,16 @@
 #include "ast.h"
 #include "lex.h"
 #include "symbol.h"
+#include "value.h"
 
 struct parser {
     const char *in;
     struct symbol_table *symtab;
     int quiet;
     int errors;
+    enum value_type addr_type;
+    struct target *target;
+    int has_deref;
 
     /* Internal */
     struct lex_token *symbol;   /* symbol being processed */

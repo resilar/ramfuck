@@ -9,26 +9,24 @@
  * Rank is used in (implicit) value type conversions.
  */
 enum value_type {
-    SINT = 0x000100,
-    S8   = 0x000101, SBYTE  = S8,
-    S16  = 0x020102, SWORD  = S16,
-    S32  = 0x040104, SDWORD = S32,
-    S64  = 0x060108, SQWORD = S64,
-
-    UINT = 0x000200,
-    U8   = 0x010201, BYTE  = U8,
-    U16  = 0x030202, WORD  = U16,
-    U32  = 0x050204, DWORD = U32,
-    U64  = 0x070208, QWORD = U64,
- 
-    INT = UINT | SINT,
-
-    FPU = 0x000400,
-    F32 = 0x080400 | sizeof(float),
-    F64 = 0x090400 | sizeof(double),
+    INT = 0x000100,
+    FPU = 0x000200,
 
     PTR = 0x100000,
     ARR = 0x200000,
+
+    S8  = 0x000101, S8PTR  = S8  | PTR,
+    S16 = 0x020102, S16PTR = S16 | PTR,
+    S32 = 0x040104, S32PTR = S32 | PTR,
+    S64 = 0x060108, S64PTR = S64 | PTR,
+
+    U8  = 0x010101, U8PTR  = U8  | PTR,
+    U16 = 0x030102, U16PTR = U16 | PTR,
+    U32 = 0x050104, U32PTR = U32 | PTR,
+    U64 = 0x070108, U64PTR = U64 | PTR,
+
+    F32 = 0x080200 | sizeof(float),  F32PTR = F32 | PTR,
+    F64 = 0x090200 | sizeof(double), F64PTR = F64 | PTR,
 
     VALUE_TYPES = 4 + 4 + 2
 };
@@ -43,13 +41,11 @@ union value_data {
     uint16_t u16;
     uint32_t u32;
     uint64_t u64;
-    uintmax_t uint;
 
     int8_t s8;
     int16_t s16;
     int32_t s32;
     int64_t s64;
-    intmax_t sint;
 
     float f32;
     double f64;
@@ -112,7 +108,6 @@ const struct value_operations value_ops[VALUE_TYPES];
  * Initialize value structure.
  * The caller does not have to free/destroy initialized values.
  */
-int value_init(struct value *dest, enum value_type type, void *pvalue);
 int value_init_s8(struct value *dest, int8_t value);
 int value_init_u8(struct value *dest, uint8_t value);
 int value_init_s16(struct value *dest, int16_t value);

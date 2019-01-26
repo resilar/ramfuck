@@ -33,7 +33,7 @@ static int eol(const char *p)
 
 static void skip_spaces(const char **pin)
 {
-    while (**pin && isspace(**pin)) (*pin)++;
+    while (isspace(**pin)) (*pin)++;
 }
 
 static int accept(const char **pin, const char *what)
@@ -46,6 +46,29 @@ static int accept(const char **pin, const char *what)
         return 1;
     }
     return 0;
+}
+
+static enum value_type accept_type(const char **in)
+{
+    enum value_type type;
+    const char *start, *end, *new;
+    skip_spaces(in);
+    start = *in;
+    if (*start == '(') {
+        for (end = ++start; *end && *end != '(' && *end != ')'; end++);
+        if (*end != ')')
+            return 0;
+        new = end + 1;
+    } else {
+        while (isspace(*start)) start++;
+        for (end = start; *end && !isspace(*end); end++);
+        for (new = end; isspace(*new); new++);
+    }
+    if ((type = value_type_from_substring(start, end-start))) {
+        *in = new;
+        skip_spaces(in);
+    }
+    return type;
 }
 
 static size_t fprint_value(FILE *stream, const struct value *value, int typed)
@@ -76,6 +99,13 @@ static int do_attach(struct ramfuck *ctx, const char *in)
 {
     char *end;
     unsigned long pid;
+    size_t regions, size;
+    struct target *target;
+    struct region *mr;
+    struct {
+        int size;
+        char suffix;
+    } human;
 
     if (eol(in)) {
         errf("attach: missing pid");
@@ -105,7 +135,25 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
     ctx->breaks = 0;
 
-    infof("attached to process %lu", pid);
+    regions = size = 0;
+    target = ctx->target;
+    for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
+        if ((mr->start + mr->size-1) > UINT32_MAX)
+            break;
+        size += mr->size;
+        regions++;
+    }
+    if (mr) {
+        do { size += mr->size; regions++; }
+        while ((mr = target->region_next(mr)));
+        ctx->addr_size = sizeof(uint64_t);
+    } else {
+        ctx->addr_size = sizeof(uint32_t);
+    }
+
+    human_readable_size(size, &human.size, &human.suffix);
+    infof("attached to process %lu (%d%c / %lu memory regions)",
+          pid, human.size, human.suffix, (unsigned long)regions);
     return 0;
 }
 
@@ -241,19 +289,25 @@ static int do_explain(struct ramfuck *ctx, const char *in)
     /* Isn't it pretty? Like a Down's child */
     if ((symtab = symbol_table_new(ctx))) {
         struct parser parser;
-        struct value value;
+        struct value value, address;
         struct ast *ast;
         value_init_s32(&value, 42);
         symbol_table_add(symtab, "value", S32, &value.data);
+        value_init_u64(&address, 0x123456789ABCDEF);
+        symbol_table_add(symtab, "pointer", U16PTR, &address.data);
         parser_init(&parser);
         parser.symtab = symtab;
+        parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+        parser.target = ctx->target;
 
         if ((ast = parse_expression(&parser, in))) {
-            struct value out;
+            struct value out = {0};
             printf("rpn: ");
             ast_print(ast);
             printf("\n");
 
+            if (parser.has_deref)
+                ramfuck_break(ctx);
             if (ast_evaluate(ast, &out)) {
                 struct ast *ast_opt;
                 if ((ast_opt = ast_optimize(ast))) {
@@ -263,33 +317,23 @@ static int do_explain(struct ramfuck *ctx, const char *in)
                     printf("\n");
 
                     if (ast_evaluate(ast_opt, &out_opt)) {
-                        struct ast *ast_check;
-                        struct ast *l = ast_value_new(&out);
-                        struct ast *r = ast_value_new(&out_opt);
-                        if (l && l->value_type < S32)
-                            l = ast_cast_new(S32, l);
-                        if (r && r->value_type < S32)
-                            r = ast_cast_new(S32, r);
-                        if (l && r && (ast_check = ast_eq_new(l, r))) {
-                            struct value out_check;
-                            if (ast_evaluate(ast_check, &out_check)) {
-                                if (value_is_nonzero(&out_check)) {
-                                    fprint_value(stdout, &out, 1);
-                                    fputc('\n', stdout);
-                                    rc = 0;
-                                } else {
-                                    errf("explain: invalid optimization");
-                                    rc = 9;
-                                }
+                        struct value *l = &out;
+                        struct value *r = &out_opt;
+                        if (l->type == r->type) {
+                            size_t size;
+                            if (l->type & PTR)
+                                size = value_type_sizeof(parser.addr_type);
+                            else size = value_sizeof(l);
+                            if (!memcmp(&l->data, &r->data, size)) {
+                                fprint_value(stdout, &out, 1);
+                                fputc('\n', stdout);
+                                rc = 0;
                             } else {
-                                errf("explain: evaluation of check AST failed");
+                                errf("explain: optimization gives wrong value");
                                 rc = 8;
                             }
-                            ast_delete(ast_check);
                         } else {
-                            ast_delete(l);
-                            ast_delete(r);
-                            errf("explain: creation of check AST failed");
+                            errf("explain: optimization gives wrong type");
                             rc = 7;
                         }
                     } else {
@@ -305,6 +349,8 @@ static int do_explain(struct ramfuck *ctx, const char *in)
                 errf("explain: evaluation of AST failed");
                 rc = 4;
             }
+            if (parser.has_deref)
+                ramfuck_continue(ctx);
             ast_delete(ast);
         } else {
             errf("explain: %d parse errors", parser.errors);
@@ -352,7 +398,7 @@ static int do_filter(struct ramfuck *ctx, const char *in)
 static int do_list(struct ramfuck *ctx, const char *in)
 {
     size_t i;
-    struct target *tg;
+    struct target *target;
 
     if (!eol(in)) {
         errf("list: trailing characters");
@@ -364,16 +410,17 @@ static int do_list(struct ramfuck *ctx, const char *in)
         return 0;
     }
 
-    tg = ctx->target;
+    target = ctx->target;
     ramfuck_break(ctx);
     for (i = 0; i < ctx->hits->size; i++) {
-        struct value value;
+        size_t size;
+        struct value value = {0};
         struct hit *hit = &ctx->hits->items[i];
         value.type = hit->type;
+        size = (hit->type & PTR) ? ctx->addr_size : value_sizeof(&value);
         fprintf(stdout, "%lu. *(%s *)%p = ", (unsigned long)(i+1),
                 value_type_to_string(hit->type), (void *)hit->addr);
-
-        if (tg && tg->read(tg, hit->addr, &value.data, value_sizeof(&value))) {
+        if (target && target->read(target, hit->addr, &value.data, size)) {
             fprint_value(stdout, &value, 0);
         } else {
             fprintf(stdout, "???");
@@ -439,13 +486,13 @@ static int do_maps(struct ramfuck *ctx, const char *in)
  */
 static int do_peek(struct ramfuck *ctx, const char *in)
 {
-    const char *p;
     enum value_type type;
     struct parser parser;
     struct ast *ast, *cast;
     uint64_t addr;
     int64_t index;
     struct value out;
+    size_t size;
     int ret;
 
     if (eol(in)) {
@@ -453,19 +500,15 @@ static int do_peek(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    type = 0;
-    skip_spaces(&in);
-    for (p = in; *p && !isspace(*p); p++);
-    if ((type = value_type_from_substring(in, (size_t)(p - in)))) {
-        skip_spaces(&p);
-        in = p;
-    }
+    type = accept_type(&in);
     if (eol(in)) {
-        errf("peek: address expression expected");
+        errf("peek: %s expression expected", type ? "address" : "hit index");
         return 2;
     }
 
     parser_init(&parser);
+    parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+    parser.target = ctx->target;
     if (!(ast = parse_expression(&parser, in))) {
         errf("peek: %d parse errors", parser.errors);
         return 3;
@@ -477,7 +520,9 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     }
     ast = cast;
 
+    if (parser.has_deref) ramfuck_break(ctx);
     ret = ast_evaluate(ast, &out);
+    if (parser.has_deref) ramfuck_continue(ctx);
     ast_delete(ast);
     if (!ret) {
         errf("peek: evaluating %s failed", (type ? "address" : "hit index"));
@@ -505,10 +550,12 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     }
 
     out.type = type;
+    size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
+
     if (index != -1)
         fprintf(stdout, "%ld. ", (long)(index + 1));
     fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
-    if (ramfuck_read(ctx, addr, &out.data, value_sizeof(&out))) {
+    if (ramfuck_read(ctx, addr, &out.data, size)) {
         fprint_value(stdout, &out, 0);
     } else {
         fprintf(stdout, "%s", "???");
@@ -524,7 +571,6 @@ static int do_peek(struct ramfuck *ctx, const char *in)
  */
 static int do_poke(struct ramfuck *ctx, const char *in)
 {
-    const char *p;
     enum value_type type;
     long index;
     uintptr_t addr;
@@ -534,6 +580,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     struct parser parser;
     struct ast *ast, *cast;
     struct value out;
+    size_t size;
     int ret;
 
     if (eol(in)) {
@@ -546,23 +593,18 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    type = 0;
-    skip_spaces(&in);
-    for (p = in; *p && !isspace(*p); p++);
-    if ((type = value_type_from_substring(in, (size_t)(p - in)))) {
+    if ((type = accept_type(&in))) {
         struct lex_token token;
-        skip_spaces(&p);
-        if (eol(p)) {
+        if (eol(in)) {
             errf("poke: address expected");
             return 3;
         }
-        if (!lexer(&p, &token) || (token.type != LEX_INTEGER
+        if (!lexer(&in, &token) || (token.type != LEX_INTEGER
                                 && token.type != LEX_UINTEGER)) {
             errf("poke: invalid address");
             return 4;
         }
         addr = (uintptr_t)token.value.integer;
-        in = p;
     }
 
     if (type) {
@@ -597,27 +639,30 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     }
 
     parser_init(&parser);
+    parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+    parser.target = ctx->target;
+    size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
     if (strstr(in, "addr") || strstr(in, "value") /* hack ... */) {
         if (!(symtab = symbol_table_new(ctx))) {
             errf("poke: out-of-memory for symbol table");
             return 9;
         }
         if (strstr(in, "addr")) {
-            if (addr <= UINT32_MAX) {
-                addr32 = (uint32_t)addr;
-                symbol_table_add(symtab, "addr", U32, (void *)&addr32);
-            } else {
+            if (parser.addr_type == U64) {
                 addr64 = (uint64_t)addr;
                 symbol_table_add(symtab, "addr", U64, (void *)&addr64);
+            } else {
+                addr32 = (uint32_t)addr;
+                symbol_table_add(symtab, "addr", U32, (void *)&addr32);
             }
         }
         if (strstr(in, "value")) {
             out.type = type;
-            if (ramfuck_read(ctx, addr, &out.data, value_sizeof(&out))) {
+            if (ramfuck_read(ctx, addr, &out.data, size)) {
                 symbol_table_add(symtab, "value", out.type, &out.data);
             } else {
                 errf("poke: error reading %lu-byte value from address %p",
-                     (unsigned long)value_sizeof(&out), (void *)addr);
+                     (unsigned long)size, (void *)addr);
                 return 10;
             }
         }
@@ -630,7 +675,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         errf("poke: %d parse errors", parser.errors);
         return 11;
     }
-    if (!(cast = ast_cast_new(type, ast))) {
+    if (!(cast = ast_cast_new((type & PTR) ? parser.addr_type : type, ast))) {
         errf("poke: out-of-memory for typecast AST");
         if (symtab) symbol_table_delete(symtab);
         ast_delete(ast);
@@ -638,7 +683,9 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     }
     ast = cast;
 
+    if (parser.has_deref) ramfuck_break(ctx);
     ret = ast_evaluate(ast, &out);
+    if (parser.has_deref) ramfuck_continue(ctx);
     if (symtab) symbol_table_delete(symtab);
     ast_delete(ast);
     if (!ret) {
@@ -646,12 +693,13 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         return 13;
     }
 
-    if (!ramfuck_write(ctx, addr, &out.data, value_sizeof(&out))) {
+    if (!ramfuck_write(ctx, addr, &out.data, size)) {
         errf("poke: error writing %lu bytes to address %p",
-             (unsigned long)value_sizeof(&out), (void *)addr);
+             (unsigned long)size, (void *)addr);
         return 14;
     }
 
+    out.type = type;
     if (index != -1)
         fprintf(stdout, "%ld. ", index + 1);
     fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
@@ -687,7 +735,6 @@ static int do_redo(struct ramfuck *ctx, const char *in)
  */
 static int do_search(struct ramfuck *ctx, const char *in)
 {
-    const char *p;
     enum value_type type;
     struct hits *hits;
 
@@ -701,12 +748,10 @@ static int do_search(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    skip_spaces(&in);
-    for (p = in; *p && !isspace(*p); p++);
-    if (isspace(*p) && (type = value_type_from_substring(in, (size_t)(p - in))))
-        hits = search(ctx, type, p);
-    else hits = search(ctx, S32, in);
+    if (!(type = accept_type(&in)))
+        type = S32;
 
+    hits = search(ctx, type, in);
     if (!hits)
         return 3;
 
@@ -758,17 +803,23 @@ static int do_eval(struct ramfuck *ctx, const char *in)
 {
     struct parser parser;
     struct ast *ast;
+    int ret;
     parser_init(&parser);
     parser.quiet = 1;
+    parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+    parser.target = ctx->target;
     if ((ast = parse_expression(&parser, in))) {
-        struct value out;
-        if (ast_evaluate(ast, &out)) {
+        struct value out = {0};
+        if (parser.has_deref) ramfuck_break(ctx);
+        ret = ast_evaluate(ast, &out);
+        if (parser.has_deref) ramfuck_continue(ctx);
+        ast_delete(ast);
+        if (ret) {
             fprint_value(stdout, &out, 0);
             fputc('\n', stdout);
         }
-        ast_delete(ast);
     }
-    return parser.errors;
+    return (parser.errors || !ast) ? 1 : (ret ? 0 : 2);
 }
 
 int cli_execute_line(struct ramfuck *ctx, const char *in)
@@ -814,11 +865,10 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_time(ctx, in);
     } else if (accept(&in, "undo")) {
         rc = do_undo(ctx, in);
-    } else if (!eol(in) && do_eval(ctx, in) != 0) {
+    } else if (!eol(in) && (rc = do_eval(ctx, in)) == 1) {
         size_t i;
         for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);
         errf("cli: unknown command '%.*s'", (int)i, in);
-        rc = 1;
     }
 
     return (ctx->rc = rc);
