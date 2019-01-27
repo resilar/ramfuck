@@ -44,7 +44,7 @@ static char *fgets_reader_get_line(struct linereader *reader,
     /* Clear previous line */
     if (this->len) {
         errf("line: get_line() called twice without free_line() in between");
-        memset(this->buf, '\0', this->len);
+        *this->buf = '\0';
         this->len = 0;
     }
 
@@ -58,12 +58,13 @@ static char *fgets_reader_get_line(struct linereader *reader,
         if (this->buf[this->len-1] == '\n') {
             this->buf[--this->len] = '\0';
             return this->buf;
-        } else {
-            char *new = realloc(this->buf, (this->capacity *= 2));
+        } else if (this->capacity - this->len < 2) {
+            char *new = realloc(this->buf, this->capacity * 2);
             if (!new) {
                 errf("line: out-of-memory");
                 return NULL;
             }
+            this->capacity *= 2;
             this->buf = new;
         }
     }
@@ -76,7 +77,7 @@ static void fgets_reader_free_line(struct linereader *reader, char *line)
 {
     struct fgets_reader *this = (struct fgets_reader *)reader;
     if (line == this->buf) {
-        memset(this->buf, '\0', this->len);
+        *this->buf = '\0';
         this->len = 0;
     } else {
         errf("line: fgets_reader_free_line() received invalid line pointer");
@@ -107,7 +108,7 @@ static struct fgets_reader *fgets_reader_get(FILE *in)
     if (this) {
         memcpy(this, &reader_c_init, sizeof(struct fgets_reader));
         this->in = in;
-        this->buf = calloc(this->capacity, sizeof(char));
+        this->buf = malloc(this->capacity);
         if (!this->buf) {
             errf("line: out-of-memory for fgets_reader buffer of BUFSIZ bytes");
             free(this);
