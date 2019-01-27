@@ -133,7 +133,7 @@ static int process_read(struct target *target,
             ssize_t ret = pread(process->mem_fd, buf, len, (off_t)addr);
             if (ret == -1) {
                 if (errno != EINTR || ++errors == 3)
-                    return 0;
+                    break;
             } else {
                 buf = (char *)buf + ret;
                 len -= ret;
