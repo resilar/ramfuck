@@ -235,9 +235,9 @@ size_t region_snprint(const struct region *mr, char *out, size_t size)
     } else {
         suffix = '?';
     }
-    return snprintf(out, size, "%p-%p %3d%c %c%c%c %s",
+    return snprintf(out, size, "%p-%p %3u%c %c%c%c %s",
                     (void *)mr->start, (void *)(mr->start + mr->size),
-                    hsize ? (int)hsize : 1, suffix,
+                    (unsigned int)hsize, suffix,
                     (mr->prot & MEM_READ) ? 'r' : '-',
                     (mr->prot & MEM_WRITE) ? 'w' : '-',
                     (mr->prot & MEM_EXECUTE) ? 'e' : '-',
