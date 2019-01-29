@@ -4,9 +4,9 @@
 
 #include <ctype.h>
 #include <limits.h>
-#include <math.h>
 #include <memory.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define get(pin) ((++*pin)[-1])
 #define unget(pin) ((*pin)--)
@@ -90,6 +90,7 @@ static enum scan_error scan_number(const char **pin, struct lex_token *out)
     uintmax_t value, fraction, exponent;
     int digits, fraction_digits, exponent_digits;
     int base, has_exponent, neg_exponent, is_float;
+    const char *pin0 = *pin;
     dvalue = 0.0;
     value = fraction = exponent = 0;
     digits = fraction_digits = exponent_digits = 0;
@@ -174,14 +175,19 @@ static enum scan_error scan_number(const char **pin, struct lex_token *out)
         }
     }
 
-    if (!digits && !fraction_digits && !exponent_digits)
+    if (!digits && !fraction_digits && !exponent_digits && !dvalue)
         return EMPTY_NUMBER;
 
     /* Fill token */
     if (is_float) {
+        char *end;
         out->type = LEX_FLOATING_POINT;
-        out->value.fp = (dvalue + fraction*pow(10, -fraction_digits))
+        /*
+        out->value.fp = (dvalue + fraction * pow(10, -fraction_digits))
                         * pow(10, has_exponent * exponent);
+        */
+        out->value.fp = strtod(pin0, &end);
+        *pin = end;
     } else {
         if (accept(pin, 'u') || accept(pin, 'U')
                 || (INT32_MAX < value && value <= UINT32_MAX)

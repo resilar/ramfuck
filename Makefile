@@ -2,7 +2,7 @@ BUILDDIR ?= build
 
 CFLAGS ?= -g
 CFLAGS += -Wall -std=c89 -pedantic
-LDLIBS += -lm
+LDLIBS ?=
 
 INCS += -I$(BUILDDIR)/include
 
