@@ -3,6 +3,7 @@
 #include "ramfuck.h"
 #include "ptrace.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,32 +52,50 @@ struct process_region_iter {
     FILE* fd;
 };
 
+/*
+ * /proc/pid/maps format:
+ * address           perms offset  dev   inode   pathname
+ * 00400000-00580000 r-xp 00000000 fe:01 4858009 /usr/lib/nethack/nethack
+ */
 static struct region *process_region_iter_next(struct region *it)
 {
     if (it) {
-        int n;
-        void *start, *end;
-        char perms[4];
-        it->path[0] = '\0';
-        n = fscanf(((struct process_region_iter *)it)->fd,
-                   "%p-%p %c%c%c%c %*[^ ] %*[^ ] %*[^ ]%*[ ]%4095[^\n]",
-                   &start, &end, &perms[0], &perms[1], &perms[2], &perms[3],
-                   it->path);
-        if (n >= 6) {
-            it->start = (uintptr_t)start;
-            it->size = (size_t)((uintptr_t)end - (uintptr_t)start);
-            it->prot = 0;
-            if (perms[0] == 'r') it->prot |= MEM_READ;
-            if (perms[1] == 'w') it->prot |= MEM_WRITE;
-            if (perms[2] == 'x') it->prot |= MEM_EXECUTE;
-        } else {
-            if (n > 0) errf("target: invalid /proc/pid/maps format");
-            fclose(((struct process_region_iter *)it)->fd);
-            free(it);
-            it = NULL;
+        char range[256];
+        addr_t start, end;
+        if (fscanf(((struct process_region_iter *)it)->fd, "%255[^ ]", range)) {
+            char *p = strchr(range, '-');
+            if (p && strlen(p+1 + strspn(p+1, "0")) * 4 <= ADDR_BITS) {
+                char perms[4];
+                *((struct process_region_iter *)it)->pathbuf = '\0';
+                if (sscanf(range, "%" PRIaddr "-%" PRIaddr, &start, &end) == 2
+                 && fscanf(((struct process_region_iter *)it)->fd,
+                           " %c%c%c%c %*[^ ] %*[^ ] %*[^ ]%*[ ]%4095[^\n]",
+                           &perms[0], &perms[1], &perms[2], &perms[3],
+                           ((struct process_region_iter *)it)->pathbuf) >= 4) {
+                    it->start = start;
+                    it->size = end - start;
+                    it->prot = 0;
+                    if (perms[0] == 'r') it->prot |= MEM_READ;
+                    if (perms[1] == 'w') it->prot |= MEM_WRITE;
+                    if (perms[2] == 'x') it->prot |= MEM_EXECUTE;
+                    it->path = ((struct process_region_iter *)it)->pathbuf;
+                    it->path += isspace(*it->path);
+                    if (!*it->path)
+                        it->path = NULL;
+                    return it;
+                } else {
+                    errf("target: invalid /proc/pid/maps format");
+                }
+            } else if (p) {
+                warnf("target: process memory addresses exceed supported "
+                      "%u bits", (unsigned int)ADDR_BITS);
+            }
         }
+        fclose(((struct process_region_iter *)it)->fd);
+        free(it);
+        it = NULL;
     }
-    return it;
+    return NULL;
 }
 
 static struct region *process_region_iter_first(struct target *target)
@@ -102,7 +121,7 @@ static struct region *process_region_iter_first(struct target *target)
     return it ? process_region_iter_next((struct region *)it) : NULL;
 }
 
-static struct region *process_region_at(struct target *target, uintptr_t addr)
+static struct region *process_region_at(struct target *target, addr_t addr)
 {
     struct region *it = process_region_iter_first(target);
     while ((it = process_region_iter_next(it))) {
@@ -122,16 +141,24 @@ static void process_region_put(struct region *region)
     free(region);
 }
 
-static int process_read(struct target *target,
-                        uintptr_t addr, void *buf, size_t len)
+static int process_ptrace_read(struct target_process *process,
+                               addr_t addr, void *buf, size_t len)
 {
-    struct target_process *process = (struct target_process *)target;
-    int errors = 0;
 
-    if (process->mem_fd != -1 && len > sizeof(uint64_t)) {
-        do {
+    return (uintptr_t)addr == addr
+        && ptrace_read(process->pid, (const void *)(uintptr_t)addr, buf, len);
+}
+
+static int process_pread_read(struct target_process *process,
+                              addr_t addr, void *buf, size_t len)
+{
+    if (process->mem_fd != -1) {
+        int errnold = errno;
+        int errors = 0;
+        errno = 0;
+        while (len > 0) {
             ssize_t ret = pread(process->mem_fd, buf, len, (off_t)addr);
-            if (ret == -1) {
+            if (ret <= 0) {
                 if (errno != EINTR || ++errors == 3)
                     break;
             } else {
@@ -139,17 +166,64 @@ static int process_read(struct target *target,
                 len -= ret;
                 addr += ret;
             }
-        } while (len > 0);
+        }
+        errno = errnold;
     }
-
-    return !len || ptrace_read(process->pid, (const void *)addr, buf, len);
+    return !len;
 }
 
-static int process_write(struct target *target, uintptr_t addr, void *buf,
+static int process_read(struct target *target,
+                        addr_t addr, void *buf, size_t len)
+{
+    struct target_process *process = (struct target_process *)target;
+    if (len <= sizeof(long)) {
+        return process_ptrace_read(process, addr, buf, len)
+            || process_pread_read(process, addr, buf, len);
+    }
+    return process_pread_read(process, addr, buf, len)
+        || process_ptrace_read(process, addr, buf, len);
+}
+
+static int process_ptrace_write(struct target_process *process,
+                                addr_t addr, void *buf, size_t len)
+{
+    return (uintptr_t)addr == addr
+        && ptrace_write(process->pid, (void *)(uintptr_t)addr, buf, len);
+}
+
+static int process_pwrite_write(struct target_process *process,
+                                addr_t addr, void *buf, size_t len)
+{
+    if (process->mem_fd != -1) {
+        int errnold = errno;
+        int errors = 0;
+        errno = 0;
+        while (len > 0) {
+            ssize_t ret = pwrite(process->mem_fd, buf, len, (off_t)addr);
+            if (ret <= 0) {
+                if ((errno != EAGAIN && errno != EINTR) || ++errors == 3)
+                    break;
+            } else {
+                buf = (char *)buf + ret;
+                len -= ret;
+                addr += ret;
+            }
+        }
+        errno = errnold;
+    }
+    return !len;
+}
+
+static int process_write(struct target *target, addr_t addr, void *buf,
                          size_t len)
 {
     struct target_process *process = (struct target_process *)target;
-    return ptrace_write(process->pid, (void *)addr, buf, len);
+    if (len <= sizeof(long)) {
+        return process_ptrace_write(process, addr, buf, len)
+            || process_pwrite_write(process, addr, buf, len);
+    }
+    return process_pwrite_write(process, addr, buf, len)
+        || process_ptrace_write(process, addr, buf, len);
 }
 
 struct target *target_attach_pid(pid_t pid)
@@ -173,8 +247,10 @@ struct target *target_attach_pid(pid_t pid)
             memcpy(&process->target, &process_init, sizeof(struct target));
             process->pid = pid;
             sprintf(mem_path, "/proc/%lu/mem", (unsigned long)pid);
-            if ((process->mem_fd = open(mem_path, O_RDONLY)) == -1)
-                warnf("target: open(%s) failed", mem_path);
+            if ((process->mem_fd = open(mem_path, O_RDWR)) == -1) {
+                if ((process->mem_fd = open(mem_path, O_RDONLY)) == -1)
+                    warnf("target: open(%s) failed", mem_path);
+            }
         } else {
             free(process);
             process = NULL;
@@ -235,13 +311,14 @@ size_t region_snprint(const struct region *mr, char *out, size_t size)
     } else {
         suffix = '?';
     }
-    return snprintf(out, size, "%p-%p %3u%c %c%c%c %s",
-                    (void *)mr->start, (void *)(mr->start + mr->size),
+    return snprintf(out, size,
+                   "0x%08" PRIaddr "-0x%08" PRIaddr " %3u%c %c%c%c %s",
+                    mr->start, mr->start + mr->size,
                     (unsigned int)hsize, suffix,
                     (mr->prot & MEM_READ) ? 'r' : '-',
                     (mr->prot & MEM_WRITE) ? 'w' : '-',
                     (mr->prot & MEM_EXECUTE) ? 'e' : '-',
-                    mr->path);
+                    mr->path ? mr->path : "");
 }
 
 void region_destroy(struct region *region)

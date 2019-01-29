@@ -1,7 +1,9 @@
 #define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "value.h"
+#include "defines.h"
 
 #include <ctype.h>
+#include <inttypes.h>
 #include <memory.h>
 #include <stdio.h>
 
@@ -91,34 +93,22 @@ const char *value_type_to_string(enum value_type type)
     {
     case INT: return "int";
     case FPU: return "fpu";
-
     case PTR: return "void *";
 
-    case S8:  return "s8";
-    case S16: return "s16";
-    case S32: return "s32";
-    case S64: return "s64";
+    case S8: return "s8"; case S8PTR: return "s8 *";
+    case U8: return "u8"; case U8PTR:  return "u8 *";
 
-    case U8:  return "u8";
-    case U16: return "u16";
-    case U32: return "u32";
-    case U64: return "u64";
+    case S16: return "s16"; case S16PTR: return "s16 *";
+    case U16: return "u16"; case U16PTR: return "u16 *";
 
-    case F32: return "f32";
-    case F64: return "f64";
+    case S32: return "s32"; case S32PTR: return "s32 *";
+    case U32: return "u32"; case U32PTR: return "u32 *";
 
-    case S8PTR:  return "s8 *";
-    case S16PTR: return "s16 *";
-    case S32PTR: return "s32 *";
-    case S64PTR: return "s64 *";
+    case S64: return "s64"; case S64PTR: return "s64 *";
+    case U64: return "u64"; case U64PTR: return "u64 *";
 
-    case U8PTR:  return "u8 *";
-    case U16PTR: return "u16 *";
-    case U32PTR: return "u32 *";
-    case U64PTR: return "u64 *";
-
-    case F32PTR: return "f32 *";
-    case F64PTR: return "f64 *";
+    case F32: return "f32"; case F32PTR: return "f32 *";
+    case F64: return "f64"; case F64PTR: return "f64 *";
 
     default: break;
     }
@@ -129,15 +119,17 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
 {
     switch (value->type)
     {
-    case S8:  return snprintf(out, size, "%ld", (long)value->data.s8);
-    case S16: return snprintf(out, size, "%ld", (long)value->data.s16);
-    case S32: return snprintf(out, size, "%ld", (long)value->data.s32);
-    case S64: return snprintf(out, size, "%ld", (long)value->data.s64);
+    case S8:  return snprintf(out, size, "%" PRId8, value->data.s8);
+    case U8:  return snprintf(out, size, "%" PRIu8, value->data.u8);
 
-    case U8:  return snprintf(out, size, "%lu", (unsigned long)value->data.u8);
-    case U16: return snprintf(out, size, "%lu", (unsigned long)value->data.u16);
-    case U32: return snprintf(out, size, "%lu", (unsigned long)value->data.u32);
-    case U64: return snprintf(out, size, "%lu", (unsigned long)value->data.u64);
+    case S16: return snprintf(out, size, "%" PRId16, value->data.s16);
+    case U16: return snprintf(out, size, "%" PRIu16, value->data.u16);
+
+    case S32: return snprintf(out, size, "%" PRId32, value->data.s32);
+    case U32: return snprintf(out, size, "%" PRIu32, value->data.u32);
+
+    case S64: return snprintf(out, size, "%" PRId64, value->data.s64);
+    case U64: return snprintf(out, size, "%" PRIu64, value->data.u64);
 
     case F32: return snprintf(out, size, "%g", value->data.f32);
     case F64: return snprintf(out, size, "%g", value->data.f64);
@@ -147,7 +139,7 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     case S32PTR: case U32PTR:
     case S64PTR: case U64PTR:
     case F32PTR: case F64PTR:
-    return snprintf(out, size, "%p", (void *)value->data.u64);
+        return snprintf(out, size, "0x%08" PRIaddr, value->data.addr);
 
     default: break;
     }

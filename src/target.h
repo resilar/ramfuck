@@ -1,9 +1,8 @@
 #ifndef TARGET_H_INCLUDED
 #define TARGET_H_INCLUDED
 
-#include <stdint.h>
+#include "defines.h"
 #include <sys/types.h>
-#include <unistd.h>
 
 struct region;
 
@@ -18,14 +17,14 @@ struct target {
     /* Iterate memory regions */
     struct region *(*region_first)(struct target *);
     struct region *(*region_next)(struct region *);
-	struct region *(*region_at)(struct target *, uintptr_t addr);
+    struct region *(*region_at)(struct target *, addr_t);
 
     /* For freeing regions returned by the functions above */
     void (*region_put)(struct region *);
 
     /* Read/write target memory */
-    int (*read)(struct target *, uintptr_t addr, void *buf, size_t len);
-    int (*write)(struct target *, uintptr_t addr, void *buf, size_t len);
+    int (*read)(struct target *, addr_t addr, void *buf, size_t len);
+    int (*write)(struct target *, addr_t addr, void *buf, size_t len);
 };
 
 /* Get target instance */
@@ -41,8 +40,8 @@ enum mem_protection {
 };
 
 struct region {
-    uintptr_t start;
-    size_t size;
+    addr_t start;
+    addr_t size;
     enum mem_protection prot;
     char *path;
 };

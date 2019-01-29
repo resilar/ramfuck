@@ -1,15 +1,15 @@
 #ifndef HITS_H_INCLUDED
 #define HITS_H_INCLUDED
 
+#include "defines.h"
 #include "value.h"
-
 #include <stdint.h>
 
 /*
  * Structure representing a hit (a found value) in the target process.
  */
 struct hit {
-    uintptr_t addr;
+    addr_t addr;
     enum value_type type;
     union value_data prev;
 };
@@ -27,7 +27,7 @@ struct hits {
 struct hits *hits_new();
 void hits_delete(struct hits *hits);
 
-int hits_add(struct hits *hits, uintptr_t addr, enum value_type type,
+int hits_add(struct hits *hits, addr_t addr, enum value_type type,
              union value_data *data);
 
 #endif

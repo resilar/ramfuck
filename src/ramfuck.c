@@ -56,19 +56,6 @@ void dief(const char *format, ...)
     abort();
 }
 
-void human_readable_size(size_t bytes, int *size, char *suffix)
-{
-    static const char *suffixes = "BKMGTPEZ?";
-    const char *p = suffixes;
-    while (*p != '?' && bytes > 1024) {
-        bytes /= 1024;
-        p++;
-    }
-    while (bytes > 1024) bytes /= 1024;
-    *size = bytes;
-    *suffix = *p;
-}
-
 int ramfuck_init(struct ramfuck *ctx)
 {
     ctx->state = RUNNING;
@@ -78,7 +65,7 @@ int ramfuck_init(struct ramfuck *ctx)
     ctx->linereader = NULL;
     ctx->target = NULL;
     ctx->breaks = 0;
-    ctx->addr_size = 4;
+    ctx->addr_size = sizeof(uint32_t);
     ctx->hits = NULL;
     ctx->undo = NULL;
     ctx->redo = NULL;
@@ -169,7 +156,7 @@ void ramfuck_free_line(struct ramfuck *ctx, char *line)
     linereader_free_line(ctx->linereader, line);
 }
 
-int ramfuck_read(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
+int ramfuck_read(struct ramfuck *ctx, addr_t addr, void *buf, size_t len)
 {
     int ret;
     if (ctx->target) {
@@ -182,7 +169,7 @@ int ramfuck_read(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
     return ret;
 }
 
-int ramfuck_write(struct ramfuck *ctx, uintptr_t addr, void *buf, size_t len)
+int ramfuck_write(struct ramfuck *ctx, addr_t addr, void *buf, size_t len)
 {
     int ret;
     if (ctx->target) {

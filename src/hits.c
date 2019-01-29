@@ -10,7 +10,7 @@ struct hits *hits_new()
     if ((hits = malloc(sizeof(struct hits)))) {
         hits->size = 0;
         hits->capacity = 256;
-        hits->addr_type = U64;
+        hits->addr_type = U32;
         hits->value_type = S32;
         if (!(hits->items = malloc(sizeof(struct hit) * hits->capacity))) {
             free(hits);
@@ -26,7 +26,7 @@ void hits_delete(struct hits *hits)
     free(hits);
 }
 
-int hits_add(struct hits *hits, uintptr_t addr, enum value_type type,
+int hits_add(struct hits *hits, addr_t addr, enum value_type type,
              union value_data *data)
 {
     struct hit *hit;

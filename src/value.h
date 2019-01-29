@@ -1,6 +1,8 @@
 #ifndef VALUE_H_INCLUDED
 #define VALUE_H_INCLUDED
 
+#include "defines.h"
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -16,13 +18,15 @@ enum value_type {
     ARR = 0x200000,
 
     S8  = 0x000101, S8PTR  = S8  | PTR,
-    S16 = 0x020102, S16PTR = S16 | PTR,
-    S32 = 0x040104, S32PTR = S32 | PTR,
-    S64 = 0x060108, S64PTR = S64 | PTR,
-
     U8  = 0x010101, U8PTR  = U8  | PTR,
+
+    S16 = 0x020102, S16PTR = S16 | PTR,
     U16 = 0x030102, U16PTR = U16 | PTR,
+
+    S32 = 0x040104, S32PTR = S32 | PTR,
     U32 = 0x050104, U32PTR = U32 | PTR,
+
+    S64 = 0x060108, S64PTR = S64 | PTR,
     U64 = 0x070108, U64PTR = U64 | PTR,
 
     F32 = 0x080200 | sizeof(float),  F32PTR = F32 | PTR,
@@ -37,18 +41,17 @@ enum value_type {
 #define value_type_sizeof(t) ((t) & 0xFF)
 
 union value_data {
-    uint8_t u8;
-    uint16_t u16;
-    uint32_t u32;
-    uint64_t u64;
+    int8_t s8; uint8_t u8;
+    int16_t s16; uint16_t u16;
+    int32_t s32; uint32_t u32;
+    int64_t s64; uint64_t u64;
+    float f32; double f64;
 
-    int8_t s8;
-    int16_t s16;
-    int32_t s32;
-    int64_t s64;
-
-    float f32;
-    double f64;
+#if ADDR_BITS == 64
+    uint64_t addr;
+#else
+    uint32_t addr;
+#endif
 };
 
 struct value {

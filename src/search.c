@@ -1,4 +1,5 @@
 #include "search.h"
+#include "defines.h"
 
 #include "ast.h"
 #include "config.h"
@@ -11,6 +12,7 @@
 #include "value.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,7 +28,7 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
     struct symbol_table *symtab;
     struct value value;
     unsigned int align;
-    uintptr_t addr, end;
+    addr_t addr, end;
     enum value_type addr_type;
     union value_data **ppdata;
     struct ast *ast, *opt;
@@ -48,8 +50,10 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
     region_size_max = snprint_len_max = 0;
     target = ctx->target;
     for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
+#if ADDR_BITS == 64
         if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
             addr_type = U64;
+#endif
         if ((mr->prot & ctx->config->search.prot) == ctx->config->search.prot) {
             size_t len;
             if (regions_size == regions_capacity) {
@@ -94,8 +98,18 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
 
     if ((symtab = symbol_table_new(ctx))) {
         size_t value_sym;
-        value.type = type;
+#if ADDR_BITS == 64
+        if (addr_type == U32) {
+            uint32_t word = 0x43211234;
+            uint32_t *data = (uint32_t *)&addr + (*(uint16_t *)&word == 0x4321);
+            symbol_table_add(symtab, "addr", addr_type, (void *)data);
+        } else {
+            symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+        }
+#else
         symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+#endif
+        value.type = type;
         value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
         ppdata = &symtab->symbols[value_sym]->pdata;
     } else {
@@ -178,7 +192,7 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
     struct value value, result;
     union value_data **ppdata;
     enum value_type addr_type, value_type;
-    uintptr_t addr;
+    addr_t addr;
     size_t i;
 
     ast = NULL;

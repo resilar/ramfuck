@@ -41,7 +41,11 @@ static int ast_deref_evaluate(struct ast *this, struct value *out)
     struct value value;
     if (ast_evaluate(((struct ast_unop *)this)->child, &value)) {
         struct target *target = ((struct ast_deref *)this)->target;
-        uintptr_t addr = (value.type == U64) ? value.data.u64 : value.data.u32;
+#if ADDR_BITS == 64
+        addr_t addr = (value.type == U64) ? value.data.u64 : value.data.u32;
+#else
+        addr_t addr = value.data.u32;
+#endif
         out->type = this->value_type;
         return target->read(target, addr, &out->data, value_sizeof(out));
     }

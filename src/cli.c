@@ -23,6 +23,28 @@
 #include <string.h>
 #include <time.h>
 
+#if ADDR_BITS == 64
+# define ctx_addr_type(ctx) (((ctx)->addr_size == sizeof(uint64_t)) ? U64 : U32)
+#else
+# define ctx_addr_type(ctx) (U32)
+#endif
+extern int ramfuck_read(struct ramfuck *, addr_t, void *, size_t);
+extern int ramfuck_write(struct ramfuck *, addr_t, void *, size_t);
+
+static void human_readable_size(size_t bytes, int *size, char *suffix)
+{
+    static const char *suffixes = "BKMGTPEZ?";
+    const char *p = suffixes;
+    while (*p != '?' && bytes > 1024) {
+        bytes /= 1024;
+        p++;
+    }
+    while (bytes > 1024) bytes /= 1024;
+    *size = bytes;
+    *suffix = *p;
+
+}
+
 /*
  * Utility functions for parsing the CLI input.
  */
@@ -138,8 +160,10 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     regions = size = 0;
     target = ctx->target;
     for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
+#if ADDR_BITS == 64
         if ((mr->start + mr->size-1) > UINT32_MAX)
             break;
+#endif
         size += mr->size;
         regions++;
     }
@@ -291,15 +315,27 @@ static int do_explain(struct ramfuck *ctx, const char *in)
         struct parser parser;
         struct value value, address;
         struct ast *ast;
+
+        parser_init(&parser);
         value_init_s32(&value, 42);
         symbol_table_add(symtab, "value", S32, &value.data);
-        value_init_u64(&address, 0x123456789ABCDEF);
+#if ADDR_BITS == 64
+        if (ctx->addr_size == sizeof(uint64_t)) {
+            value_init_u64(&address, UINT64_C(0x123456789ABCDEF));
+            parser.addr_type = U64;
+        } else {
+            address.data.u64 = 0;
+            value_init_u32(&address, 0x12345678);
+            parser.addr_type = U32;
+        }
+#else
+        value_init_u32(&address, 0x12345678);
+        parser.addr_type = U32;
+#endif
         symbol_table_add(symtab, "pointer", U16PTR, &address.data);
-        parser_init(&parser);
-        parser.symtab = symtab;
-        parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
-        parser.target = ctx->target;
 
+        parser.symtab = symtab;
+        parser.target = ctx->target;
         if ((ast = parse_expression(&parser, in))) {
             struct value out = {0};
             printf("rpn: ");
@@ -416,10 +452,10 @@ static int do_list(struct ramfuck *ctx, const char *in)
         size_t size;
         struct value value = {0};
         struct hit *hit = &ctx->hits->items[i];
+        fprintf(stdout, "%lu. *(%s *)0x%08" PRIaddr " = ", (unsigned long)i+1,
+                value_type_to_string(hit->type), hit->addr);
         value.type = hit->type;
         size = (hit->type & PTR) ? ctx->addr_size : value_sizeof(&value);
-        fprintf(stdout, "%lu. *(%s *)%p = ", (unsigned long)(i+1),
-                value_type_to_string(hit->type), (void *)hit->addr);
         if (target && target->read(target, hit->addr, &value.data, size)) {
             fprint_value(stdout, &value, 0);
         } else {
@@ -489,8 +525,8 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     enum value_type type;
     struct parser parser;
     struct ast *ast, *cast;
-    uint64_t addr;
-    int64_t index;
+    addr_t addr;
+    long index;
     struct value out;
     size_t size;
     int ret;
@@ -507,13 +543,13 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     }
 
     parser_init(&parser);
-    parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+    parser.addr_type = ctx_addr_type(ctx);
     parser.target = ctx->target;
     if (!(ast = parse_expression(&parser, in))) {
         errf("peek: %d parse errors", parser.errors);
         return 3;
     }
-    if (!(cast = ast_cast_new(type ? U64 : S64, ast))) {
+    if (!(cast = ast_cast_new(parser.addr_type ^ (type ? 0 : (S8^U8)), ast))) {
         errf("peek: out-of-memory for typecast AST");
         ast_delete(ast);
         return 4;
@@ -530,7 +566,11 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     }
 
     if (type) {
-        addr = out.data.u64;
+#if ADDR_BITS == 64
+        addr = (parser.addr_type == U64) ? out.data.u64 : (addr_t)out.data.u32;
+#else
+        addr = out.data.u32;
+#endif
         index = -1;
     } else {
         if (!ctx->hits || !ctx->hits->size) {
@@ -553,8 +593,9 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
 
     if (index != -1)
-        fprintf(stdout, "%ld. ", (long)(index + 1));
-    fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
+        fprintf(stdout, "%ld. ", index + 1);
+    fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
+            value_type_to_string(type), addr);
     if (ramfuck_read(ctx, addr, &out.data, size)) {
         fprint_value(stdout, &out, 0);
     } else {
@@ -573,9 +614,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 {
     enum value_type type;
     long index;
-    uintptr_t addr;
-    uint32_t addr32;
-    uint64_t addr64;
+    addr_t addr;
     struct symbol_table *symtab;
     struct parser parser;
     struct ast *ast, *cast;
@@ -604,7 +643,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
             errf("poke: invalid address");
             return 4;
         }
-        addr = (uintptr_t)token.value.integer;
+        addr = (addr_t)token.value.integer;
     }
 
     if (type) {
@@ -639,7 +678,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     }
 
     parser_init(&parser);
-    parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+    parser.addr_type = ctx_addr_type(ctx);
     parser.target = ctx->target;
     size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
     if (strstr(in, "addr") || strstr(in, "value") /* hack ... */) {
@@ -648,21 +687,22 @@ static int do_poke(struct ramfuck *ctx, const char *in)
             return 9;
         }
         if (strstr(in, "addr")) {
-            if (parser.addr_type == U64) {
-                addr64 = (uint64_t)addr;
-                symbol_table_add(symtab, "addr", U64, (void *)&addr64);
-            } else {
-                addr32 = (uint32_t)addr;
-                symbol_table_add(symtab, "addr", U32, (void *)&addr32);
+            union value_data *data = (union value_data *)&addr;
+#if ADDR_BITS == 64
+            if (parser.addr_type == U32) {
+                addr = (uint32_t)addr;
+                data->u32 = (uint32_t)addr;
             }
+#endif
+            symbol_table_add(symtab, "addr", parser.addr_type, data);
         }
         if (strstr(in, "value")) {
             out.type = type;
             if (ramfuck_read(ctx, addr, &out.data, size)) {
                 symbol_table_add(symtab, "value", out.type, &out.data);
             } else {
-                errf("poke: error reading %lu-byte value from address %p",
-                     (unsigned long)size, (void *)addr);
+                errf("poke: error reading %lu bytes from address 0x%08" PRIaddr,
+                     (unsigned long)size, addr);
                 return 10;
             }
         }
@@ -694,15 +734,16 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     }
 
     if (!ramfuck_write(ctx, addr, &out.data, size)) {
-        errf("poke: error writing %lu bytes to address %p",
-             (unsigned long)size, (void *)addr);
+        errf("poke: error writing %lu bytes to address 0x%08" PRIaddr,
+             (unsigned long)size, addr);
         return 14;
     }
 
     out.type = type;
     if (index != -1)
         fprintf(stdout, "%ld. ", index + 1);
-    fprintf(stdout, "*(%s *)%p = ", value_type_to_string(type), (void *)addr);
+    fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
+            value_type_to_string(type), addr);
     fprint_value(stdout, &out, 0);
     fputc('\n', stdout);
     return 0;
@@ -806,7 +847,7 @@ static int do_eval(struct ramfuck *ctx, const char *in)
     int ret;
     parser_init(&parser);
     parser.quiet = 1;
-    parser.addr_type = (ctx->addr_size == sizeof(uint64_t)) ? U64 : U32;
+    parser.addr_type = ctx_addr_type(ctx);
     parser.target = ctx->target;
     if ((ast = parse_expression(&parser, in))) {
         struct value out = {0};
