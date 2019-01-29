@@ -272,11 +272,11 @@ int region_copy(struct region *dest, const struct region *source)
     memcpy(dest, source, sizeof(struct region));
     if (source->path) {
         size_t size = strlen(source->path) + 1;
-        if ((dest->path = malloc(size))) {
-            memcpy(dest->path, source->path, size);
-        } else {
-            /* return 0; */ /* ? */
+        if (!size || !(dest->path = malloc(size))) {
+            errf("target: allocating path buffer for copied region failed");
+            return 0;
         }
+        memcpy(dest->path, source->path, size);
     }
     return 1;
 }
