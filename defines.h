@@ -22,7 +22,7 @@
 #endif
 
 /*
- * Internal definitions and configuration sanity chceking.
+ * Internal definitions and configuration sanity checking.
  */
 #if ADDR_BITS == 64
 # ifdef NO_64BIT_VALUES
@@ -42,10 +42,12 @@
 typedef uint32_t addr_t;
 # define ADDR_MAX UINT32_MAX
 # define PRIaddr PRIx32
+# define SCNaddr SCNx32
 #elif ADDR_BITS == 64
 typedef uint64_t addr_t;
 # define ADDR_MAX UINT64_MAX
 # define PRIaddr PRIx64
+# define SCNaddr SCNx64
 #else
 # error "unsupported ADDR_BITS (must be 32 or 64)"
 #endif

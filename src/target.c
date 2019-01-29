@@ -67,7 +67,7 @@ static struct region *process_region_iter_next(struct region *it)
             if (p && strlen(p+1 + strspn(p+1, "0")) * 4 <= ADDR_BITS) {
                 char perms[4];
                 *((struct process_region_iter *)it)->pathbuf = '\0';
-                if (sscanf(range, "%" PRIaddr "-%" PRIaddr, &start, &end) == 2
+                if (sscanf(range, "%" SCNaddr "-%" SCNaddr, &start, &end) == 2
                  && fscanf(((struct process_region_iter *)it)->fd,
                            " %c%c%c%c %*[^ ] %*[^ ] %*[^ ]%*[ ]%4095[^\n]",
                            &perms[0], &perms[1], &perms[2], &perms[3],
