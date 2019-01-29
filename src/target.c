@@ -226,6 +226,20 @@ static int process_write(struct target *target, addr_t addr, void *buf,
         || process_ptrace_write(process, addr, buf, len);
 }
 
+struct target *target_attach(const char *uri)
+{
+    if (!memcmp(uri, "pid://", 6)) {
+        unsigned long pid;
+        char *end;
+        if ((pid = strtoul(uri+6, &end, 10)) && !*end && pid == (pid_t)pid)
+            return target_attach_pid(pid);
+        errf("target: invalid uri (%s)", uri);
+    } else {
+        errf("target: unsupported uri %s", uri);
+    }
+    return NULL;
+}
+
 struct target *target_attach_pid(pid_t pid)
 {
     static const struct target process_init = {

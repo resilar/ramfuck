@@ -208,13 +208,14 @@ static size_t fprint_value(FILE *stream, const struct value *value, int typed)
 }
 
 /*
- * Attach to a process specified by PID.
- * Usage: attach <pid>
+ * Attach to a target process specified by PID or URI.
+ * Usage: attach <target>
  */
 static int do_attach(struct ramfuck *ctx, const char *in)
 {
     char *end;
     unsigned long pid;
+    const char *uri;
     size_t regions, size;
     struct target *target;
     struct region *mr;
@@ -234,21 +235,31 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
 
     pid = strtoul(in, &end, 10);
-    if (*end || pid != (pid_t)pid) {
-        errf("attach: invalid pid");
-        return 3;
-    }
-    in = end;
+    while (isspace(*end)) end++;
+    if (!*end && pid == (pid_t)pid) {
+        in = end;
+        if (!eol(in)) {
+            errf("attach: trailing characters after pid");
+            return 3;
+        }
 
-    skip_spaces(&in);
-    if (!eol(in)) {
-        errf("attach: trailing characters after pid");
-        return 4;
-    }
-
-    if (!(ctx->target = target_attach_pid((pid_t)pid))) {
-        errf("attach: attaching to pid=%lu failed", (unsigned long)pid);
-        return 5;
+        if (!(ctx->target = target_attach_pid(pid))) {
+            errf("attach: attaching to pid=%lu failed", (unsigned long)pid);
+            return 4;
+        }
+        uri = NULL;
+    } else {
+        const char *p;
+        for (p = in; *p && !(p[0] == ':' && p[1] == '/' && p[2] == '/'); p++);
+        if (!*p) {
+            errf("attach: invalid target (bad PID/URI)");
+            return 5;
+        }
+        if (!(ctx->target = target_attach((uri = in)))) {
+            errf("attach: attaching to %s failed", uri);
+            return 6;
+        }
+        pid = 0;
     }
     ctx->breaks = 0;
 
@@ -271,8 +282,13 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
 
     human_readable_size(size, &human.size, &human.suffix);
-    infof("attached to process %lu (%d%c / %lu memory regions)",
-          pid, human.size, human.suffix, (unsigned long)regions);
+    if (pid) {
+        infof("attached to process %lu (%d%c / %lu memory regions)",
+              pid, human.size, human.suffix, (unsigned long)regions);
+    } else {
+        infof("attached to target %s (%d%c / %lu memory regions)",
+              uri, human.size, human.suffix, (unsigned long)regions);
+    }
     return 0;
 }
 
@@ -1081,21 +1097,23 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
 int cli_execute(struct ramfuck *ctx, char *in)
 {
     int rc = 0;
-    char *ln_start, *ln_end;
-    for (ln_start = in; ln_start; ln_start = ln_end ? ln_end + 1 : NULL) {
+    char *lstart, *lend;
+    for (lstart = in; lstart && ramfuck_running(ctx); lstart = lend + 1) {
         char *comment, *start, *end;
-        if ((ln_end = strchr(ln_start, '\n')))
-            *ln_end = '\0';
-        if ((comment = strchr(ln_start, '#')))
+        if ((lend = strchr(lstart, '\n')))
+            *lend = '\0';
+        if ((comment = strchr(lstart, '#')))
             *comment = '\0';
-        for (start = ln_start; start; start = end ? end + 1 : NULL) {
+        for (start = lstart; start && ramfuck_running(ctx); start = end + 1) {
             if ((end = strchr(start, ';')))
                 *end = '\0';
             rc = cli_execute_line(ctx, start);
-            if (end) *end = ';';
+            if (!end) break;
+            *end = ';';
         }
         if (comment) *comment = '#';
-        if (ln_end) *end = '\n';
+        if (!lend) break;
+        *lend = '\n';
     }
     return rc;
 }

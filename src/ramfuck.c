@@ -7,8 +7,11 @@
 #include "ptrace.h"
 #include "target.h"
 
+#include <ctype.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
 void infof(const char *format, ...)
 {
@@ -244,29 +247,50 @@ int ramfuck_redo(struct ramfuck *ctx)
 int main(int argc, char *argv[])
 {
     struct ramfuck ctx;
-    int rc = 0;
+    size_t size;
+    int i, j, rc;
 
     if (!ramfuck_init(&ctx)) {
         errf("main: out-of-memory for ramfuck context");
         return 1;
     }
 
-    if (argc == 2) {
-       char *end;
-       unsigned long pidlu = strtoul(argv[1], &end, 10);
-       if (*argv[1] && !*end) {
-           rc = cli_execute_format(&ctx, "attach %lu", pidlu);
-       } else {
-           errf("main: bad pid '%s'", argv[1]);
-           rc = 1;
-       }
+    if (argc > (i = 1)) {
+        char *end;
+        unsigned long pid;
+        pid = strtoul(argv[i] + !memcmp(argv[i], "pid://", 6)*6, &end, 10);
+        while (isspace(*end)) end++;
+        if ((pid && !*end && !kill(pid, 0)))
+            i += !cli_execute_format(&ctx, "attach %.*s", end-argv[i], argv[i]);
     }
 
-    if (!rc) {
+    for (j = i, size = 0; j < argc; size += strlen(argv[j++]) + 1);
+    if (size) {
+        char *buffer = malloc(size);
+        if (buffer) {
+            char *p = buffer;
+            for (j = i; j < argc; j++) {
+                size_t len = strlen(argv[j]);
+                memcpy(p, argv[j], len);
+                p += len;
+                *p++ = (j == argc-1) ? '\0' : ' ';
+            }
+            cli_execute(&ctx, buffer);
+            free(buffer);
+        } else {
+            errf("main: out-of-memory for arguments buffer");
+            rc = 2;
+            goto destroy;
+        }
+    }
+
+    if (!ctx.rc) {
         ramfuck_set_input_stream(&ctx, stdin);
-        rc = cli_main_loop(&ctx);
+        cli_main_loop(&ctx);
     }
+    rc = ctx.rc;
 
+destroy:
     ramfuck_destroy(&ctx);
     return rc;
 }

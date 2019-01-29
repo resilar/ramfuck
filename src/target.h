@@ -27,6 +27,9 @@ struct target {
     int (*write)(struct target *, addr_t addr, void *buf, size_t len);
 };
 
+/* Create target instance for URI */
+struct target *target_attach(const char *uri);
+
 /* Get target instance */
 struct target *target_attach_pid(pid_t pid);
 
