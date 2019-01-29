@@ -885,7 +885,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
     path = in;
     if (path[0] == '-' && path[1] == '\0') {
         file = stdout;
-    } else if (!(file = fopen(in, "w"))) {
+    } else if (!(file = fopen(in, "wb"))) {
         errf("read: error opening output file for writing (%s)", path);
         return 7;
     }
