@@ -9,6 +9,7 @@
 
 struct parser {
     const char *in;
+    const char *end;
     struct symbol_table *symtab;
     int quiet;
     int errors;

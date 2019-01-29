@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE /* vsnprintf(3) */
 #include "cli.h"
+#include "defines.h"
 #include "ramfuck.h"
 
 #include "config.h"
@@ -91,6 +92,66 @@ static enum value_type accept_type(const char **in)
         skip_spaces(in);
     }
     return type;
+}
+
+static int accept_value(const char **in, enum value_type value_type,
+                        enum value_type addr_type, struct value *out)
+{
+    struct ast *ast;
+    struct parser parser;
+    const char *start, *end, *new;
+    skip_spaces(in);
+    start = *in;
+    if (*start == '(') {
+        for (end = ++start; *end && *end != '(' && *end != ')'; end++);
+        if (*end != ')')
+            return 0;
+        new = end + 1;
+    } else {
+        while (isspace(*start)) start++;
+        for (end = start; *end && !isspace(*end); end++);
+        for (new = end; isspace(*new); new++);
+    }
+
+    parser_init(&parser);
+    parser.end = end;
+    parser.quiet = 1;
+    parser.addr_type = addr_type;
+    if ((ast = parse_expression(&parser, start))) {
+        struct ast *cast;
+        if ((cast = ast_cast_new(value_type, ast))) {
+            int ok = ast_evaluate(cast, out);
+            ast_delete(cast);
+            if (ok) {
+                *in = new;
+                return 1;
+            }
+            errf("cli: evaluating %s value expression failed",
+                 value_type_to_string(value_type));
+        } else {
+            errf("cli: out-of-memory for AST cast node of accepted value");
+            ast_delete(ast);
+        }
+    } else {
+        errf("cli: parsing %s value expression failed",
+             value_type_to_string(value_type));
+    }
+    return 0;
+}
+
+static int accept_addr(const char **in, enum value_type addr_type, addr_t *out)
+{
+    struct value value;
+    if (!accept_value(in, addr_type, addr_type, &value)) {
+        errf("cli: invalid address");
+        return 0;
+    }
+#if ADDR_BITS == 64
+    *out = (addr_type == U64) ? value.data.u64 : value.data.u32;
+#else
+    *out = value.data.u32;
+#endif
+    return 1;
 }
 
 static size_t fprint_value(FILE *stream, const struct value *value, int typed)
@@ -750,6 +811,97 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Read memory and write it to file (or stdout if file is -).
+ * Usage: read <addr> <len> <file>
+ */
+static int do_read(struct ramfuck *ctx, const char *in)
+{
+    enum value_type addr_type;
+    addr_t addr, len;
+    const char *path;
+    FILE *file;
+    char *buf, *p;
+
+    if (eol(in)) {
+        errf("read: address & length & file expected");
+        return 1;
+    }
+
+    addr_type = ctx_addr_type(ctx);
+    if (!accept_addr(&in, addr_type, &addr)) {
+        errf("read: invalid address");
+        return 2;
+    }
+
+    if (eol(in)) {
+        errf("read: length expected");
+        return 3;
+    }
+
+    if (!accept_addr(&in, addr_type, &len)) {
+        errf("read: invalid length");
+        return 4;
+    }
+
+    if (!(buf = malloc(len))) {
+        int size;
+        char suffix;
+        human_readable_size((size_t)len, &size, &suffix);
+        errf("read: error allocating buffer of length %d%c"
+             " (0x%" PRIaddr " bytes)", size, suffix, len);
+        return 5;
+    }
+
+    if (!ramfuck_read(ctx, addr, buf, len)) {
+        errf("read: error reading %d%cB from address 0x%08" PRIaddr, len, addr);
+        return 6;
+    }
+
+    path = in;
+    if (path[0] == '-' && path[1] == '\0') {
+        file = stdout;
+    } else if (!(file = fopen(in, "w"))) {
+        errf("read: error opening output file for writing (%s)", path);
+        return 7;
+    }
+
+    p = buf;
+    while (len > 0 && !feof(file) && !ferror(file)) {
+        size_t ret = fwrite(p, sizeof(char), len, file);
+        if (ret > 0) {
+            len -= ret;
+            p += ret;
+        }
+    }
+    fflush(file);
+    if (path[0] != '-' || path[1] != '\0')
+        fclose(file);
+    free(buf);
+    if (p == buf) {
+        errf("read: error writing buffer to file", in);
+        return 8;
+    }
+
+    if (path[0] != '-' || path[1] != '\0') {
+        int size;
+        char suffix;
+        human_readable_size((size_t)(p - buf), &size, &suffix);
+        errf("read: %d%c buffer from address 0x%08" PRIaddr " written to %s",
+             size, suffix, addr, path);
+    }
+
+    if (len > 0) {
+        int size;
+        char suffix;
+        human_readable_size((size_t)len, &size, &suffix);
+        errf("read: error writing buffer tail of size %d%cB to file");
+        return 9;
+    }
+
+    return 0;
+}
+
+/*
  * Undo undo.
  * Usage: redo
  */
@@ -898,6 +1050,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     } else if (accept(&in, "quit") || accept(&in, "q") || accept(&in, "exit")) {
         ramfuck_quit(ctx);
         rc = ctx->rc;
+    } else if (accept(&in, "read")) {
+        rc = do_read(ctx, in);
     } else if (accept(&in, "redo")) {
         rc = do_redo(ctx, in);
     } else if (accept(&in, "search")) {

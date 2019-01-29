@@ -49,6 +49,8 @@ static int next_symbol(struct parser *p)
         do { lexer(&p->in, p->symbol); } while (p->symbol->type != LEX_EOL);
         return 0;
     }
+    if (p->end && p->in > p->end)
+        p->symbol->type = LEX_EOL;
     return 1;
 }
 
