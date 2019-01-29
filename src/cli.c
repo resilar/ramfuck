@@ -71,85 +71,118 @@ static int accept(const char **pin, const char *what)
     return 0;
 }
 
-static enum value_type accept_type(const char **in)
+static int eat_item(const char **pin, const char **pstart, const char **pend)
 {
-    enum value_type type;
-    const char *start, *end, *new;
-    skip_spaces(in);
-    start = *in;
-    if (*start == '(') {
-        for (end = ++start; *end && *end != '(' && *end != ')'; end++);
-        if (*end != ')')
-            return 0;
-        new = end + 1;
-    } else {
-        while (isspace(*start)) start++;
-        for (end = start; *end && !isspace(*end); end++);
-        for (new = end; isspace(*new); new++);
+    int depth = 0;
+    int unwrap = *(*pstart = *pin) == '(';
+    for (*pend = *pin; **pend && (depth || !isspace(**pend)); (*pend)++) {
+        if (unwrap && !depth && *pend != *pin)
+            unwrap = 0;
+        depth += (**pend == '(') - (**pend == ')');
     }
-    if ((type = value_type_from_substring(start, end-start))) {
-        *in = new;
-        skip_spaces(in);
-    }
-    return type;
+    if (depth)
+        return 0;
+
+    *pin = *pend;
+    *pstart += unwrap;
+    *pend -= unwrap;
+    skip_spaces(pin);
+    return 1;
 }
 
-static int accept_value(const char **in, enum value_type value_type,
-                        enum value_type addr_type, struct value *out)
+static enum value_type accept_type(const char **pin)
 {
-    struct ast *ast;
-    struct parser parser;
-    const char *start, *end, *new;
-    skip_spaces(in);
-    start = *in;
-    if (*start == '(') {
-        for (end = ++start; *end && *end != '(' && *end != ')'; end++);
-        if (*end != ')')
-            return 0;
-        new = end + 1;
-    } else {
-        while (isspace(*start)) start++;
-        for (end = start; *end && !isspace(*end); end++);
-        for (new = end; isspace(*new); new++);
-    }
-
-    parser_init(&parser);
-    parser.end = end;
-    parser.quiet = 1;
-    parser.addr_type = addr_type;
-    if ((ast = parse_expression(&parser, start))) {
-        struct ast *cast;
-        if ((cast = ast_cast_new(value_type, ast))) {
-            int ok = ast_evaluate(cast, out);
-            ast_delete(cast);
-            if (ok) {
-                *in = new;
-                return 1;
-            }
-            errf("cli: evaluating %s value expression failed",
-                 value_type_to_string(value_type));
-        } else {
-            errf("cli: out-of-memory for AST cast node of accepted value");
-            ast_delete(ast);
-        }
-    } else {
-        errf("cli: parsing %s value expression failed",
-             value_type_to_string(value_type));
-    }
+    enum value_type type;
+    const char *l, *r, *in0 = *pin;
+    if (eat_item(pin, &l, &r) && (type = value_type_from_substring(l, r-l)))
+        return type;
+    *pin = in0;
     return 0;
 }
 
-static int accept_addr(const char **in, enum value_type addr_type, addr_t *out)
+static int accept_value(const char **pin, enum value_type value_type,
+                        enum value_type addr_type, int positional,
+                        struct value *out)
+{
+    const char *start, *in0;
+    struct parser parser;
+    parser_init(&parser);
+    start = in0 = *pin;
+    if (!positional || eat_item(pin, &start, &parser.end)) {
+        struct ast *ast;
+        parser.quiet = 1;
+        parser.addr_type = addr_type;
+        if ((ast = parse_expression(&parser, start))) {
+            struct ast *cast;
+            if (ast->node_type == AST_CAST && (ast->value_type & PTR)) {
+                cast = ast;
+                ast = ((struct ast_unop *)ast)->child;
+                free(cast);
+            }
+            if (ast->value_type != value_type) {
+                if ((cast = ast_cast_new(value_type, ast))) {
+                    ast = cast;
+                } else {
+                    ast_delete(ast);
+                    ast = NULL;
+                }
+            }
+            if (ast) {
+                int ok = ast_evaluate(ast, out);
+                ast_delete(ast);
+                if (ok) {
+                    if (!positional)
+                        *pin = parser.in;
+                    return 1;
+                }
+                errf("cli: evaluating %s value expression failed",
+                     value_type_to_string(value_type));
+            } else {
+                errf("cli: out-of-memory for AST cast node of accepted value");
+            }
+        } else {
+            errf("cli: parsing %s value expression failed",
+                 value_type_to_string(value_type));
+        }
+    }
+    *pin = in0;
+    return 0;
+}
+
+static int accept_addr(const char **pin, enum value_type addr_type,
+                       int positional, addr_t *out)
 {
     struct value value;
-    if (!accept_value(in, addr_type, addr_type, &value)) {
-        errf("cli: invalid address");
+    if (!accept_value(pin, addr_type, addr_type, positional, &value))
         return 0;
-    }
 #if ADDR_BITS == 64
     *out = (addr_type == U64) ? value.data.u64 : value.data.u32;
 #else
     *out = value.data.u32;
+#endif
+    return 1;
+}
+
+static int accept_sint(const char **pin, int positional, intmax_t *out)
+{
+    struct value value;
+    enum value_type value_type, addr_type;
+#ifndef NO_64BIT_VALUES
+    value_type = S64;
+#else
+    value_type = S32;
+#endif
+#if ADDR_BITS == 64
+    addr_type = U64;
+#else
+    addr_type = U32;
+#endif
+    if (!accept_value(pin, value_type, addr_type, positional, &value))
+        return 0;
+#ifndef NO_64BIT_VALUES
+    *out = value.data.s64;
+#else
+    *out = value.data.s32;
 #endif
     return 1;
 }
@@ -207,6 +240,7 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     }
     in = end;
 
+    skip_spaces(&in);
     if (!eol(in)) {
         errf("attach: trailing characters after pid");
         return 4;
@@ -583,17 +617,14 @@ static int do_maps(struct ramfuck *ctx, const char *in)
  */
 static int do_peek(struct ramfuck *ctx, const char *in)
 {
-    enum value_type type;
-    struct parser parser;
-    struct ast *ast, *cast;
     addr_t addr;
-    long index;
+    enum value_type type;
+    intmax_t index;
     struct value out;
     size_t size;
-    int ret;
 
     if (eol(in)) {
-        errf("peek: type & addr or index expected");
+        errf("peek: type & address or index expected");
         return 1;
     }
 
@@ -603,58 +634,43 @@ static int do_peek(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    parser_init(&parser);
-    parser.addr_type = ctx_addr_type(ctx);
-    parser.target = ctx->target;
-    if (!(ast = parse_expression(&parser, in))) {
-        errf("peek: %d parse errors", parser.errors);
-        return 3;
-    }
-    if (!(cast = ast_cast_new(parser.addr_type ^ (type ? 0 : (S8^U8)), ast))) {
-        errf("peek: out-of-memory for typecast AST");
-        ast_delete(ast);
-        return 4;
-    }
-    ast = cast;
-
-    if (parser.has_deref) ramfuck_break(ctx);
-    ret = ast_evaluate(ast, &out);
-    if (parser.has_deref) ramfuck_continue(ctx);
-    ast_delete(ast);
-    if (!ret) {
-        errf("peek: evaluating %s failed", (type ? "address" : "hit index"));
-        return 5;
-    }
-
     if (type) {
-#if ADDR_BITS == 64
-        addr = (parser.addr_type == U64) ? out.data.u64 : (addr_t)out.data.u32;
-#else
-        addr = out.data.u32;
-#endif
+        if (!accept_addr(&in, ctx_addr_type(ctx), 0, &addr)) {
+            errf("peek: evaluating address value failed");
+            return 3;
+        }
         index = -1;
     } else {
+        intmax_t index0;
+        if (!accept_sint(&in, 0, &index0)) {
+            errf("peek: evaluating hit index failed");
+            return 4;
+        }
         if (!ctx->hits || !ctx->hits->size) {
-            errf("peek: bad index %ld (0 hits)", out.data.s64);
+            errf("peek: bad index %" PRIdMAX " (0 hits)", index0);
+            return 5;
+        }
+        index = (index0 < 0) ? index0 + ctx->hits->size : index0 - 1;
+        if (!(0 <= index && index < ctx->hits->size)) {
+            errf("peek: bad index %" PRIdMAX " not in 1..%lu",
+                 index0, (unsigned long)ctx->hits->size);
             return 6;
         }
-        index = out.data.s64;
-        index = (index < 0) ? index + ctx->hits->size : index - 1;
-        if (0 <= index && index < ctx->hits->size) {
-            addr = ctx->hits->items[index].addr;
-            type = ctx->hits->items[index].type;
-        } else {
-            errf("peek: bad index %ld not in 1..%lu",
-                 (long)out.data.s64, (unsigned long)ctx->hits->size);
-            return 6;
-        }
+        addr = ctx->hits->items[index].addr;
+        type = ctx->hits->items[index].type;
+    }
+
+    if (!eol(in)) {
+        errf("peek: trailing characters after %s",
+            (index == -1) ? "type & address" : "hit index");
+        return 7;
     }
 
     out.type = type;
-    size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
+    size = value_type_sizeof((type & PTR) ? ctx_addr_type(ctx) : type);
 
     if (index != -1)
-        fprintf(stdout, "%ld. ", index + 1);
+        fprintf(stdout, "%" PRIdMAX ". ", index + 1);
     fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
             value_type_to_string(type), addr);
     if (ramfuck_read(ctx, addr, &out.data, size)) {
@@ -674,14 +690,14 @@ static int do_peek(struct ramfuck *ctx, const char *in)
 static int do_poke(struct ramfuck *ctx, const char *in)
 {
     enum value_type type;
-    long index;
+    intmax_t index;
     addr_t addr;
     struct symbol_table *symtab;
     struct parser parser;
     struct ast *ast, *cast;
-    struct value out;
+    struct value value, out;
     size_t size;
-    int ret;
+    int ok;
 
     if (eol(in)) {
         errf("poke: type & addr & value or index & value expected");
@@ -694,48 +710,39 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     }
 
     if ((type = accept_type(&in))) {
-        struct lex_token token;
         if (eol(in)) {
-            errf("poke: address expected");
+            errf("poke: address expected after type");
             return 3;
         }
-        if (!lexer(&in, &token) || (token.type != LEX_INTEGER
-                                && token.type != LEX_UINTEGER)) {
-            errf("poke: invalid address");
+        if (!accept_addr(&in, ctx_addr_type(ctx), 1, &addr)) {
+            errf("poke: evaluating address value failed");
             return 4;
         }
-        addr = (addr_t)token.value.integer;
-    }
-
-    if (type) {
         index = -1;
     } else {
-        long index1;
-        char *end;
-        if (!isdigit(*(in + (*in == '-')))) {
-            errf("poke: invalid hit index (not a number)");
+        intmax_t index0;
+        if (!accept_sint(&in, 1, &index0)) {
+            errf("poke: evaluating hit index failed");
             return 5;
         }
         if (!ctx->hits || !ctx->hits->size) {
-            errf("poke: bad index %ld (0 hits)");
+            errf("poke: bad index %" PRIdMAX " (0 hits)", index0);
             return 6;
         }
-        index1 = strtol(in, &end, 0);
-        index = (index1 < 0) ? index1 + ctx->hits->size : index1 - 1;
+        index = (index0 < 0) ? index0 + ctx->hits->size : index0 - 1;
         if (!(0 <= index && index < ctx->hits->size)) {
-            errf("poke: bad index %ld not in 1..%lu",
-                 index1, (unsigned long)ctx->hits->size);
-            return 6;
+            errf("poke: bad index %" PRIdMAX " not in 1..%lu",
+                 index0, (unsigned long)ctx->hits->size);
+            return 7;
         }
         addr = ctx->hits->items[index].addr;
         type = ctx->hits->items[index].type;
-        in = end;
     }
 
-    skip_spaces(&in);
     if (eol(in)) {
-        errf("poke: value expression expected");
-        return 7;
+        errf("poke: value expression expected after %s",
+             (index == -1) ? "type & address" : "hit index");
+        return 8;
     }
 
     parser_init(&parser);
@@ -758,12 +765,13 @@ static int do_poke(struct ramfuck *ctx, const char *in)
             symbol_table_add(symtab, "addr", parser.addr_type, data);
         }
         if (strstr(in, "value")) {
-            out.type = type;
-            if (ramfuck_read(ctx, addr, &out.data, size)) {
-                symbol_table_add(symtab, "value", out.type, &out.data);
+            value.type = type;
+            if (ramfuck_read(ctx, addr, &value.data, size)) {
+                symbol_table_add(symtab, "value", value.type, &value.data);
             } else {
                 errf("poke: error reading %lu bytes from address 0x%08" PRIaddr,
                      (unsigned long)size, addr);
+                symbol_table_delete(symtab);
                 return 10;
             }
         }
@@ -774,6 +782,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 
     if (!(ast = parse_expression(&parser, in))) {
         errf("poke: %d parse errors", parser.errors);
+        if (symtab) symbol_table_delete(symtab);
         return 11;
     }
     if (!(cast = ast_cast_new((type & PTR) ? parser.addr_type : type, ast))) {
@@ -785,11 +794,11 @@ static int do_poke(struct ramfuck *ctx, const char *in)
     ast = cast;
 
     if (parser.has_deref) ramfuck_break(ctx);
-    ret = ast_evaluate(ast, &out);
+    ok = ast_evaluate(ast, &out);
     if (parser.has_deref) ramfuck_continue(ctx);
     if (symtab) symbol_table_delete(symtab);
     ast_delete(ast);
-    if (!ret) {
+    if (!ok) {
         errf("poke: evaluating value expression failed");
         return 13;
     }
@@ -802,7 +811,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 
     out.type = type;
     if (index != -1)
-        fprintf(stdout, "%ld. ", index + 1);
+        fprintf(stdout, "%" PRIdMAX ". ", index + 1);
     fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
             value_type_to_string(type), addr);
     fprint_value(stdout, &out, 0);
@@ -828,7 +837,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
     }
 
     addr_type = ctx_addr_type(ctx);
-    if (!accept_addr(&in, addr_type, &addr)) {
+    if (!accept_addr(&in, addr_type, 1, &addr)) {
         errf("read: invalid address");
         return 2;
     }
@@ -838,7 +847,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
         return 3;
     }
 
-    if (!accept_addr(&in, addr_type, &len)) {
+    if (!accept_addr(&in, addr_type, 1, &len)) {
         errf("read: invalid length");
         return 4;
     }
@@ -996,7 +1005,7 @@ static int do_eval(struct ramfuck *ctx, const char *in)
 {
     struct parser parser;
     struct ast *ast;
-    int ret;
+    int ok;
     parser_init(&parser);
     parser.quiet = 1;
     parser.addr_type = ctx_addr_type(ctx);
@@ -1004,15 +1013,15 @@ static int do_eval(struct ramfuck *ctx, const char *in)
     if ((ast = parse_expression(&parser, in))) {
         struct value out = {0};
         if (parser.has_deref) ramfuck_break(ctx);
-        ret = ast_evaluate(ast, &out);
+        ok = ast_evaluate(ast, &out);
         if (parser.has_deref) ramfuck_continue(ctx);
         ast_delete(ast);
-        if (ret) {
+        if (ok) {
             fprint_value(stdout, &out, 0);
             fputc('\n', stdout);
         }
     }
-    return (parser.errors || !ast) ? 1 : (ret ? 0 : 2);
+    return (parser.errors || !ast) ? 1 : (ok ? 0 : 2);
 }
 
 int cli_execute_line(struct ramfuck *ctx, const char *in)
