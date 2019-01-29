@@ -132,7 +132,7 @@ static int accept_value(const char **pin, enum value_type value_type,
                 ast_delete(ast);
                 if (ok) {
                     if (!positional)
-                        *pin = parser.in;
+                        *pin = parser.in - (parser.symbol->type == LEX_EOL);
                     return 1;
                 }
                 errf("cli: evaluating %s value expression failed",

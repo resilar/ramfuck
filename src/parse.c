@@ -45,13 +45,13 @@ static void parse_error(struct parser *p, const char *format, ...)
 
 static int next_symbol(struct parser *p)
 {
-    if (!lexer(&p->in, p->symbol)) {
-        do { lexer(&p->in, p->symbol); } while (p->symbol->type != LEX_EOL);
-        return 0;
-    }
-    if (p->end && p->in > p->end)
-        p->symbol->type = LEX_EOL;
-    return 1;
+    int err = 0;
+    do {
+        err = !lexer(&p->in, p->symbol) || err;
+        if (p->end && p->in > p->end)
+            p->symbol->type = LEX_EOL;
+    } while (err && p->symbol->type != LEX_EOL);
+    return !err;
 }
 
 static int accept(struct parser *p, enum lex_token_type sym)
