@@ -257,11 +257,15 @@ int main(int argc, char *argv[])
 
     if (argc > (i = 1)) {
         char *end;
-        unsigned long pid;
-        pid = strtoul(argv[i] + !memcmp(argv[i], "pid://", 6)*6, &end, 10);
-        while (isspace(*end)) end++;
-        if ((pid && !*end && !kill(pid, 0)))
-            i += !cli_execute_format(&ctx, "attach %.*s", end-argv[i], argv[i]);
+        const char *in = !memcmp(argv[i], "pid://", 6) ? &argv[i][6] : argv[i];
+        unsigned long pid = strtoul(in, &end, 10);
+        if (pid && pid == (pid_t)pid && end != in)  {
+            while (isspace(*end)) end++;
+            if (!*end && !kill(pid, 0))
+                i += !cli_execute_format(&ctx, "attach pid://%lu", pid);
+        } else if (in == argv[i] && strstr(argv[i], "://")) {
+            i += !cli_execute_format(&ctx, "attach %s", argv[i]);
+        }
     }
 
     for (j = i, size = 0; j < argc; size += strlen(argv[j++]) + 1);

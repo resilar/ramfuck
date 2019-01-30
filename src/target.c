@@ -8,16 +8,57 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/file.h>
 
 struct target_process {
-    struct target target;
+    struct target base;
     pid_t pid;
     int mem_fd;
 };
+
+static int pread_buffer(int fd, off_t offset, void *buf, size_t len)
+{
+    int errnold = errno;
+    int errors = 0;
+    errno = 0;
+    while (len > 0) {
+        ssize_t ret = pread(fd, buf, len, offset);
+        if (ret <= 0) {
+            if ((errno != EAGAIN && errno != EINTR) || ++errors == 3)
+                break;
+        } else {
+            buf = (char *)buf + ret;
+            offset += ret;
+            len -= ret;
+        }
+    }
+    errno = errnold;
+    return !len;
+}
+
+static int pwrite_buffer(int fd, off_t offset, void *buf, size_t len)
+{
+    int errnold = errno;
+    int errors = 0;
+    errno = 0;
+    while (len > 0) {
+        ssize_t ret = pwrite(fd, buf, len, offset);
+        if (ret <= 0) {
+            if ((errno != EAGAIN && errno != EINTR) || ++errors == 3)
+                break;
+        } else {
+            buf = (char *)buf + ret;
+            offset += ret;
+            len -= ret;
+        }
+    }
+    errno = errnold;
+    return !len;
+}
 
 static int process_detach(struct target *target)
 {
@@ -121,55 +162,19 @@ static struct region *process_region_iter_first(struct target *target)
     return it ? process_region_iter_next((struct region *)it) : NULL;
 }
 
-static struct region *process_region_at(struct target *target, addr_t addr)
-{
-    struct region *it = process_region_iter_first(target);
-    while ((it = process_region_iter_next(it))) {
-        if (it->start <= addr && addr < it->start + it->size) {
-            fclose(((struct process_region_iter *)it)->fd);
-            it = realloc(it, sizeof(struct region)
-                             + (*it->path ? strlen(it->path)+1 : 0));
-            break;
-        }
-    }
-    return (struct region *)it;
-}
-
-static void process_region_put(struct region *region)
-{
-    free(region->path);
-    free(region);
-}
-
 static int process_ptrace_read(struct target_process *process,
                                addr_t addr, void *buf, size_t len)
 {
 
-    return (uintptr_t)addr == addr
-        && ptrace_read(process->pid, (const void *)(uintptr_t)addr, buf, len);
+    return addr == (uintptr_t)addr
+        && ptrace_read(process->pid, (void *)(uintptr_t)addr, buf, len);
 }
 
-static int process_pread_read(struct target_process *process,
-                              addr_t addr, void *buf, size_t len)
+static int process_pread_buffer(struct target_process *process,
+                                addr_t addr, void *buf, size_t len)
 {
-    if (process->mem_fd != -1) {
-        int errnold = errno;
-        int errors = 0;
-        errno = 0;
-        while (len > 0) {
-            ssize_t ret = pread(process->mem_fd, buf, len, (off_t)addr);
-            if (ret <= 0) {
-                if (errno != EINTR || ++errors == 3)
-                    break;
-            } else {
-                buf = (char *)buf + ret;
-                len -= ret;
-                addr += ret;
-            }
-        }
-        errno = errnold;
-    }
-    return !len;
+    return process->mem_fd != -1 && addr == (off_t)addr
+        && pread_buffer(process->mem_fd, addr, buf, len);
 }
 
 static int process_read(struct target *target,
@@ -178,9 +183,9 @@ static int process_read(struct target *target,
     struct target_process *process = (struct target_process *)target;
     if (len <= sizeof(long)) {
         return process_ptrace_read(process, addr, buf, len)
-            || process_pread_read(process, addr, buf, len);
+            || process_pread_buffer(process, addr, buf, len);
     }
-    return process_pread_read(process, addr, buf, len)
+    return process_pread_buffer(process, addr, buf, len)
         || process_ptrace_read(process, addr, buf, len);
 }
 
@@ -194,21 +199,7 @@ static int process_write(struct target *target, addr_t addr, void *buf,
     return 0;
 }
 
-struct target *target_attach(const char *uri)
-{
-    if (!memcmp(uri, "pid://", 6)) {
-        unsigned long pid;
-        char *end;
-        if ((pid = strtoul(uri+6, &end, 10)) && !*end && pid == (pid_t)pid)
-            return target_attach_pid(pid);
-        errf("target: invalid uri (%s)", uri);
-    } else {
-        errf("target: unsupported uri %s", uri);
-    }
-    return NULL;
-}
-
-struct target *target_attach_pid(pid_t pid)
+static struct target *target_attach_pid(pid_t pid)
 {
     static const struct target process_init = {
         process_detach,
@@ -216,17 +207,15 @@ struct target *target_attach_pid(pid_t pid)
         process_run,
         process_region_iter_first,
         process_region_iter_next,
-        process_region_at,
-        process_region_put,
         process_read,
         process_write
     };
 
     struct target_process *process;
-    if ((process = malloc(sizeof(*process)))) {
-        if (ptrace_attach(pid) && ptrace_detach(pid)) {
+    if (ptrace_attach(pid) && ptrace_detach(pid)) {
+        if ((process = malloc(sizeof(struct target_process)))) {
             char mem_path[128];
-            memcpy(&process->target, &process_init, sizeof(struct target));
+            memcpy(process, &process_init, sizeof(struct target));
             process->pid = pid;
             sprintf(mem_path, "/proc/%lu/mem", (unsigned long)pid);
             if ((process->mem_fd = open(mem_path, O_RDWR)) == -1) {
@@ -234,33 +223,155 @@ struct target *target_attach_pid(pid_t pid)
                     warnf("target: open(%s) failed", mem_path);
             }
         } else {
-            free(process);
-            process = NULL;
+            errf("target: out-of-memory for process target instance");
         }
     } else {
-        errf("target: out-of-memory for target instance");
+        process = NULL;
     }
 
     return (struct target *)process;
 }
 
+struct target_file {
+    struct target base;
+    int fd;
+    int rw;
+    off_t size;
+    char *path;
+};
+
+static int file_detach(struct target *target)
+{
+    struct target_file *file = (struct target_file *)target;
+    if (file->fd != -1) {
+        close(file->fd);
+        file->fd = -1;
+    }
+    if (file->path) {
+        free(file->path);
+        file->path = NULL;
+    }
+    free(file);
+    return 1;
+}
+
+int file_stop(struct target *target)
+{
+    return 1;
+}
+
+int file_run(struct target *target)
+{
+    return 1;
+}
+
+static struct region *file_region_first(struct target *target)
+{
+    struct region *it;
+    if ((it = malloc(sizeof(struct region)))) {
+        size_t size;
+        struct target_file *file = (struct target_file *)target;
+        it->start = 0;
+        it->size = file->size;
+        it->prot = file->rw ? (MEM_READ|MEM_WRITE) : MEM_READ;
+        if ((size = strlen(file->path)) && ++size) {
+            if ((it->path = malloc(size)))
+                memcpy(it->path, file->path, size);
+        } else {
+            it->path = NULL;
+        }
+    }
+    return it;
+}
+
+static struct region *file_region_next(struct region *it)
+{
+    free(it->path);
+    free(it);
+    return NULL;
+}
+
+static int file_read(struct target *target, addr_t addr, void *buf, size_t len)
+{
+    struct target_file *file = (struct target_file *)target;
+    return addr == (off_t)addr && pread_buffer(file->fd, addr, buf, len);
+}
+
+static int file_write(struct target *target, addr_t addr, void *buf, size_t len)
+{
+    struct target_file *file = (struct target_file *)target;
+    return addr == (off_t)addr && pwrite_buffer(file->fd, addr, buf, len);
+}
+
+static struct target *target_attach_file(const char *path)
+{
+    static const struct target file_init = {
+        file_detach,
+        file_stop,
+        file_run,
+        file_region_first,
+        file_region_next,
+        file_read,
+        file_write
+    };
+    int fd, rw;
+    if ((rw = (fd = open(path, O_RDWR)) != -1) || (fd = open(path, O_RDONLY))) {
+        off_t sz;
+        if ((sz = lseek(fd, 0, SEEK_END)) > 0 && lseek(fd, 0, SEEK_SET) != -1) {
+            struct target_file *file;
+            if ((file = malloc(sizeof(struct target_file)))) {
+                memcpy(file, &file_init, sizeof(struct target));
+                file->fd = fd;
+                file->rw = rw;
+                file->size = sz;
+                if ((sz = strlen(path)) && ++sz) {
+                    if ((file->path = malloc(sz)))
+                        memcpy(file->path, path, sz);
+                } else {
+                    file->path = NULL;
+                }
+                if (!rw)
+                    warnf("target: attached as read-only (no write permissions)");
+                return (struct target *)file;
+            }
+            errf("target: out-of-memory for file target instance");
+        } else if (sz == 0) {
+            errf("target: cannot attach to an empty file %s", path);
+        } else {
+            errf("target: error determining file size of %s", path);
+        }
+    } else {
+        errf("target: error opening file %s");
+    }
+    return NULL;
+}
+
+struct target *target_attach(const char *uri)
+{
+    if (!memcmp(uri, "pid://", 6)) {
+        char *end;
+        unsigned long pid;
+        if ((pid = strtoul(uri+6, &end, 10)) && !*end && pid == (pid_t)pid)
+            return target_attach_pid(pid);
+        errf("target: invalid pid uri (%s)", uri);
+    } else if (!memcmp(uri, "file://", 7)) {
+        return target_attach_file(uri + 7);
+    } else {
+        char *end;
+        unsigned long pid;
+        while (isspace(*uri)) uri++;
+        pid = strtoul(uri, &end, 10);
+        while (isspace(*end)) end++;
+        if (!*end && pid == (pid_t)pid)
+            return target_attach_pid(pid);
+        errf("target: unsupported uri %s", uri);
+    }
+    return NULL;
+}
+
 void target_detach(struct target *target)
 {
     target->detach(target);
-}
-
-int region_copy(struct region *dest, const struct region *source)
-{
-    memcpy(dest, source, sizeof(struct region));
-    if (source->path) {
-        size_t size = strlen(source->path) + 1;
-        if (!size || !(dest->path = malloc(size))) {
-            errf("target: allocating path buffer for copied region failed");
-            return 0;
-        }
-        memcpy(dest->path, source->path, size);
-    }
-    return 1;
 }
 
 size_t region_snprint(const struct region *mr, char *out, size_t size)
@@ -301,6 +412,20 @@ size_t region_snprint(const struct region *mr, char *out, size_t size)
                     (mr->prot & MEM_WRITE) ? 'w' : '-',
                     (mr->prot & MEM_EXECUTE) ? 'e' : '-',
                     mr->path ? mr->path : "");
+}
+
+int region_copy(struct region *dest, const struct region *source)
+{
+    memcpy(dest, source, sizeof(struct region));
+    if (source->path) {
+        size_t size = strlen(source->path) + 1;
+        if (!size || !(dest->path = malloc(size))) {
+            errf("target: allocating path buffer for copied region failed");
+            return 0;
+        }
+        memcpy(dest->path, source->path, size);
+    }
+    return 1;
 }
 
 void region_destroy(struct region *region)

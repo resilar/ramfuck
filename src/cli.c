@@ -213,9 +213,6 @@ static size_t fprint_value(FILE *stream, const struct value *value, int typed)
  */
 static int do_attach(struct ramfuck *ctx, const char *in)
 {
-    char *end;
-    unsigned long pid;
-    const char *uri;
     size_t regions, size;
     struct target *target;
     struct region *mr;
@@ -225,44 +222,28 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     } human;
 
     if (eol(in)) {
-        errf("attach: missing pid");
+        errf("attach: missing target");
         return 1;
     }
 
-    if (ctx->target) {
-        errf("attach: already attached (detach first)");
+    if (!(target = target_attach(in))) {
+        errf("attach: attaching to %s failed", in);
         return 2;
     }
 
-    pid = strtoul(in, &end, 10);
-    while (isspace(*end)) end++;
-    if (!*end && pid == (pid_t)pid) {
-        in = end;
-        if (!eol(in)) {
-            errf("attach: trailing characters after pid");
-            return 3;
+    if (ctx->target) {
+        infof("detaching from previous target");
+        if (ctx->breaks) {
+            if (!ctx->target->run(ctx->target))
+                warnf("attach: continuing execution of detach target  failed");
+            ctx->breaks = 0;
         }
-
-        if (!(ctx->target = target_attach_pid(pid))) {
-            errf("attach: attaching to pid=%lu failed", (unsigned long)pid);
-            return 4;
-        }
-        uri = NULL;
-    } else {
-        const char *p;
-        for (p = in; *p && !(p[0] == ':' && p[1] == '/' && p[2] == '/'); p++);
-        if (!*p) {
-            errf("attach: invalid target (bad PID/URI)");
-            return 5;
-        }
-        if (!(ctx->target = target_attach((uri = in)))) {
-            errf("attach: attaching to %s failed", uri);
-            return 6;
-        }
-        pid = 0;
+        target_detach(ctx->target);
     }
-    ctx->breaks = 0;
+    ctx->target = target;
 
+    ctx->breaks = 0;
+    ramfuck_break(ctx);
     regions = size = 0;
     target = ctx->target;
     for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
@@ -280,14 +261,14 @@ static int do_attach(struct ramfuck *ctx, const char *in)
     } else {
         ctx->addr_size = sizeof(uint32_t);
     }
+    ramfuck_continue(ctx);
 
     human_readable_size(size, &human.size, &human.suffix);
-    if (pid) {
-        infof("attached to process %lu (%d%c / %lu memory regions)",
-              pid, human.size, human.suffix, (unsigned long)regions);
-    } else {
+    if (regions > 1) {
         infof("attached to target %s (%d%c / %lu memory regions)",
-              uri, human.size, human.suffix, (unsigned long)regions);
+              in, human.size, human.suffix, (unsigned long)regions);
+    } else {
+        infof("attached to target %s (%d%c)", in, human.size, human.suffix);
     }
     return 0;
 }
@@ -308,7 +289,7 @@ static int do_break(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    if (ctx->breaks > 0) {
+    if (ctx->breaks) {
         errf("break: target is already stopped");
         return 3;
     }
@@ -354,8 +335,6 @@ static int do_config(struct ramfuck *ctx, const char *in)
  */
 static int do_continue(struct ramfuck *ctx, const char *in)
 {
-    int breaks;
-
     if (!eol(in)) {
         errf("continue: trailing characters");
         return 1;
@@ -371,10 +350,7 @@ static int do_continue(struct ramfuck *ctx, const char *in)
         return 3;
     }
 
-    breaks = ctx->breaks;
-    ctx->breaks = 1;
     if (!ramfuck_continue(ctx)) {
-        ctx->breaks = breaks;
         errf("continue: continuing failed");
         return 4;
     }
@@ -398,10 +374,13 @@ static int do_detach(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    if (!ctx->breaks && !ramfuck_break(ctx))
-        warnf("detach: stopping target failed");
+    if (ctx->breaks) {
+        if (!ctx->target->run(ctx->target))
+            warnf("detach: continuing execution of target");
+        ctx->breaks = 0;
+    }
 
-    ctx->target->detach(ctx->target);
+    target_detach(ctx->target);
     ctx->target = NULL;
     infof("detached");
     return 0;
@@ -546,6 +525,8 @@ static int do_list(struct ramfuck *ctx, const char *in)
 {
     size_t i;
     struct target *target;
+    struct hit *hit;
+    struct value value;
 
     if (!eol(in)) {
         errf("list: trailing characters");
@@ -560,19 +541,25 @@ static int do_list(struct ramfuck *ctx, const char *in)
     target = ctx->target;
     ramfuck_break(ctx);
     for (i = 0; i < ctx->hits->size; i++) {
-        size_t size;
-        struct value value = {0};
-        struct hit *hit = &ctx->hits->items[i];
+        hit = &ctx->hits->items[i];
         fprintf(stdout, "%lu. *(%s *)0x%08" PRIaddr " = ", (unsigned long)i+1,
                 value_type_to_string(hit->type), hit->addr);
-        value.type = hit->type;
-        size = (hit->type & PTR) ? ctx->addr_size : value_sizeof(&value);
-        if (target && target->read(target, hit->addr, &value.data, size)) {
-            fprint_value(stdout, &value, 0);
-        } else {
-            fprintf(stdout, "???");
+        if (target) {
+            size_t size;
+            value.type = hit->type;
+            if (hit->type & PTR) {
+                value.data.addr = 0;
+                size = ctx->addr_size;
+            } else {
+                size = value_sizeof(&value);
+            }
+            if (target->read(target, hit->addr, &value.data, size)) {
+                fprint_value(stdout, &value, 0);
+                fputc('\n', stdout);
+                continue;
+            }
         }
-        fputc('\n', stdout);
+        fprintf(stdout, "???\n");
     }
     ramfuck_continue(ctx);
 
@@ -846,6 +833,17 @@ static int do_quit(struct ramfuck *ctx, const char *in) {
         errf("quit: trailing characters");
         return 1;
     }
+
+    if (ctx->target) {
+        if (ctx->breaks) {
+            if (!ctx->target->run(ctx->target))
+                warnf("quit: continuing execution of target");
+            ctx->breaks = 0;
+        }
+        target_detach(ctx->target);
+        ctx->target = NULL;
+    }
+
     ramfuck_quit(ctx);
     return ctx->rc;
 }

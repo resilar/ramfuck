@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 
-/* Opaque struct */
 struct linereader;
 
 /* Get a line reader for the given input stream */

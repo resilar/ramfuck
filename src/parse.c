@@ -429,6 +429,7 @@ static struct ast *unary_expression(struct parser *p)
                 if ((root = ast_deref_new(gchild, type, p->target))) {
                     root->value_type = child->value_type & ~PTR;
                     p->has_deref |= 1;
+                    free(child);
                     return root;
                 }
                 parse_error(p, "out-of-memory for AST_DEREF node");

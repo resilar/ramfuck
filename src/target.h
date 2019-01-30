@@ -14,45 +14,39 @@ struct target {
     int (*stop)(struct target *);
     int (*run)(struct target *);
 
-    /* Iterate memory regions */
+    /* Iterate memory regions (iterate till the end to prevent memory leaks!) */
     struct region *(*region_first)(struct target *);
     struct region *(*region_next)(struct region *);
-    struct region *(*region_at)(struct target *, addr_t);
-
-    /* For freeing regions returned by the functions above */
-    void (*region_put)(struct region *);
 
     /* Read/write target memory */
     int (*read)(struct target *, addr_t addr, void *buf, size_t len);
     int (*write)(struct target *, addr_t addr, void *buf, size_t len);
 };
 
+
 /* Create target instance for URI */
 struct target *target_attach(const char *uri);
 
-/* Get target instance */
-struct target *target_attach_pid(pid_t pid);
-
 /* Destroy target instance */
-void target_detach(struct target *mem);
+void target_detach(struct target *target);
 
-enum mem_protection {
-    MEM_EXECUTE = 1,
-    MEM_WRITE = 2,
-    MEM_READ = 4
-};
-
+/* Memory region */
 struct region {
     addr_t start;
     addr_t size;
-    enum mem_protection prot;
+    enum mem_protection {
+        MEM_EXECUTE = 1,
+        MEM_WRITE = 2,
+        MEM_READ = 4
+    } prot;
     char *path;
 };
 
-int region_copy(struct region *dest, const struct region *source);
-
+/* Represent region as a line of string */
 size_t region_snprint(const struct region *mr, char *out, size_t size);
 
+/* Copying and freeing regions iterated via target->region_{first,next}() */
+int region_copy(struct region *dest, const struct region *source);
 void region_destroy(struct region *region);
 
 #endif
