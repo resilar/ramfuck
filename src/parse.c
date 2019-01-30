@@ -96,7 +96,9 @@ struct ast *parse_expression(struct parser *p, const char *in)
         out = NULL;
     } else if ((out = expression(p))) {
         if (p->symbol->type != LEX_EOL) {
-            parse_error(p, "EOL expected");
+            char tokenstr[32];
+            lex_token_to_string(p->symbol, tokenstr, sizeof(tokenstr)-1);
+            parse_error(p, "EOL expected before '%s'", tokenstr);
             do { next_symbol(p); } while (p->symbol->type != LEX_EOL);
         }
         if (p->errors > errors) {
@@ -168,10 +170,30 @@ static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
                 left = ast_cast_new(right->value_type, left);
             if (right->value_type < left->value_type)
                 right = ast_cast_new(left->value_type, right);
-            if (left && left->value_type < S32)
-                left = ast_cast_new(S32, left);
-            if (right && right->value_type < S32)
-                right = ast_cast_new(S32, right);
+            if (left) {
+                if (left->value_type & INT) {
+                    if (left->value_type < S32)
+                        left = ast_cast_new(S32, left);
+                }
+                #ifndef NO_FLOAT_VALUES
+                else if (left->value_type & FPU) {
+                    if (left->value_type < F64)
+                        left = ast_cast_new(F64, left);
+                }
+                #endif
+            }
+            if (right) {
+                if (right->value_type & INT) {
+                    if (right->value_type < S32)
+                        right = ast_cast_new(S32, right);
+                }
+                #ifndef NO_FLOAT_VALUES
+                else if (right->value_type & FPU)  {
+                    if (right->value_type < F64)
+                        right = ast_cast_new(F64, right);
+                }
+                #endif
+            }
         }
 
         if (left && right) {
@@ -207,7 +229,7 @@ delete_operands:
 }
 
 /*
- * Productions. See doc/grammar.txt
+ * Productions
  */
 static struct ast *expression(struct parser *p)
 {
@@ -528,10 +550,12 @@ static struct ast *factor(struct parser *p)
             value_init_u32(&value, uint);
         }
         root = ast_value_new(&value);
+#ifndef NO_FLOAT_VALUES
     } else if (accept(p, LEX_FLOATING_POINT)) {
         struct value value;
         value_init_f64(&value, p->accepted->value.fp);
         root = ast_value_new(&value);
+#endif
     } else if (accept(p, LEX_LEFT_PARENTHESE)) {
         root = expression(p);
         expect(p, LEX_RIGHT_PARENTHESE);
@@ -540,7 +564,7 @@ static struct ast *factor(struct parser *p)
             const char *token = lex_token_type_string[p->symbol->type];
             parse_error(p, "expected a factor but got '%s'", token);
         } else {
-            parse_error(p, "expected a factor");
+            parse_error(p, "expected a factor before EOL");
         }
         root = NULL;
     }

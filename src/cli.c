@@ -836,6 +836,21 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Quit ramfuck.
+ * Usage: quit
+ *        q
+ *        exit
+ */
+static int do_quit(struct ramfuck *ctx, const char *in) {
+    if (!eol(in)) {
+        errf("quit: trailing characters");
+        return 1;
+    }
+    ramfuck_quit(ctx);
+    return ctx->rc;
+}
+
+/*
  * Read memory and write it to file (or stdout if path is -).
  * Usage: read <addr> <len> <path>
  */
@@ -977,6 +992,7 @@ static int do_search(struct ramfuck *ctx, const char *in)
     return 0;
 }
 
+#ifndef NO_FLOAT_VALUES
 /*
  * Measure running time of a command.
  * Usage: time <command>
@@ -993,6 +1009,7 @@ static int do_time(struct ramfuck *ctx, const char *in)
     printf("%gs\n", (double)(end - start) / CLOCKS_PER_SEC);
     return rc;
 }
+#endif
 
 /*
  * Undo.
@@ -1162,16 +1179,17 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
     } else if (accept(&in, "poke")) {
         rc = do_poke(ctx, in);
     } else if (accept(&in, "quit") || accept(&in, "q") || accept(&in, "exit")) {
-        ramfuck_quit(ctx);
-        rc = ctx->rc;
+        rc = do_quit(ctx, in);
     } else if (accept(&in, "read")) {
         rc = do_read(ctx, in);
     } else if (accept(&in, "redo")) {
         rc = do_redo(ctx, in);
     } else if (accept(&in, "search")) {
         rc = do_search(ctx, in);
+#ifndef NO_FLOAT_VALUES
     } else if (accept(&in, "time")) {
         rc = do_time(ctx, in);
+#endif
     } else if (accept(&in, "undo")) {
         rc = do_undo(ctx, in);
     } else if (accept(&in, "write")) {

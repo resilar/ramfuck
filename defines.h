@@ -16,7 +16,7 @@
 # define NO_64BIT_VALUES
 #endif
 
-/* Define NO_FLOAT_VALUES to exclude f32/f64 value support (unimplemented) */
+/* Define NO_FLOAT_VALUES to exclude f32/f64 value support */
 #if 0
 # define NO_FLOAT_VALUES
 #endif

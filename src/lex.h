@@ -1,6 +1,8 @@
 #ifndef LEX_H_INCLUDED
 #define LEX_H_INCLUDED
 
+#include "defines.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -9,7 +11,11 @@ enum lex_token_type {
 
     LEX_EOL, LEX_LEFT_PARENTHESE, LEX_RIGHT_PARENTHESE,
 
-    LEX_INTEGER, LEX_UINTEGER, LEX_FLOATING_POINT, LEX_IDENTIFIER,
+    LEX_INTEGER, LEX_UINTEGER,
+    #ifndef NO_FLOAT_VALUES
+    LEX_FLOATING_POINT,
+    #endif
+    LEX_IDENTIFIER,
 
     /* The order must match ast_types in ast.h */
     LEX_CAST, LEX_DEREF, LEX_NEG, /* reserved */
@@ -31,7 +37,9 @@ struct lex_token {
 
     union {
         intmax_t integer;
+        #ifndef NO_FLOAT_VALUES
         double fp;
+        #endif
         struct {
             const char *name;
             size_t len;
@@ -43,7 +51,7 @@ struct lex_token {
 };
 
 /*
- * Read the next token from string `*pin` and advance the pointer `*pin`.
+ * Read token starting from string *pin and advance the pointer.
  *
  * Returns non-zero on success.
  */

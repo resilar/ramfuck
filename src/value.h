@@ -29,10 +29,15 @@ enum value_type {
     S64 = 0x060108, S64PTR = S64 | PTR,
     U64 = 0x070108, U64PTR = U64 | PTR,
 
+    #ifndef NO_FLOAT_VALUES
     F32 = 0x080200 | sizeof(float),  F32PTR = F32 | PTR,
     F64 = 0x090200 | sizeof(double), F64PTR = F64 | PTR,
+    #endif
 
     VALUE_TYPES = 4 + 4 + 2
+    #ifdef NO_FLOAT_VALUES
+                            - 2
+    #endif
 };
 
 #define HIGHER_TYPE(t1, t2) (((t1) < (t2)) ? (t2) : (t1))
@@ -45,13 +50,15 @@ union value_data {
     int16_t s16; uint16_t u16;
     int32_t s32; uint32_t u32;
     int64_t s64; uint64_t u64;
+    #ifndef NO_FLOAT_VALUES
     float f32; double f64;
+    #endif
 
-#if ADDR_BITS == 64
+    #if ADDR_BITS == 64
     uint64_t addr;
-#else
+    #else
     uint32_t addr;
-#endif
+    #endif
 };
 
 struct value {
@@ -73,8 +80,10 @@ struct value_operations {
     int (*cast_to_u32)(struct value *this, struct value *out);
     int (*cast_to_s64)(struct value *this, struct value *out);
     int (*cast_to_u64)(struct value *this, struct value *out);
+    #ifndef NO_FLOAT_VALUES
     int (*cast_to_f32)(struct value *this, struct value *out);
     int (*cast_to_f64)(struct value *this, struct value *out);
+    #endif
 
     /* this = (typeof(this))src; */
     int (*assign)(struct value *this, struct value *src);
@@ -107,10 +116,7 @@ const struct value_operations value_ops[VALUE_TYPES];
 #define value_ops(v) (&value_ops[(v)->type >> 16])
 #define value_type_ops(t) (&value_ops[(t) >> 16])
 
-/*
- * Initialize value structure.
- * The caller does not have to free/destroy initialized values.
- */
+/* Initialize value structure (destroying not needed) */
 int value_init_s8(struct value *dest, int8_t value);
 int value_init_u8(struct value *dest, uint8_t value);
 int value_init_s16(struct value *dest, int16_t value);
@@ -119,12 +125,12 @@ int value_init_s32(struct value *dest, int32_t value);
 int value_init_u32(struct value *dest, uint32_t value);
 int value_init_s64(struct value *dest, int64_t value);
 int value_init_u64(struct value *dest, uint64_t value);
+#ifndef NO_FLOAT_VALUES
 int value_init_f32(struct value *dest, float value);
 int value_init_f64(struct value *dest, double value);
+#endif
 
-/*
- * Check whether value equals to (non-)zero.
- */
+/* Check whether value is (non-)zero */
 int value_is_zero(const struct value *dest);
 #define value_is_nonzero(dest) (!value_is_zero((dest)))
 
@@ -135,16 +141,13 @@ const char *value_type_to_string(enum value_type type);
 
 /*
  * Produce a string representation of a value.
- *
- * Returns a pointer to a static buffer or fills a buffer pointed by out. The
- * buffer must be at least 32 bytes.
  */
 size_t value_to_string(const struct value *value, char *out, size_t size);
 
 /*
  * Inverse of value_type_to_string.
  *
- * Returns value type or 0 on an error.
+ * Returns value type (or 0 on an error).
  */
 enum value_type value_type_from_string(const char *str);
 enum value_type value_type_from_substring(const char *str, size_t len);

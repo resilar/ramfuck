@@ -63,6 +63,7 @@ int value_init_u64(struct value *dest, uint64_t value)
     return 1;
 }
 
+#ifndef NO_FLOAT_VALUES
 int value_init_f32(struct value *dest, float value)
 {
     dest->type = F32;
@@ -76,6 +77,7 @@ int value_init_f64(struct value *dest, double value)
     dest->data.f64 = value;
     return 1;
 }
+#endif
 
 int value_is_zero(const struct value *dest)
 {
@@ -107,8 +109,10 @@ const char *value_type_to_string(enum value_type type)
     case S64: return "s64"; case S64PTR: return "s64 *";
     case U64: return "u64"; case U64PTR: return "u64 *";
 
+    #ifndef NO_FLOAT_VALUES
     case F32: return "f32"; case F32PTR: return "f32 *";
     case F64: return "f64"; case F64PTR: return "f64 *";
+    #endif
 
     default: break;
     }
@@ -131,14 +135,18 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     case S64: return snprintf(out, size, "%" PRId64, value->data.s64);
     case U64: return snprintf(out, size, "%" PRIu64, value->data.u64);
 
+    #ifndef NO_FLOAT_VALUES
     case F32: return snprintf(out, size, "%g", value->data.f32);
     case F64: return snprintf(out, size, "%g", value->data.f64);
+    #endif
 
     case S8PTR: case U8PTR:
     case S16PTR: case U16PTR:
     case S32PTR: case U32PTR:
     case S64PTR: case U64PTR:
+    #ifndef NO_FLOAT_VALUES
     case F32PTR: case F64PTR:
+    #endif
         return snprintf(out, size, "0x%08" PRIaddr, value->data.addr);
 
     default: break;
@@ -191,19 +199,22 @@ enum value_type value_type_from_substring(const char *str, size_t len)
                 if (str[1] == '6' && str[2] == '4')
                     return U64 | mask;
             }
+#ifndef NO_FLOAT_VALUES
         } else if (*str == 'f' && len == 3) {
             if (str[1] == '3' && str[2] == '2')
                 return F32 | mask;
             if (str[1] == '6' && str[2] == '4')
                 return F64 | mask;
+#endif
         }
     }
 
     return 0;
 }
 
+#ifndef NO_FLOAT_VALUES
 /*
- * Dummy no-operation & promotion methods.
+ * Dummy no-operation & promotion methods (only used by f32/f64 operations).
  */
 static int dummy_nop(struct value *op1, struct value *op2, struct value *out)
 {
@@ -214,6 +225,7 @@ static int dummy_unary_op(struct value *op1, struct value *out)
 {
     return 0; /* error */
 }
+#endif
 
 #define warning(x) fprintf(stderr, "%s\n", x)
 
@@ -392,6 +404,7 @@ static int s8_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s8);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int s8_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.s8);
@@ -401,6 +414,7 @@ static int s8_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.s8);
 }
+#endif
 
 static int s8_assign(struct value *this, struct value *src)
 {
@@ -450,6 +464,7 @@ static int u8_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u8);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int u8_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.u8);
@@ -459,6 +474,7 @@ static int u8_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.u8);
 }
+#endif
 
 static int u8_assign(struct value *this, struct value *src)
 {
@@ -508,6 +524,7 @@ static int s16_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s16);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int s16_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.s16);
@@ -517,6 +534,7 @@ static int s16_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.s16);
 }
+#endif
 
 static int s16_assign(struct value *this, struct value *src)
 {
@@ -566,15 +584,17 @@ static int u16_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u16);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int u16_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.u16);
 }
-    
+
 static int u16_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.u16);
 }
+#endif
 
 static int u16_assign(struct value *this, struct value *src)
 {
@@ -624,6 +644,7 @@ static int s32_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s32);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int s32_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.s32);
@@ -633,6 +654,7 @@ static int s32_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.s32);
 }
+#endif
 
 static int s32_assign(struct value *this, struct value *src)
 {
@@ -815,6 +837,7 @@ static int u32_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u32);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int u32_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.u32);
@@ -824,6 +847,7 @@ static int u32_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.u32);
 }
+#endif
 
 static int u32_assign(struct value *this, struct value *src)
 {
@@ -1006,6 +1030,7 @@ static int s64_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.s64);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int s64_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.s64);
@@ -1015,6 +1040,7 @@ static int s64_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.s64);
 }
+#endif
 
 static int s64_assign(struct value *this, struct value *src)
 {
@@ -1197,6 +1223,7 @@ static int u64_to_u64(struct value *this, struct value *out)
     return value_init_u64(out, this->data.u64);
 }
 
+#ifndef NO_FLOAT_VALUES
 static int u64_to_f32(struct value *this, struct value *out)
 {
     return value_init_f32(out, this->data.u64);
@@ -1206,6 +1233,7 @@ static int u64_to_f64(struct value *this, struct value *out)
 {
     return value_init_f64(out, this->data.u64);
 }
+#endif
 
 static int u64_assign(struct value *this, struct value *src)
 {
@@ -1345,6 +1373,7 @@ static int u64_ge(struct value *op1, struct value *op2, struct value *out)
     return 1;
 }
 
+#ifndef NO_FLOAT_VALUES
 /*
  * f32 methods.
  */
@@ -1405,72 +1434,85 @@ static int f32_assign(struct value *this, struct value *src)
 
 static int f32_neg(struct value *op1, struct value *out)
 {
+    warning("value: f32_neg called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->neg(out, out);
 }
 
 static int f32_not(struct value *op1, struct value *out)
 {
+    warning("value: f32_not called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->not(out, out);
 }
 
 static int f32_add(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_add called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->add(out, op2, out);
 }
 
 static int f32_sub(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_sub called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->sub(out, op2, out);
 }
 
 static int f32_mul(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_mul called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->mul(out, op2, out);
 }
 
 static int f32_div(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_div called");
+    value_ops(op1)->cast_to_f64(op1, out);
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->div(out, op2, out);
 }
 
 static int f32_eq(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_eq called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->eq(out, op2, out);
 }
 
 static int f32_neq(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_neq called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->neq(out, op2, out);
 }
 
 static int f32_lt(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_lt called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->lt(out, op2, out);
 }
 
 static int f32_gt(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_gt called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->gt(out, op2, out);
 }
 
 static int f32_le(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_le called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->le(out, op2, out);
 }
 
 static int f32_ge(struct value *op1, struct value *op2, struct value *out)
 {
+    warning("value: f32_ge called");
     value_ops(op1)->cast_to_f64(op1, out);
     return value_ops(out)->ge(out, op2, out);
 }
@@ -1616,6 +1658,7 @@ static int f64_ge(struct value *op1, struct value *op2, struct value *out)
     out->data.s32 = op1->data.f64 >= op2->data.f64;
     return 1;
 }
+#endif
 
 /*
  * Method tables.
@@ -1624,18 +1667,22 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* S8 */
         s8_to_s8, s8_to_u8, s8_to_s16, s8_to_u16,
         s8_to_s32, s8_to_u32, s8_to_s64, s8_to_u64,
+        #ifndef NO_FLOAT_VALUES
         s8_to_f32, s8_to_f64,
+        #endif
         s8_assign,
 
         dummy_neg, dummy_not, dummy_compl,
         dummy_add, dummy_sub, dummy_mul, dummy_div, dummy_mod,
         dummy_and, dummy_xor, dummy_or, dummy_shl, dummy_shr,
         dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
-    }, 
+    },
     {   /* U8 */
         u8_to_s8, u8_to_u8, u8_to_s16, u8_to_u16,
         u8_to_s32, u8_to_u32, u8_to_s64, u8_to_u64,
+        #ifndef NO_FLOAT_VALUES
         u8_to_f32, u8_to_f64,
+        #endif
         u8_assign,
 
         dummy_neg, dummy_not, dummy_compl,
@@ -1646,7 +1693,9 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* S16 */
         s16_to_s8, s16_to_u8, s16_to_s16, s16_to_u16,
         s16_to_s32, s16_to_u32, s16_to_s64, s16_to_u64,
+        #ifndef NO_FLOAT_VALUES
         s16_to_f32, s16_to_f64,
+        #endif
         s16_assign,
 
         dummy_neg, dummy_not, dummy_compl,
@@ -1657,7 +1706,9 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* U16 */
         u16_to_s8, u16_to_u8, u16_to_s16, u16_to_u16,
         u16_to_s32, u16_to_u32, u16_to_s64, u16_to_u64,
+        #ifndef NO_FLOAT_VALUES
         u16_to_f32, u16_to_f64,
+        #endif
         u16_assign,
 
         dummy_neg, dummy_not, dummy_compl,
@@ -1668,7 +1719,9 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* S32 */
         s32_to_s8, s32_to_u8, s32_to_s16, s32_to_u16,
         s32_to_s32, s32_to_u32, s32_to_s64, s32_to_u64,
+        #ifndef NO_FLOAT_VALUES
         s32_to_f32, s32_to_f64,
+        #endif
         s32_assign,
 
         s32_neg, s32_not, s32_compl,
@@ -1679,7 +1732,9 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* U32 */
         u32_to_s8, u32_to_u8, u32_to_s16, u32_to_u16,
         u32_to_s32, u32_to_u32, u32_to_s64, u32_to_u64,
+        #ifndef NO_FLOAT_VALUES
         u32_to_f32, u32_to_f64,
+        #endif
         u32_assign,
 
         u32_neg, u32_not, u32_compl,
@@ -1690,7 +1745,9 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* S64 */
         s64_to_s8, s64_to_u8, s64_to_s16, s64_to_u16,
         s64_to_s32, s64_to_u32, s64_to_s64, s64_to_u64,
+        #ifndef NO_FLOAT_VALUES
         s64_to_f32, s64_to_f64,
+        #endif
         s64_assign,
 
         s64_neg, s64_not, s64_compl,
@@ -1701,15 +1758,18 @@ const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* U64 */
         u64_to_s8, u64_to_u8, u64_to_s16, u64_to_u16,
         u64_to_s32, u64_to_u32, u64_to_s64, u64_to_u64,
+        #ifndef NO_FLOAT_VALUES
         u64_to_f32, u64_to_f64,
+        #endif
         u64_assign,
 
         u64_neg, u64_not, u64_compl,
         u64_add, u64_sub, u64_mul, u64_div, u64_mod,
         u64_and, u64_xor, u64_or, u64_shl, u64_shr,
         u64_eq, u64_neq, u64_lt, u64_gt, u64_le, u64_ge
-    },
-    {   /* F32 */
+    }
+#ifndef NO_FLOAT_VALUES
+    , { /* F32 */
         f32_to_s8, f32_to_u8, f32_to_s16, f32_to_u16,
         f32_to_s32, f32_to_u32, f32_to_s64, f32_to_u64,
         f32_to_f32, f32_to_f64,
@@ -1731,4 +1791,5 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
         f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge
     }
+#endif
 };
