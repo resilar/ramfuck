@@ -210,7 +210,7 @@ static int dummy_nop(struct value *op1, struct value *op2, struct value *out)
     return 0; /* error */
 }
 
-static int dummy_unop(struct value *op1, struct value *out)
+static int dummy_unary_op(struct value *op1, struct value *out)
 {
     return 0; /* error */
 }
@@ -1715,7 +1715,7 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         f32_to_f32, f32_to_f64,
         f32_assign,
 
-        f32_neg, f32_not, dummy_unop,
+        f32_neg, f32_not, dummy_unary_op,
         f32_add, f32_sub, f32_mul, f32_div, dummy_mod,
         dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
         f32_eq, f32_neq, f32_lt, f32_gt, f32_le, f32_ge
@@ -1726,7 +1726,7 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         f64_to_f32, f64_to_f64,
         f64_assign,
 
-        f64_neg, f64_not, dummy_unop,
+        f64_neg, f64_not, dummy_unary_op,
         f64_add, f64_sub, f64_mul, f64_div, dummy_mod,
         dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
         f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge

@@ -23,8 +23,8 @@ static int ast_cast_evaluate(struct ast *this, struct value *out)
     struct value value;
     if ((this->value_type & PTR)) {
         struct ast_cast *cast = (struct ast_cast *)this;
-        if (ast_evaluate(cast->root.child, &value)) {
-            enum value_type addr_type = cast->root.child->value_type;
+        if (ast_evaluate(cast->tree.child, &value)) {
+            enum value_type addr_type = cast->tree.child->value_type;
             if (value_type_ops(addr_type)->assign(out, &value)) {
                 out->type = this->value_type;
                 return 1;
@@ -32,14 +32,14 @@ static int ast_cast_evaluate(struct ast *this, struct value *out)
         }
         return 0;
     }
-    return ast_evaluate(((struct ast_unop *)this)->child, &value)
+    return ast_evaluate(((struct ast_unary *)this)->child, &value)
         && value_type_ops(this->value_type)->assign(out, &value);
 }
 
 static int ast_deref_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
-    if (ast_evaluate(((struct ast_unop *)this)->child, &value)) {
+    if (ast_evaluate(((struct ast_unary *)this)->child, &value)) {
         struct target *target = ((struct ast_deref *)this)->target;
 #if ADDR_BITS == 64
         addr_t addr = (value.type == U64) ? value.data.u64 : value.data.u32;
@@ -55,149 +55,149 @@ static int ast_deref_evaluate(struct ast *this, struct value *out)
 static int ast_neg_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
-    return ast_evaluate(((struct ast_unop *)this)->child, &value)
+    return ast_evaluate(((struct ast_unary *)this)->child, &value)
         && value_ops(&value)->neg(&value, out);
 }
 
 static int ast_not_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
-    return ast_evaluate(((struct ast_unop *)this)->child, &value)
+    return ast_evaluate(((struct ast_unary *)this)->child, &value)
         && value_ops(&value)->not(&value, out);
 }
 
 static int ast_compl_evaluate(struct ast *this, struct value *out)
 {
     struct value value;
-    return ast_evaluate(((struct ast_unop *)this)->child, &value)
+    return ast_evaluate(((struct ast_unary *)this)->child, &value)
         && value_ops(&value)->compl(&value, out);
 }
 
 static int ast_add_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->add(&left, &right, out);
 }
 
 static int ast_sub_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->sub(&left, &right, out);
 }
 
 static int ast_mul_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->mul(&left, &right, out);
 }
 
 static int ast_div_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->div(&left, &right, out);
 }
 
 static int ast_mod_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->mod(&left, &right, out);
 }
 
 static int ast_and_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->and(&left, &right, out);
 }
 
 static int ast_xor_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->xor(&left, &right, out);
 }
 
 static int ast_or_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->or(&left, &right, out);
 }
 
 static int ast_shl_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->shl(&left, &right, out);
 }
 
 static int ast_shr_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->shr(&left, &right, out);
 }
 
 static int ast_eq_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->eq(&left, &right, out);
 }
 
 static int ast_neq_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->neq(&left, &right, out);
 }
 
 static int ast_lt_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->lt(&left, &right, out);
 }
 
 static int ast_gt_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->gt(&left, &right, out);
 }
 
 static int ast_le_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->le(&left, &right, out);
 }
 
 static int ast_ge_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
-    return ast_evaluate(((struct ast_binop *)this)->left, &left)
-        && ast_evaluate(((struct ast_binop *)this)->right, &right)
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->ge(&left, &right, out);
 }
 
@@ -205,14 +205,14 @@ static int ast_and_cond_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
 
-    if (!ast_evaluate(((struct ast_binop *)this)->left, &left))
+    if (!ast_evaluate(((struct ast_binary *)this)->left, &left))
         return 0;
     if (value_is_zero(&left)) {
         value_init_s32(out, 0);
         return 1;
     }
 
-    if (!ast_evaluate(((struct ast_binop *)this)->right, &right))
+    if (!ast_evaluate(((struct ast_binary *)this)->right, &right))
         return 0;
     if (value_is_zero(&right)) {
         value_init_s32(out, 0);
@@ -227,14 +227,14 @@ static int ast_or_cond_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
 
-    if (!ast_evaluate(((struct ast_binop *)this)->left, &left))
+    if (!ast_evaluate(((struct ast_binary *)this)->left, &left))
         return 0;
     if (value_is_nonzero(&left)) {
         value_init_s32(out, 1);
         return 1;
     }
 
-    if (!ast_evaluate(((struct ast_binop *)this)->right, &right))
+    if (!ast_evaluate(((struct ast_binary *)this)->right, &right))
         return 0;
     if (value_is_nonzero(&right)) {
         value_init_s32(out, 1);

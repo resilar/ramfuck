@@ -50,13 +50,13 @@ struct ast {
 #define ast_type_is_compare(type) ((type) >= AST_EQ)
 #define ast_type_is_conditional(type) ((type) >= AST_AND_COND)
 
-struct ast_binop {
-    struct ast root;
+struct ast_binary {
+    struct ast tree;
     struct ast *left, *right;
 };
 
-struct ast_unop {
-    struct ast root;
+struct ast_unary {
+    struct ast tree;
     struct ast *child;
 };
 
@@ -64,48 +64,48 @@ struct ast_unop {
  * AST nodes.
  */
 struct ast_value {
-    struct ast root;
+    struct ast tree;
     struct value value;
 };
 
 struct ast_var {
-    struct ast root;
+    struct ast tree;
     struct symbol_table *symtab;
     size_t sym;
     size_t size;
 };
 
-struct ast_cast  { struct ast_unop root; };
+struct ast_cast  { struct ast_unary tree; };
 
 struct ast_deref {
-    struct ast_unop root;
+    struct ast_unary tree;
     struct target *target;
 };
 
-struct ast_neg   { struct ast_unop root; };
-struct ast_not   { struct ast_unop root; };
-struct ast_compl { struct ast_unop root; };
+struct ast_neg   { struct ast_unary tree; };
+struct ast_not   { struct ast_unary tree; };
+struct ast_compl { struct ast_unary tree; };
 
-struct ast_add { struct ast_binop root; };
-struct ast_sub { struct ast_binop root; };
-struct ast_mul { struct ast_binop root; };
-struct ast_div { struct ast_binop root; };
+struct ast_add { struct ast_binary tree; };
+struct ast_sub { struct ast_binary tree; };
+struct ast_mul { struct ast_binary tree; };
+struct ast_div { struct ast_binary tree; };
 
-struct ast_and { struct ast_binop root; };
-struct ast_xor { struct ast_binop root; };
-struct ast_or  { struct ast_binop root; };
-struct ast_shl { struct ast_binop root; };
-struct ast_shr { struct ast_binop root; };
+struct ast_and { struct ast_binary tree; };
+struct ast_xor { struct ast_binary tree; };
+struct ast_or  { struct ast_binary tree; };
+struct ast_shl { struct ast_binary tree; };
+struct ast_shr { struct ast_binary tree; };
 
-struct ast_eq  { struct ast_binop root; };
-struct ast_neq { struct ast_binop root; };
-struct ast_lt  { struct ast_binop root; };
-struct ast_gt  { struct ast_binop root; };
-struct ast_le  { struct ast_binop root; };
-struct ast_ge  { struct ast_binop root; };
+struct ast_eq  { struct ast_binary tree; };
+struct ast_neq { struct ast_binary tree; };
+struct ast_lt  { struct ast_binary tree; };
+struct ast_gt  { struct ast_binary tree; };
+struct ast_le  { struct ast_binary tree; };
+struct ast_ge  { struct ast_binary tree; };
 
-struct ast_and_cond { struct ast_binop root; };
-struct ast_or_cond  { struct ast_binop root; };
+struct ast_and_cond { struct ast_binary tree; };
+struct ast_or_cond  { struct ast_binary tree; };
 
 /*
  * Routines and macros for allocating & initializing AST nodes.
@@ -117,32 +117,32 @@ struct ast *ast_cast_new(enum value_type value_type, struct ast *child);
 struct ast *ast_deref_new(struct ast *child, enum value_type value_type,
                           struct target *target);
 
-struct ast *ast_unop_new(enum ast_type node_type, struct ast *child);
-#define ast_neg_new(c)   ast_unop_new(AST_NEG, (c))
-#define ast_not_new(c)   ast_unop_new(AST_NOT, (c))
-#define ast_compl_new(c) ast_unop_new(AST_COMPL, (c))
+struct ast *ast_unary_new(enum ast_type node_type, struct ast *child);
+#define ast_neg_new(c)   ast_unary_new(AST_NEG, (c))
+#define ast_not_new(c)   ast_unary_new(AST_NOT, (c))
+#define ast_compl_new(c) ast_unary_new(AST_COMPL, (c))
 
-struct ast *ast_binop_new(enum ast_type node_type,
-                          struct ast *left, struct ast *right);
-#define ast_add_new(l, r) ast_binop_new(AST_ADD, (l), (r))
-#define ast_sub_new(l, r) ast_binop_new(AST_SUB, (l), (r))
-#define ast_mul_new(l, r) ast_binop_new(AST_MUL, (l), (r))
-#define ast_div_new(l, r) ast_binop_new(AST_DIV, (l), (r))
-#define ast_and_new(l, r) ast_binop_new(AST_AND, (l), (r))
-#define ast_xor_new(l, r) ast_binop_new(AST_XOR, (l), (r))
-#define ast_or_new(l, r)  ast_binop_new(AST_OR, (l), (r))
-#define ast_shl_new(l, r) ast_binop_new(AST_SHL, (l), (r))
-#define ast_shr_new(l, r) ast_binop_new(AST_SHR, (l), (r))
+struct ast *ast_binary_new(enum ast_type node_type,
+                           struct ast *left, struct ast *right);
+#define ast_add_new(l, r) ast_binary_new(AST_ADD, (l), (r))
+#define ast_sub_new(l, r) ast_binary_new(AST_SUB, (l), (r))
+#define ast_mul_new(l, r) ast_binary_new(AST_MUL, (l), (r))
+#define ast_div_new(l, r) ast_binary_new(AST_DIV, (l), (r))
+#define ast_and_new(l, r) ast_binary_new(AST_AND, (l), (r))
+#define ast_xor_new(l, r) ast_binary_new(AST_XOR, (l), (r))
+#define ast_or_new(l, r)  ast_binary_new(AST_OR, (l), (r))
+#define ast_shl_new(l, r) ast_binary_new(AST_SHL, (l), (r))
+#define ast_shr_new(l, r) ast_binary_new(AST_SHR, (l), (r))
 
-#define ast_eq_new(l, r)  ast_binop_new(AST_EQ, (l), (r))
-#define ast_neq_new(l, r) ast_binop_new(AST_NEQ, (l), (r))
-#define ast_lt_new(l, r)  ast_binop_new(AST_LT, (l), (r))
-#define ast_gt_new(l, r)  ast_binop_new(AST_GT, (l), (r))
-#define ast_le_new(l, r)  ast_binop_new(AST_LE, (l), (r))
-#define ast_ge_new(l, r)  ast_binop_new(AST_GE, (l), (r))
+#define ast_eq_new(l, r)  ast_binary_new(AST_EQ, (l), (r))
+#define ast_neq_new(l, r) ast_binary_new(AST_NEQ, (l), (r))
+#define ast_lt_new(l, r)  ast_binary_new(AST_LT, (l), (r))
+#define ast_gt_new(l, r)  ast_binary_new(AST_GT, (l), (r))
+#define ast_le_new(l, r)  ast_binary_new(AST_LE, (l), (r))
+#define ast_ge_new(l, r)  ast_binary_new(AST_GE, (l), (r))
 
-#define ast_and_cond_new(l, r) ast_binop_new(AST_AND_COND, (l), (r))
-#define ast_or_cond_new(l, r)  ast_binop_new(AST_OR_COND, (l), (r))
+#define ast_and_cond_new(l, r) ast_binary_new(AST_AND_COND, (l), (r))
+#define ast_or_cond_new(l, r)  ast_binary_new(AST_OR_COND, (l), (r))
 
 /*
  * Delete an AST node and its children.

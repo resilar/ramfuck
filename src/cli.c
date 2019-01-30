@@ -116,7 +116,7 @@ static int accept_value(const char **pin, enum value_type value_type,
             struct ast *cast;
             if (ast->node_type == AST_CAST && (ast->value_type & PTR)) {
                 cast = ast;
-                ast = ((struct ast_unop *)ast)->child;
+                ast = ((struct ast_unary *)ast)->child;
                 free(cast);
             }
             if (ast->value_type != value_type) {

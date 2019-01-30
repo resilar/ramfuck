@@ -108,9 +108,9 @@ struct ast *parse_expression(struct parser *p, const char *in)
     return out;
 }
 
-static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
-                                     struct ast *left, struct ast *right,
-                                     enum value_type mask)
+static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
+                                      struct ast *left, struct ast *right,
+                                      enum value_type mask)
 {
     const char *errfmt;
     struct ast_cast *cast, **pcast;
@@ -122,9 +122,9 @@ static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
         if ((node_type == AST_SUB && left->value_type == right->value_type)
                 || ast_type_is_compare(node_type)) {
             struct ast *root;
-            struct ast *l = ((struct ast_unop *)left)->child;
-            struct ast *r = ((struct ast_unop *)right)->child;
-            if ((root = ast_binop_new(node_type, l, r))) {
+            struct ast *l = ((struct ast_unary *)left)->child;
+            struct ast *r = ((struct ast_unary *)right)->child;
+            if ((root = ast_binary_new(node_type, l, r))) {
                 if (ast_is_compare(root)) {
                     root->value_type = S32;
                 } else {
@@ -162,7 +162,7 @@ static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
                 if ((*pother)->value_type < p->addr_type)
                     *pother = ast_cast_new(p->addr_type, *pother);
             }
-            *(struct ast **)pcast = cast->root.child;
+            *(struct ast **)pcast = cast->tree.child;
         } else {
             if (left->value_type < right->value_type)
                 left = ast_cast_new(right->value_type, left);
@@ -176,13 +176,13 @@ static struct ast *ast_binop_try_new(struct parser *p, enum ast_type node_type,
 
         if (left && right) {
             struct ast *root;
-            if ((root = ast_binop_new(node_type, left, right))) {
+            if ((root = ast_binary_new(node_type, left, right))) {
                 if (ast_is_compare(root)) {
                     root->value_type = S32;
                 } else {
                     root->value_type = left->value_type;
                     if (cast) {
-                        cast->root.child = root;
+                        cast->tree.child = root;
                         root = (struct ast *)cast;
                     }
                 }
@@ -222,7 +222,7 @@ static struct ast *conditional_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = equality_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INT|FPU);
     }
 
     return root;
@@ -236,7 +236,7 @@ static struct ast *equality_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = relational_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INT|FPU);
     }
 
     return root;
@@ -251,7 +251,7 @@ static struct ast *relational_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = or_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INT|FPU);
     }
 
     return root;
@@ -264,7 +264,7 @@ static struct ast *or_expression(struct parser *p)
     while (root && accept(p, LEX_OR)) {
         struct ast *left = root;
         struct ast *right = xor_expression(p);
-        root = ast_binop_try_new(p, AST_OR, left, right, INT);
+        root = ast_binary_try_new(p, AST_OR, left, right, INT);
     }
 
     return root;
@@ -276,7 +276,7 @@ static struct ast *xor_expression(struct parser *p)
     while (root && accept(p, LEX_XOR)) {
         struct ast *left = root;
         struct ast *right = and_expression(p);
-        root = ast_binop_try_new(p, AST_XOR, left, right, INT);
+        root = ast_binary_try_new(p, AST_XOR, left, right, INT);
     }
 
     return root;
@@ -288,7 +288,7 @@ static struct ast *and_expression(struct parser *p)
     while (root && accept(p, LEX_AND)) {
         struct ast *left = root;
         struct ast *right = shift_expression(p);
-        root = ast_binop_try_new(p, AST_AND, left, right, INT);
+        root = ast_binary_try_new(p, AST_AND, left, right, INT);
     }
 
     return root;
@@ -302,7 +302,7 @@ static struct ast *shift_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = addsub_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT);
+        root = ast_binary_try_new(p, type, left, right, INT);
     }
 
     return root;
@@ -316,7 +316,7 @@ static struct ast *addsub_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = muldiv_expression(p);
-        root = ast_binop_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INT|FPU);
     }
 
     return root;
@@ -333,7 +333,7 @@ static struct ast *muldiv_expression(struct parser *p)
         struct ast *left = root;
         struct ast *right = cast_expression(p);
         enum value_type valid_types = (type == AST_MOD) ? INT : (INT|FPU);
-        root = ast_binop_try_new(p, type, left, right, valid_types);
+        root = ast_binary_try_new(p, type, left, right, valid_types);
     }
 
     return root;
@@ -364,7 +364,7 @@ static struct ast *cast_expression(struct parser *p)
                     if (!(child = cast_expression(p)))
                         return NULL;
                     if (child->value_type & PTR) {
-                        struct ast *gchild = ((struct ast_unop *)child)->child;
+                        struct ast *gchild = ((struct ast_unary *)child)->child;
                         free(child);
                         child = gchild;
                     }
@@ -403,7 +403,7 @@ static struct ast *unary_expression(struct parser *p)
         if (child->value_type & PTR) {
             if (p->target) {
                 enum value_type type = child->value_type ^ PTR;
-                struct ast *gchild = ((struct ast_unop *)child)->child;
+                struct ast *gchild = ((struct ast_unary *)child)->child;
                 if ((root = ast_deref_new(gchild, type, p->target))) {
                     root->value_type = child->value_type & ~PTR;
                     p->has_deref |= 1;
@@ -431,8 +431,8 @@ static struct ast *unary_expression(struct parser *p)
 
         if (child->value_type & PTR) {
             if (child->node_type == AST_CAST) {
-                struct ast **pgchild = &((struct ast_unop *)child)->child;
-                if ((root = ast_unop_new(type, *pgchild))) {
+                struct ast **pgchild = &((struct ast_unary *)child)->child;
+                if ((root = ast_unary_new(type, *pgchild))) {
                     root->value_type = (*pgchild)->value_type;
                     if (type != AST_NOT) {
                         *pgchild = root;
@@ -455,7 +455,7 @@ static struct ast *unary_expression(struct parser *p)
             if (child->value_type < S32)
                 child = ast_cast_new(S32, child);
             if (child) {
-                if ((root = ast_unop_new(type, child))) {
+                if ((root = ast_unary_new(type, child))) {
                     root->value_type = child->value_type;
                     return root;
                 }

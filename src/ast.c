@@ -14,8 +14,8 @@ struct ast *ast_value_new(struct value *value)
 {
     struct ast_value *n;
     if ((n = malloc(sizeof(struct ast_value)))) {
-        n->root.node_type = AST_VALUE;
-        n->root.value_type = value->type;
+        n->tree.node_type = AST_VALUE;
+        n->tree.value_type = value->type;
         n->value = *value;
     }
     return (struct ast *)n;
@@ -25,21 +25,21 @@ struct ast *ast_var_new(struct symbol_table *symtab, size_t sym, size_t size)
 {
     struct ast_var *n;
     if ((n = malloc(sizeof(struct ast_var)))) {
-        n->root.node_type = AST_VAR;
-        n->root.value_type = symtab->symbols[sym]->type;
+        n->tree.node_type = AST_VAR;
+        n->tree.value_type = symtab->symbols[sym]->type;
         n->symtab = symtab;
         n->sym = sym;
-        n->size = size ? size : value_type_sizeof(n->root.value_type);
+        n->size = size ? size : value_type_sizeof(n->tree.value_type);
     }
     return (struct ast *)n;
 }
 
 struct ast *ast_cast_new(enum value_type value_type, struct ast *child)
 {
-    struct ast_unop *n;
+    struct ast_unary *n;
     if ((n = malloc(sizeof(struct ast_cast)))) {
-        n->root.node_type = AST_CAST;
-        n->root.value_type = value_type;
+        n->tree.node_type = AST_CAST;
+        n->tree.value_type = value_type;
         n->child = child;
     }
     return (struct ast *)n;
@@ -48,32 +48,32 @@ struct ast *ast_cast_new(enum value_type value_type, struct ast *child)
 struct ast *ast_deref_new(struct ast *child, enum value_type value_type,
                           struct target *target)
 {
-    struct ast_unop *n;
+    struct ast_unary *n;
     if ((n = malloc(sizeof(struct ast_deref)))) {
-        n->root.node_type = AST_DEREF;
-        n->root.value_type = value_type;
+        n->tree.node_type = AST_DEREF;
+        n->tree.value_type = value_type;
         n->child = child;
         ((struct ast_deref *)n)->target = target;
     }
     return (struct ast *)n;
 }
 
-struct ast *ast_unop_new(enum ast_type node_type, struct ast *child)
+struct ast *ast_unary_new(enum ast_type node_type, struct ast *child)
 {
-    struct ast_unop *n;
-    if ((n = malloc(sizeof(struct ast_unop)))) {
-        n->root.node_type = node_type;
+    struct ast_unary *n;
+    if ((n = malloc(sizeof(struct ast_unary)))) {
+        n->tree.node_type = node_type;
         n->child = child;
     }
     return (struct ast *)n;
 }
 
-struct ast *ast_binop_new(enum ast_type node_type,
-                          struct ast *left, struct ast *right)
+struct ast *ast_binary_new(enum ast_type node_type,
+                           struct ast *left, struct ast *right)
 {
-    struct ast_binop *n;
-    if ((n = malloc(sizeof(struct ast_binop)))) {
-        n->root.node_type = node_type;
+    struct ast_binary *n;
+    if ((n = malloc(sizeof(struct ast_binary)))) {
+        n->tree.node_type = node_type;
         n->left = left;
         n->right = right;
     }
@@ -88,16 +88,16 @@ static void ast_leaf_delete(struct ast *this)
     free(this);
 }
 
-static void ast_unop_delete(struct ast *this)
+static void ast_unary_delete(struct ast *this)
 {
-    ast_delete(((struct ast_unop *)this)->child);
+    ast_delete(((struct ast_unary *)this)->child);
     free(this);
 }
 
-static void ast_binop_delete(struct ast *this)
+static void ast_binary_delete(struct ast *this)
 {
-    ast_delete(((struct ast_binop *)this)->left);
-    ast_delete(((struct ast_binop *)this)->right);
+    ast_delete(((struct ast_binary *)this)->left);
+    ast_delete(((struct ast_binary *)this)->right);
     free(this);
 }
 
@@ -105,33 +105,33 @@ void (*ast_delete_funcs[AST_TYPES])(struct ast *) = {
     /* AST_VALUE */ ast_leaf_delete,
     /* AST_VAR   */ ast_leaf_delete,
 
-    /* AST_CAST  */ ast_unop_delete,
-    /* AST_DEREF */ ast_unop_delete,
-    /* AST_NEG   */ ast_unop_delete,
-    /* AST_NOT   */ ast_unop_delete,
-    /* AST_COMPL */ ast_unop_delete,
+    /* AST_CAST  */ ast_unary_delete,
+    /* AST_DEREF */ ast_unary_delete,
+    /* AST_NEG   */ ast_unary_delete,
+    /* AST_NOT   */ ast_unary_delete,
+    /* AST_COMPL */ ast_unary_delete,
 
-    /* AST_ADD */ ast_binop_delete,
-    /* AST_SUB */ ast_binop_delete,
-    /* AST_MUL */ ast_binop_delete,
-    /* AST_DIV */ ast_binop_delete,
-    /* AST_MOD */ ast_binop_delete,
+    /* AST_ADD */ ast_binary_delete,
+    /* AST_SUB */ ast_binary_delete,
+    /* AST_MUL */ ast_binary_delete,
+    /* AST_DIV */ ast_binary_delete,
+    /* AST_MOD */ ast_binary_delete,
 
-    /* AST_AND */ ast_binop_delete,
-    /* AST_XOR */ ast_binop_delete,
-    /* AST_OR  */ ast_binop_delete,
-    /* AST_SHL */ ast_binop_delete,
-    /* AST_SHR */ ast_binop_delete,
+    /* AST_AND */ ast_binary_delete,
+    /* AST_XOR */ ast_binary_delete,
+    /* AST_OR  */ ast_binary_delete,
+    /* AST_SHL */ ast_binary_delete,
+    /* AST_SHR */ ast_binary_delete,
 
-    /* AST_EQ  */ ast_binop_delete,
-    /* AST_NEQ */ ast_binop_delete,
-    /* AST_LT  */ ast_binop_delete,
-    /* AST_GT  */ ast_binop_delete,
-    /* AST_LE  */ ast_binop_delete,
-    /* AST_GE  */ ast_binop_delete,
+    /* AST_EQ  */ ast_binary_delete,
+    /* AST_NEQ */ ast_binary_delete,
+    /* AST_LT  */ ast_binary_delete,
+    /* AST_GT  */ ast_binary_delete,
+    /* AST_LE  */ ast_binary_delete,
+    /* AST_GE  */ ast_binary_delete,
 
-    /* AST_AND_COND */ ast_binop_delete,
-    /* AST_OR_COND  */ ast_binop_delete
+    /* AST_AND_COND */ ast_binary_delete,
+    /* AST_OR_COND  */ ast_binary_delete
 };
 
 /*
@@ -186,7 +186,7 @@ static size_t ast_var_snprint(struct ast *this, char *out, size_t size)
 static size_t ast_cast_snprint(struct ast *this, char *out, size_t size)
 {
     const char *type;
-    struct ast *child = ((struct ast_unop *)this)->child;
+    struct ast *child = ((struct ast_unary *)this)->child;
     size_t len = 0;
     if (size && len < size-1) {
         len += ast_snprint(child, out, size);
@@ -200,11 +200,11 @@ static size_t ast_cast_snprint(struct ast *this, char *out, size_t size)
     return len;
 }
 
-static size_t ast_unop_snprint(struct ast *this, const char *op,
-                               char *out, size_t size)
+static size_t ast_unary_snprint(struct ast *this, const char *op,
+                                char *out, size_t size)
 {
     size_t len = 0;
-    struct ast *child = ((struct ast_unop *)this)->child;
+    struct ast *child = ((struct ast_unary *)this)->child;
     if (size && len < size-1) {
         len += ast_snprint(child, out, size);
     } else len += ast_snprint(child, NULL, 0);
@@ -216,15 +216,15 @@ static size_t ast_unop_snprint(struct ast *this, const char *op,
 
 static size_t ast_deref_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_unop_snprint(this, "u*", out, size);
+    return ast_unary_snprint(this, "u*", out, size);
 }
 
-static size_t ast_binop_snprint(struct ast *this, const char *op,
-                                char *out, size_t size)
+static size_t ast_binary_snprint(struct ast *this, const char *op,
+                                 char *out, size_t size)
 {
     size_t len = 0;
-    struct ast *left = ((struct ast_binop *)this)->left;
-    struct ast *right = ((struct ast_binop *)this)->right;
+    struct ast *left = ((struct ast_binary *)this)->left;
+    struct ast *right = ((struct ast_binary *)this)->right;
 
     if (size && len < size-1)
         len += ast_snprint(left, out, size);
@@ -247,107 +247,107 @@ static size_t ast_binop_snprint(struct ast *this, const char *op,
 
 static size_t ast_neg_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_unop_snprint(this, "u-", out, size);
+    return ast_unary_snprint(this, "u-", out, size);
 }
 
 static size_t ast_not_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_unop_snprint(this, "!", out, size);
+    return ast_unary_snprint(this, "!", out, size);
 }
 
 static size_t ast_compl_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_unop_snprint(this, "~", out, size);
+    return ast_unary_snprint(this, "~", out, size);
 }
 
 static size_t ast_add_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "+", out, size);
+    return ast_binary_snprint(this, "+", out, size);
 }
 
 static size_t ast_sub_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "-", out, size);
+    return ast_binary_snprint(this, "-", out, size);
 }
 
 static size_t ast_mul_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "*", out, size);
+    return ast_binary_snprint(this, "*", out, size);
 }
 
 static size_t ast_div_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "/", out, size);
+    return ast_binary_snprint(this, "/", out, size);
 }
 
 static size_t ast_mod_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "%", out, size);
+    return ast_binary_snprint(this, "%", out, size);
 }
 
 static size_t ast_and_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "&", out, size);
+    return ast_binary_snprint(this, "&", out, size);
 }
 
 static size_t ast_xor_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "^", out, size);
+    return ast_binary_snprint(this, "^", out, size);
 }
 
 static size_t ast_or_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "|", out, size);
+    return ast_binary_snprint(this, "|", out, size);
 }
 
 static size_t ast_shl_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "<<", out, size);
+    return ast_binary_snprint(this, "<<", out, size);
 }
 
 static size_t ast_shr_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, ">>", out, size);
+    return ast_binary_snprint(this, ">>", out, size);
 }
 
 static size_t ast_eq_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "==", out, size);
+    return ast_binary_snprint(this, "==", out, size);
 }
 
 static size_t ast_neq_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "!=", out, size);
+    return ast_binary_snprint(this, "!=", out, size);
 }
 
 static size_t ast_lt_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "<", out, size);
+    return ast_binary_snprint(this, "<", out, size);
 }
 
 static size_t ast_gt_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, ">", out, size);
+    return ast_binary_snprint(this, ">", out, size);
 }
 
 static size_t ast_le_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "<=", out, size);
+    return ast_binary_snprint(this, "<=", out, size);
 }
 
 static size_t ast_ge_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, ">=", out, size);
+    return ast_binary_snprint(this, ">=", out, size);
 }
 
 static size_t ast_and_cond_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "&&", out, size);
+    return ast_binary_snprint(this, "&&", out, size);
 }
 
 static size_t ast_or_cond_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_binop_snprint(this, "||", out, size);
+    return ast_binary_snprint(this, "||", out, size);
 }
 
 size_t (*ast_snprint_funcs[AST_TYPES])(struct ast *, char *, size_t) = {
