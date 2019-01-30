@@ -42,11 +42,13 @@
 typedef uint32_t addr_t;
 # define ADDR_MAX UINT32_MAX
 # define PRIaddr PRIx32
+# define PRIaddrd PRId32
 # define SCNaddr SCNx32
 #elif ADDR_BITS == 64
 typedef uint64_t addr_t;
 # define ADDR_MAX UINT64_MAX
 # define PRIaddr PRIx64
+# define PRIaddrd PRId64
 # define SCNaddr SCNx64
 #else
 # error "unsupported ADDR_BITS (must be 32 or 64)"

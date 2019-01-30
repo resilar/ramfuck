@@ -184,46 +184,14 @@ static int process_read(struct target *target,
         || process_ptrace_read(process, addr, buf, len);
 }
 
-static int process_ptrace_write(struct target_process *process,
-                                addr_t addr, void *buf, size_t len)
-{
-    return (uintptr_t)addr == addr
-        && ptrace_write(process->pid, (void *)(uintptr_t)addr, buf, len);
-}
-
-static int process_pwrite_write(struct target_process *process,
-                                addr_t addr, void *buf, size_t len)
-{
-    if (process->mem_fd != -1) {
-        int errnold = errno;
-        int errors = 0;
-        errno = 0;
-        while (len > 0) {
-            ssize_t ret = pwrite(process->mem_fd, buf, len, (off_t)addr);
-            if (ret <= 0) {
-                if ((errno != EAGAIN && errno != EINTR) || ++errors == 3)
-                    break;
-            } else {
-                buf = (char *)buf + ret;
-                len -= ret;
-                addr += ret;
-            }
-        }
-        errno = errnold;
-    }
-    return !len;
-}
-
 static int process_write(struct target *target, addr_t addr, void *buf,
                          size_t len)
 {
-    struct target_process *process = (struct target_process *)target;
-    if (len <= sizeof(long)) {
-        return process_ptrace_write(process, addr, buf, len)
-            || process_pwrite_write(process, addr, buf, len);
+    if ((uintptr_t)addr == addr) {
+        struct target_process *process = (struct target_process *)target;
+        return ptrace_write(process->pid, (void *)(uintptr_t)addr, buf, len);
     }
-    return process_pwrite_write(process, addr, buf, len)
-        || process_ptrace_write(process, addr, buf, len);
+    return 0;
 }
 
 struct target *target_attach(const char *uri)

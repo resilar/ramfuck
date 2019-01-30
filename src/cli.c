@@ -836,8 +836,8 @@ static int do_poke(struct ramfuck *ctx, const char *in)
 }
 
 /*
- * Read memory and write it to file (or stdout if file is -).
- * Usage: read <addr> <len> <file>
+ * Read memory and write it to file (or stdout if path is -).
+ * Usage: read <addr> <len> <path>
  */
 static int do_read(struct ramfuck *ctx, const char *in)
 {
@@ -846,6 +846,8 @@ static int do_read(struct ramfuck *ctx, const char *in)
     const char *path;
     FILE *file;
     char *buf, *p;
+    int size;
+    char suffix;
 
     if (eol(in)) {
         errf("read: address & length & file expected");
@@ -867,26 +869,27 @@ static int do_read(struct ramfuck *ctx, const char *in)
         errf("read: invalid length");
         return 4;
     }
+    human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
-        int size;
-        char suffix;
-        human_readable_size((size_t)len, &size, &suffix);
-        errf("read: error allocating buffer of length %d%c"
-             " (0x%" PRIaddr " bytes)", size, suffix, len);
+        errf("read: error allocating %" PRIaddrd " bytes (%d%c) for a buffer",
+             len, size, suffix);
         return 5;
     }
 
     if (!ramfuck_read(ctx, addr, buf, len)) {
-        errf("read: error reading %d%cB from address 0x%08" PRIaddr, len, addr);
+        errf("read: error reading %" PRIaddrd " bytes (%d%c) from"
+             " address 0x%08" PRIaddr, len, size, suffix, addr);
+        free(buf);
         return 6;
     }
 
     path = in;
     if (path[0] == '-' && path[1] == '\0') {
         file = stdout;
-    } else if (!(file = fopen(in, "wb"))) {
-        errf("read: error opening output file for writing (%s)", path);
+    } else if (!(file = fopen(path, "wb"))) {
+        errf("read: error opening output file %s for writing", path);
+        free(buf);
         return 7;
     }
 
@@ -903,23 +906,20 @@ static int do_read(struct ramfuck *ctx, const char *in)
         fclose(file);
     free(buf);
     if (p == buf) {
-        errf("read: error writing buffer to file", in);
+        errf("read: error writing to file %s", path);
         return 8;
     }
 
     if (path[0] != '-' || path[1] != '\0') {
-        int size;
-        char suffix;
         human_readable_size((size_t)(p - buf), &size, &suffix);
-        errf("read: %d%c buffer from address 0x%08" PRIaddr " written to %s",
-             size, suffix, addr, path);
+        infof("%" PRIaddrd " bytes (%d%c) from address 0x%08" PRIaddr
+              " written to %s", (addr_t)(p - buf), size, suffix, addr, path);
     }
 
     if (len > 0) {
-        int size;
-        char suffix;
         human_readable_size((size_t)len, &size, &suffix);
-        errf("read: error writing buffer tail of size %d%cB to file");
+        errf("read: error writing last %" PRIaddrd " bytes (%d%c) to file %s",
+             len, size, suffix, path);
         return 9;
     }
 
@@ -1014,6 +1014,95 @@ static int do_undo(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Write memory from a file (or stdin if path is -) to target memory.
+ * Usage: write <addr> <len> <path>
+ */
+static int do_write(struct ramfuck *ctx, const char *in)
+{
+    enum value_type addr_type;
+    addr_t addr, len, left;
+    const char *path;
+    FILE *file;
+    char *buf, *p;
+    int size, ok;
+    char suffix;
+
+    if (eol(in)) {
+        errf("write: address & length & file expected");
+        return 1;
+    }
+
+    addr_type = ctx_addr_type(ctx);
+    if (!accept_addr(&in, addr_type, 1, &addr)) {
+        errf("write: invalid address");
+        return 2;
+    }
+
+    if (eol(in)) {
+        errf("write: length expected");
+        return 3;
+    }
+
+    if (!accept_addr(&in, addr_type, 1, &len)) {
+        errf("write: invalid length");
+        return 4;
+    }
+    human_readable_size((size_t)len, &size, &suffix);
+
+    if (!(buf = malloc(len))) {
+        errf("write: error allocating %" PRIaddrd " bytes (%d%c) for a buffer",
+             len, size, suffix);
+        return 5;
+    }
+
+    path = in;
+    if (path[0] == '-' && path[1] == '\0') {
+        file = stdin;
+    } else if (!(file = fopen(path, "rb"))) {
+        errf("write: error opening input file %s for reading", path);
+        free(buf);
+        return 6;
+    }
+
+    p = buf;
+    left = len;
+    while (left > 0 && !feof(file) && !ferror(file)) {
+        size_t ret = fread(p, sizeof(char), left, file);
+        if (ret > 0) {
+            left -= ret;
+            p += ret;
+        }
+    }
+    if (path[0] != '-' || path[1] != '\0')
+        fclose(file);
+    if (p == buf) {
+        errf("write: error reading from input file %s", path);
+        free(buf);
+        return 7;
+    } else if (left > 0) {
+        human_readable_size((size_t)left, &size, &suffix);
+        errf("write: error reading last %" PRIaddrd " bytes (%d%c) of file %s",
+             left, size, suffix, path);
+        free(buf);
+        return 8;
+    }
+
+    ok = ramfuck_write(ctx, addr, buf, len);
+    free(buf);
+    if (!ok) {
+        errf("write: error writing %" PRIaddrd " bytes (%d%c) from"
+             " address 0x%08" PRIaddr, len, size, suffix, addr);
+        return 9;
+    }
+
+    if (path[0] != '-' || path[1] != '\0') {
+        infof("%" PRIaddrd " bytes (%d%c) from file %s written to address"
+              " 0x%08" PRIaddr, len, size, suffix, path, addr);
+    }
+    return 0;
+}
+
+/*
  * Evaluate expression and print its value.
  * Usage: eval <expr>
  */
@@ -1085,6 +1174,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_time(ctx, in);
     } else if (accept(&in, "undo")) {
         rc = do_undo(ctx, in);
+    } else if (accept(&in, "write")) {
+        rc = do_write(ctx, in);
     } else if (!eol(in) && (rc = do_eval(ctx, in)) == 1) {
         size_t i;
         for (i = 0; i < INT_MAX && in[i] && !isspace(in[i]); i++);
