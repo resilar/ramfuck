@@ -100,8 +100,11 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
         size_t value_sym;
 #if ADDR_BITS == 64
         if (addr_type == U32) {
-            uint32_t word = 0x43211234;
-            uint32_t *data = (uint32_t *)&addr + (*(uint16_t *)&word == 0x4321);
+            /* Endianess test to get a u32 pointer to the lower half of u64 */
+            union { uint64_t u64; uint32_t u32; } lebe;
+            uint32_t *data;
+            lebe.u64 = UINT64_C(0x8765432112345678);
+            data = (uint32_t *)&addr + (lebe.u32 == 0x87654321);
             symbol_table_add(symtab, "addr", addr_type, (void *)data);
         } else {
             symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
