@@ -11,16 +11,18 @@ OBJS := $(OBJS:%.o=$(BUILDDIR)/obj/%.o)
 
 all: $(BUILDDIR)/ramfuck
 
-$(BUILDDIR)/include/defines.h: defines.h
-	@mkdir -p $(dir $@)
+$(BUILDDIR)/:
+	mkdir -p $@
+$(BUILDDIR)/include/ $(BUILDDIR)/obj/: | $(BUILDDIR)/
+	mkdir $@
+
+$(BUILDDIR)/include/defines.h: defines.h | $(BUILDDIR)/include/
 	cp $< $@
 
-$(BUILDDIR)/obj/%.o: src/%.c $(BUILDDIR)/include/defines.h
-	@mkdir -p $(dir $@)
+$(BUILDDIR)/obj/%.o: src/%.c $(BUILDDIR)/include/defines.h | $(BUILDDIR)/obj/
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
 $(BUILDDIR)/ramfuck: $(OBJS)
-	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
 
 clean:
