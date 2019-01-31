@@ -121,20 +121,20 @@ static int ast_and_evaluate(struct ast *this, struct value *out)
         && value_ops(&left)->and(&left, &right, out);
 }
 
-static int ast_xor_evaluate(struct ast *this, struct value *out)
-{
-    struct value left, right;
-    return ast_evaluate(((struct ast_binary *)this)->left, &left)
-        && ast_evaluate(((struct ast_binary *)this)->right, &right)
-        && value_ops(&left)->xor(&left, &right, out);
-}
-
 static int ast_or_evaluate(struct ast *this, struct value *out)
 {
     struct value left, right;
     return ast_evaluate(((struct ast_binary *)this)->left, &left)
         && ast_evaluate(((struct ast_binary *)this)->right, &right)
         && value_ops(&left)->or(&left, &right, out);
+}
+
+static int ast_xor_evaluate(struct ast *this, struct value *out)
+{
+    struct value left, right;
+    return ast_evaluate(((struct ast_binary *)this)->left, &left)
+        && ast_evaluate(((struct ast_binary *)this)->right, &right)
+        && value_ops(&left)->xor(&left, &right, out);
 }
 
 static int ast_shl_evaluate(struct ast *this, struct value *out)
@@ -262,8 +262,8 @@ int (*ast_evaluate_funcs[AST_TYPES])(struct ast *, struct value *) = {
     /* AST_MOD */ ast_mod_evaluate,
 
     /* AST_AND */ ast_and_evaluate,
-    /* AST_XOR */ ast_xor_evaluate,
     /* AST_OR  */ ast_or_evaluate,
+    /* AST_XOR */ ast_xor_evaluate,
     /* AST_SHL */ ast_shl_evaluate,
     /* AST_SHR */ ast_shr_evaluate,
 

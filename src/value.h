@@ -140,9 +140,10 @@ int value_is_zero(const struct value *dest);
 const char *value_type_to_string(enum value_type type);
 
 /*
- * Produce a string representation of a value.
+ * Produce a (hex)string representation of a value.
  */
 size_t value_to_string(const struct value *value, char *out, size_t size);
+size_t value_to_hexstring(const struct value *value, char *out, size_t size);
 
 /*
  * Inverse of value_type_to_string.

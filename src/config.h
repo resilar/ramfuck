@@ -4,6 +4,15 @@
 struct config {
     struct {
         /*
+         * Default base for displaying numbers in CLI.
+         * 10 -> decimal
+         * 16 -> hexadecimal
+         */
+        unsigned int base;
+    } cli;
+
+    struct {
+        /*
          * Alignment to use when searching a value.
          * 0 -> sizeof(value)
          * n -> n bytes
@@ -20,7 +29,7 @@ struct config {
     } search;
 };
 
-/* Allocate a new config with default settings.*/
+/* Allocate a new config with default settings */
 struct config *config_new();
 
 /* Delete an existing config */

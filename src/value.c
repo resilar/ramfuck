@@ -123,8 +123,8 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
 {
     switch (value->type)
     {
-    case S8:  return snprintf(out, size, "%" PRId8, value->data.s8);
-    case U8:  return snprintf(out, size, "%" PRIu8, value->data.u8);
+    case S8: return snprintf(out, size, "%" PRId8, value->data.s8);
+    case U8: return snprintf(out, size, "%" PRIu8, value->data.u8);
 
     case S16: return snprintf(out, size, "%" PRId16, value->data.s16);
     case U16: return snprintf(out, size, "%" PRIu16, value->data.u16);
@@ -152,6 +152,33 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     default: break;
     }
     return snprintf(out, size, "???");
+}
+
+size_t value_to_hexstring(const struct value *value, char *out, size_t size)
+{
+    switch (value->type)
+    {
+    case S8: case U8:
+        return snprintf(out, size, "0x%02" PRIx8, value->data.u8);
+
+    case S16: case U16:
+        return snprintf(out, size, "0x%04" PRIx16, value->data.u16);
+
+    #ifndef NO_FLOAT_VALUES
+    case F32:
+    #endif
+    case S32: case U32:
+        return snprintf(out, size, "0x%08" PRIx32, value->data.u32);
+
+    #ifndef NO_FLOAT_VALUES
+    case F64:
+    #endif
+    case S64: case U64:
+        return snprintf(out, size, "0x%016" PRIx64, value->data.u64);
+
+    default: break;
+    }
+    return value_to_string(value, out, size);
 }
 
 enum value_type value_type_from_string(const char *str)

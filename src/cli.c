@@ -187,15 +187,18 @@ static int accept_sint(const char **pin, int positional, intmax_t *out)
     return 1;
 }
 
-static size_t fprint_value(FILE *stream, const struct value *value, int typed)
+static size_t fput_value(struct ramfuck *ctx, const struct value *value,
+                         int typed, FILE *stream)
 {
+    size_t len;
     char buf[256], *p;
-    size_t len = value_to_string(value, (p = buf), sizeof(buf));
-    if (len > sizeof(buf)-1) {
-        if (len < SIZE_MAX && (p = malloc(len + 1))) {
-            value_to_string(value, p, len + 1);
+    size_t (*to_string)(const struct value *, char *, size_t)
+        = (ctx->config->cli.base == 16) ? value_to_hexstring : value_to_string;
+    if ((len = to_string(value, (p = buf), sizeof(buf))) > sizeof(buf)-1) {
+        if (len+1 && (p = malloc(len+1))) {
+            to_string(value, p, len+1);
         } else {
-            errf("cli: out-of-memory for %lu-byte value string", (unsigned long)len);
+            errf("cli: out-of-memory for %" PRIaddru "-byte value string", len);
             p = buf;
         }
     }
@@ -205,6 +208,49 @@ static size_t fprint_value(FILE *stream, const struct value *value, int typed)
     if (p != buf)
         free(p);
     return len;
+}
+
+/*
+ * Show command result as a 10-base decimal number.
+ * Usage: 0d <command>
+ */
+static int do_0d(struct ramfuck *ctx, const char *in)
+{
+    int rc;
+    unsigned long old;
+    if (eol(in)) {
+        errf("0d: command expected");
+        return 1;
+    }
+    if (!memcmp(in, "config", 6) && isspace(in[6]))
+        return cli_execute_line(ctx, in);
+    old = ctx->config->cli.base;
+    ctx->config->cli.base = 10;
+    rc = cli_execute_line(ctx, in);
+    ctx->config->cli.base = old;
+    return rc;
+}
+
+
+/*
+ * Show command result as a 16-base hexadecimal number.
+ * Usage: 0x <command>
+ */
+static int do_0x(struct ramfuck *ctx, const char *in)
+{
+    int rc;
+    unsigned long old;
+    if (eol(in)) {
+        errf("0x: command expected");
+        return 1;
+    }
+    if (!memcmp(in, "config", 6) && isspace(in[6]))
+        return cli_execute_line(ctx, in);
+    old = ctx->config->cli.base;
+    ctx->config->cli.base = 16;
+    rc = cli_execute_line(ctx, in);
+    ctx->config->cli.base = old;
+    return rc;
 }
 
 /*
@@ -387,6 +433,33 @@ static int do_detach(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Evaluate expression and print its value.
+ * Usage: eval <expr>
+ */
+static int do_eval(struct ramfuck *ctx, const char *in)
+{
+    struct parser parser;
+    struct ast *ast;
+    int ok;
+    parser_init(&parser);
+    parser.quiet = 1;
+    parser.addr_type = ctx_addr_type(ctx);
+    parser.target = ctx->target;
+    if ((ast = parse_expression(&parser, in))) {
+        struct value out = {0};
+        if (parser.has_deref) ramfuck_break(ctx);
+        ok = ast_evaluate(ast, &out);
+        if (parser.has_deref) ramfuck_continue(ctx);
+        ast_delete(ast);
+        if (ok) {
+            fput_value(ctx, &out, 0, stdout);
+            fputc('\n', stdout);
+        }
+    }
+    return (parser.errors || !ast) ? 1 : (ok ? 0 : 2);
+}
+
+/*
  * Explain expression, i.e., print in Reverse Polish Notation (RPN).
  * Usage: explain <expr>
  */
@@ -451,7 +524,7 @@ static int do_explain(struct ramfuck *ctx, const char *in)
                                 size = value_type_sizeof(parser.addr_type);
                             else size = value_sizeof(l);
                             if (!memcmp(&l->data, &r->data, size)) {
-                                fprint_value(stdout, &out, 1);
+                                fput_value(ctx, &out, 1, stdout);
                                 fputc('\n', stdout);
                                 rc = 0;
                             } else {
@@ -554,7 +627,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
                 size = value_sizeof(&value);
             }
             if (target->read(target, hit->addr, &value.data, size)) {
-                fprint_value(stdout, &value, 0);
+                fput_value(ctx, &value, 0, stdout);
                 fputc('\n', stdout);
                 continue;
             }
@@ -677,7 +750,7 @@ static int do_peek(struct ramfuck *ctx, const char *in)
     fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
             value_type_to_string(type), addr);
     if (ramfuck_read(ctx, addr, &out.data, size)) {
-        fprint_value(stdout, &out, 0);
+        fput_value(ctx, &out, 0, stdout);
     } else {
         fprintf(stdout, "%s", "???");
     }
@@ -817,7 +890,7 @@ static int do_poke(struct ramfuck *ctx, const char *in)
         fprintf(stdout, "%" PRIdMAX ". ", index + 1);
     fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
             value_type_to_string(type), addr);
-    fprint_value(stdout, &out, 0);
+    fput_value(ctx, &out, 0, stdout);
     fputc('\n', stdout);
     return 0;
 }
@@ -885,13 +958,13 @@ static int do_read(struct ramfuck *ctx, const char *in)
     human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
-        errf("read: error allocating %" PRIaddrd " bytes (%d%c) for a buffer",
+        errf("read: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
              len, size, suffix);
         return 5;
     }
 
     if (!ramfuck_read(ctx, addr, buf, len)) {
-        errf("read: error reading %" PRIaddrd " bytes (%d%c) from"
+        errf("read: error reading %" PRIaddru " bytes (%d%c) from"
              " address 0x%08" PRIaddr, len, size, suffix, addr);
         free(buf);
         return 6;
@@ -925,13 +998,13 @@ static int do_read(struct ramfuck *ctx, const char *in)
 
     if (path[0] != '-' || path[1] != '\0') {
         human_readable_size((size_t)(p - buf), &size, &suffix);
-        infof("%" PRIaddrd " bytes (%d%c) from address 0x%08" PRIaddr
+        infof("%" PRIaddru " bytes (%d%c) from address 0x%08" PRIaddr
               " written to %s", (addr_t)(p - buf), size, suffix, addr, path);
     }
 
     if (len > 0) {
         human_readable_size((size_t)len, &size, &suffix);
-        errf("read: error writing last %" PRIaddrd " bytes (%d%c) to file %s",
+        errf("read: error writing last %" PRIaddru " bytes (%d%c) to file %s",
              len, size, suffix, path);
         return 9;
     }
@@ -1065,7 +1138,7 @@ static int do_write(struct ramfuck *ctx, const char *in)
     human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
-        errf("write: error allocating %" PRIaddrd " bytes (%d%c) for a buffer",
+        errf("write: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
              len, size, suffix);
         return 5;
     }
@@ -1096,7 +1169,7 @@ static int do_write(struct ramfuck *ctx, const char *in)
         return 7;
     } else if (left > 0) {
         human_readable_size((size_t)left, &size, &suffix);
-        errf("write: error reading last %" PRIaddrd " bytes (%d%c) of file %s",
+        errf("write: error reading last %" PRIaddru " bytes (%d%c) of file %s",
              left, size, suffix, path);
         free(buf);
         return 8;
@@ -1105,50 +1178,27 @@ static int do_write(struct ramfuck *ctx, const char *in)
     ok = ramfuck_write(ctx, addr, buf, len);
     free(buf);
     if (!ok) {
-        errf("write: error writing %" PRIaddrd " bytes (%d%c) from"
+        errf("write: error writing %" PRIaddru " bytes (%d%c) from"
              " address 0x%08" PRIaddr, len, size, suffix, addr);
         return 9;
     }
 
     if (path[0] != '-' || path[1] != '\0') {
-        infof("%" PRIaddrd " bytes (%d%c) from file %s written to address"
+        infof("%" PRIaddru " bytes (%d%c) from file %s written to address"
               " 0x%08" PRIaddr, len, size, suffix, path, addr);
     }
     return 0;
-}
-
-/*
- * Evaluate expression and print its value.
- * Usage: eval <expr>
- */
-static int do_eval(struct ramfuck *ctx, const char *in)
-{
-    struct parser parser;
-    struct ast *ast;
-    int ok;
-    parser_init(&parser);
-    parser.quiet = 1;
-    parser.addr_type = ctx_addr_type(ctx);
-    parser.target = ctx->target;
-    if ((ast = parse_expression(&parser, in))) {
-        struct value out = {0};
-        if (parser.has_deref) ramfuck_break(ctx);
-        ok = ast_evaluate(ast, &out);
-        if (parser.has_deref) ramfuck_continue(ctx);
-        ast_delete(ast);
-        if (ok) {
-            fprint_value(stdout, &out, 0);
-            fputc('\n', stdout);
-        }
-    }
-    return (parser.errors || !ast) ? 1 : (ok ? 0 : 2);
 }
 
 int cli_execute_line(struct ramfuck *ctx, const char *in)
 {
     int rc = 0;
     skip_spaces(&in);
-    if (accept(&in, "and")) {
+    if (accept(&in, "0d")) {
+        rc = do_0d(ctx, in);
+    } else if (accept(&in, "0x")) {
+        rc = do_0x(ctx, in);
+    } else if (accept(&in, "and")) {
         rc = ctx->rc ? ctx->rc : cli_execute_line(ctx, in);
     } else if (accept(&in, "attach")) {
         rc = do_attach(ctx, in);
@@ -1166,12 +1216,12 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_explain(ctx, in);
     } else if (accept(&in, "filter") || accept(&in, "next")) {
         rc = do_filter(ctx, in);
-    } else if (accept(&in, "or")) {
-        rc = ctx->rc ? cli_execute_line(ctx, in) : ctx->rc;
     } else if (accept(&in, "ls") || accept(&in, "list")) {
         rc = do_list(ctx, in);
     } else if (accept(&in, "m") || accept(&in, "maps") || accept(&in, "mem")) {
         rc = do_maps(ctx, in);
+    } else if (accept(&in, "or")) {
+        rc = ctx->rc ? cli_execute_line(ctx, in) : ctx->rc;
     } else if (accept(&in, "peek")) {
         rc = do_peek(ctx, in);
     } else if (accept(&in, "poke")) {
