@@ -1,6 +1,5 @@
 #define _DEFAULT_SOURCE /* for snprintf(3) */
 #include "value.h"
-#include "defines.h"
 
 #include <ctype.h>
 #include <inttypes.h>
