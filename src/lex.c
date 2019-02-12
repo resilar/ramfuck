@@ -110,6 +110,12 @@ void scan_error_errf(scan_error_t err)
     return;
 }
 
+#ifndef NO_64BIT_VALUES
+# define UMAX_MAX UINT64_MAX
+#else
+# define UMAX_MAX UINT32_MAX
+#endif
+
 static scan_error_t scan_number(const char **pin, struct lex_token *out)
 {
     uintmax_t value, fraction, exponent;
@@ -176,13 +182,13 @@ static scan_error_t scan_number(const char **pin, struct lex_token *out)
                 } else return ERRC(INVALID_DEC, c);
             }
             if (!is_float) {
-                if (value > (UINTMAX_MAX - val) / base)
+                if (value > (UMAX_MAX - val) / base)
                     return OVERFLOW_INTEGER;
                 value = value * base + val;
             }
         } else if (!has_exponent) {
             if (c >= '0' && c <= '9') {
-                if (fraction > (UINTMAX_MAX - (c - '0')) / 10)
+                if (fraction > (UMAX_MAX - (c - '0')) / 10)
                     return OVERFLOW_FRACTION;
                 fraction = fraction * 10 + (c - '0');
                 fraction_digits++;
@@ -191,7 +197,7 @@ static scan_error_t scan_number(const char **pin, struct lex_token *out)
             } else return ERRC(INVALID_FRACTION, c);
         } else /*if (has_exponent)*/ {
             if (c >= '0' && c <= '9') {
-                if (exponent > (UINTMAX_MAX - (c - '0')) / 10)
+                if (exponent > (UMAX_MAX - (c - '0')) / 10)
                     return OVERFLOW_FRACTION;
                 exponent = exponent * 10 + (c - '0');
                 exponent_digits++;
@@ -204,18 +210,21 @@ static scan_error_t scan_number(const char **pin, struct lex_token *out)
 
     /* Fill token */
     if (is_float) {
-#ifdef NO_FLOAT_VALUES
+        #ifdef NO_FLOAT_VALUES
         return UNSUPPORTED_FLOAT;
-#else
+        #else
         char *end;
         out->type = LEX_FLOATING_POINT;
         out->value.fp = strtod(in0, &end);
         *pin = end;
-#endif
+        #endif
     } else {
         if (accept(pin, 'u') || accept(pin, 'U')
                 || (INT32_MAX < value && value <= UINT32_MAX)
-                || (INT64_MAX < value && value <= UINT64_MAX))
+                #ifndef NO_64BIT_VALUES
+                || (INT64_MAX < value && value <= UINT64_MAX)
+                #endif
+                )
             out->type = LEX_UINTEGER;
         else out->type = LEX_INTEGER;
         out->value.integer = value;

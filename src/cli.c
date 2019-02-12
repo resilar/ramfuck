@@ -167,23 +167,11 @@ static int accept_sint(const char **pin, int positional, intmax_t *out)
 {
     struct value value;
     enum value_type value_type, addr_type;
-#ifndef NO_64BIT_VALUES
-    value_type = S64;
-#else
-    value_type = S32;
-#endif
-#if ADDR_BITS == 64
-    addr_type = U64;
-#else
-    addr_type = U32;
-#endif
+    value_type = SMAX;
+    addr_type = ADDR_TYPE;
     if (!accept_value(pin, value_type, addr_type, positional, &value))
         return 0;
-#ifndef NO_64BIT_VALUES
-    *out = value.data.s64;
-#else
-    *out = value.data.s32;
-#endif
+    *out = value.data.smax;
     return 1;
 }
 

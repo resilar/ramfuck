@@ -49,6 +49,7 @@ int value_init_u32(struct value *dest, uint32_t value)
     return 1;
 }
 
+#ifndef NO_64BIT_VALUES
 int value_init_s64(struct value *dest, int64_t value)
 {
     dest->type = S64;
@@ -62,6 +63,7 @@ int value_init_u64(struct value *dest, uint64_t value)
     dest->data.u64 = value;
     return 1;
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 int value_init_f32(struct value *dest, float value)
@@ -106,8 +108,10 @@ const char *value_type_to_string(enum value_type type)
     case S32: return "s32"; case S32PTR: return "s32 *";
     case U32: return "u32"; case U32PTR: return "u32 *";
 
+    #ifndef NO_64BIT_VALUES
     case S64: return "s64"; case S64PTR: return "s64 *";
     case U64: return "u64"; case U64PTR: return "u64 *";
+    #endif
 
     #ifndef NO_FLOAT_VALUES
     case F32: return "f32"; case F32PTR: return "f32 *";
@@ -132,8 +136,10 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     case S32: return snprintf(out, size, "%" PRId32, value->data.s32);
     case U32: return snprintf(out, size, "%" PRIu32, value->data.u32);
 
+    #ifndef NO_64BIT_VALUES
     case S64: return snprintf(out, size, "%" PRId64, value->data.s64);
     case U64: return snprintf(out, size, "%" PRIu64, value->data.u64);
+    #endif
 
     #ifndef NO_FLOAT_VALUES
     case F32: return snprintf(out, size, "%g", value->data.f32);
@@ -143,7 +149,9 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     case S8PTR: case U8PTR:
     case S16PTR: case U16PTR:
     case S32PTR: case U32PTR:
+    #ifndef NO_64BIT_VALUES
     case S64PTR: case U64PTR:
+    #endif
     #ifndef NO_FLOAT_VALUES
     case F32PTR: case F64PTR:
     #endif
@@ -164,17 +172,32 @@ size_t value_to_hexstring(const struct value *value, char *out, size_t size)
     case S16: case U16:
         return snprintf(out, size, "0x%04" PRIx16, value->data.u16);
 
-    #ifndef NO_FLOAT_VALUES
-    case F32:
-    #endif
     case S32: case U32:
         return snprintf(out, size, "0x%08" PRIx32, value->data.u32);
 
-    #ifndef NO_FLOAT_VALUES
-    case F64:
-    #endif
+    #ifndef NO_64BIT_VALUES
     case S64: case U64:
         return snprintf(out, size, "0x%016" PRIx64, value->data.u64);
+    #endif
+
+    #ifndef NO_FLOAT_VALUES
+    case F32:
+        return snprintf(out, size, "0x%08" PRIx32, value->data.u32);
+    case F64:
+        #ifndef NO_64BIT_VALUES
+        return snprintf(out, size, "0x%016" PRIx64, value->data.u64);
+        #else
+        {
+            int le;
+            union { uint16_t u16; uint8_t u8; } endianess_test;
+            endianess_test.u16 = 0x1122;
+            le = endianess_test.u8 == 0x22;
+            return snprintf(out, size, "0x%08" PRIx32 "%08" PRIx32,
+                            ((uint32_t *)&value->data.f64)[le],
+                            ((uint32_t *)&value->data.f64)[!le]);
+        }
+        #endif
+    #endif
 
     default: break;
     }
@@ -211,8 +234,10 @@ enum value_type value_type_from_substring(const char *str, size_t len)
                     return S16 | mask;
                 if (str[1] == '3' && str[2] == '2')
                     return S32 | mask;
+                #ifndef NO_64BIT_VALUES
                 if (str[1] == '6' && str[2] == '4')
                     return S64 | mask;
+                #endif
             }
         } else if (*str == 'u') {
             if (len == 2) {
@@ -223,8 +248,10 @@ enum value_type value_type_from_substring(const char *str, size_t len)
                     return U16 | mask;
                 if (str[1] == '3' && str[2] == '2')
                     return U32 | mask;
+                #ifndef NO_64BIT_VALUES
                 if (str[1] == '6' && str[2] == '4')
                     return U64 | mask;
+                #endif
             }
 #ifndef NO_FLOAT_VALUES
         } else if (*str == 'f' && len == 3) {
@@ -421,6 +448,7 @@ static int s8_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.s8);
 }
 
+#ifndef NO_64BIT_VALUES
 static int s8_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.s8);
@@ -430,6 +458,7 @@ static int s8_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.s8);
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 static int s8_to_f32(struct value *this, struct value *out)
@@ -481,6 +510,7 @@ static int u8_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.u8);
 }
 
+#ifndef NO_64BIT_VALUES
 static int u8_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.u8);
@@ -490,6 +520,7 @@ static int u8_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.u8);
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 static int u8_to_f32(struct value *this, struct value *out)
@@ -541,6 +572,7 @@ static int s16_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.s16);
 }
 
+#ifndef NO_64BIT_VALUES
 static int s16_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.s16);
@@ -550,6 +582,7 @@ static int s16_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.s16);
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 static int s16_to_f32(struct value *this, struct value *out)
@@ -601,6 +634,7 @@ static int u16_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.u16);
 }
 
+#ifndef NO_64BIT_VALUES
 static int u16_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.u16);
@@ -610,6 +644,7 @@ static int u16_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.u16);
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 static int u16_to_f32(struct value *this, struct value *out)
@@ -661,6 +696,7 @@ static int s32_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.s32);
 }
 
+#ifndef NO_64BIT_VALUES
 static int s32_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.s32);
@@ -670,6 +706,7 @@ static int s32_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.s32);
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 static int s32_to_f32(struct value *this, struct value *out)
@@ -854,6 +891,7 @@ static int u32_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.u32);
 }
 
+#ifndef NO_64BIT_VALUES
 static int u32_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.u32);
@@ -863,6 +901,7 @@ static int u32_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.u32);
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 static int u32_to_f32(struct value *this, struct value *out)
@@ -1014,6 +1053,7 @@ static int u32_ge(struct value *op1, struct value *op2, struct value *out)
     return 1;
 }
 
+#ifndef NO_64BIT_VALUES
 /*
  * s64 methods.
  */
@@ -1399,6 +1439,7 @@ static int u64_ge(struct value *op1, struct value *op2, struct value *out)
     out->data.s32 = op1->data.u64 >= op2->data.u64;
     return 1;
 }
+#endif
 
 #ifndef NO_FLOAT_VALUES
 /*
@@ -1434,6 +1475,7 @@ static int f32_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.f32);
 }
 
+#ifndef NO_64BIT_VALUES
 static int f32_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.f32);
@@ -1443,6 +1485,7 @@ static int f32_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.f32);
 }
+#endif
 
 static int f32_to_f32(struct value *this, struct value *out)
 {
@@ -1577,6 +1620,7 @@ static int f64_to_u32(struct value *this, struct value *out)
     return value_init_u32(out, this->data.f64);
 }
 
+#ifndef NO_64BIT_VALUES
 static int f64_to_s64(struct value *this, struct value *out)
 {
     return value_init_s64(out, this->data.f64);
@@ -1586,6 +1630,7 @@ static int f64_to_u64(struct value *this, struct value *out)
 {
     return value_init_u64(out, this->data.f64);
 }
+#endif
 
 static int f64_to_f32(struct value *this, struct value *out)
 {
@@ -1692,8 +1737,10 @@ static int f64_ge(struct value *op1, struct value *op2, struct value *out)
  */
 const struct value_operations value_ops[VALUE_TYPES] = {
     {   /* S8 */
-        s8_to_s8, s8_to_u8, s8_to_s16, s8_to_u16,
-        s8_to_s32, s8_to_u32, s8_to_s64, s8_to_u64,
+        s8_to_s8, s8_to_u8, s8_to_s16, s8_to_u16, s8_to_s32, s8_to_u32,
+        #ifndef NO_64BIT_VALUES
+        s8_to_s64, s8_to_u64,
+        #endif
         #ifndef NO_FLOAT_VALUES
         s8_to_f32, s8_to_f64,
         #endif
@@ -1705,8 +1752,10 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
     },
     {   /* U8 */
-        u8_to_s8, u8_to_u8, u8_to_s16, u8_to_u16,
-        u8_to_s32, u8_to_u32, u8_to_s64, u8_to_u64,
+        u8_to_s8, u8_to_u8, u8_to_s16, u8_to_u16, u8_to_s32, u8_to_u32,
+        #ifndef NO_64BIT_VALUES
+        u8_to_s64, u8_to_u64,
+        #endif
         #ifndef NO_FLOAT_VALUES
         u8_to_f32, u8_to_f64,
         #endif
@@ -1718,8 +1767,10 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
     },
     {   /* S16 */
-        s16_to_s8, s16_to_u8, s16_to_s16, s16_to_u16,
-        s16_to_s32, s16_to_u32, s16_to_s64, s16_to_u64,
+        s16_to_s8, s16_to_u8, s16_to_s16, s16_to_u16, s16_to_s32, s16_to_u32,
+        #ifndef NO_64BIT_VALUES
+        s16_to_s64, s16_to_u64,
+        #endif
         #ifndef NO_FLOAT_VALUES
         s16_to_f32, s16_to_f64,
         #endif
@@ -1731,8 +1782,10 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
     },
     {   /* U16 */
-        u16_to_s8, u16_to_u8, u16_to_s16, u16_to_u16,
-        u16_to_s32, u16_to_u32, u16_to_s64, u16_to_u64,
+        u16_to_s8, u16_to_u8, u16_to_s16, u16_to_u16, u16_to_s32, u16_to_u32,
+        #ifndef NO_64BIT_VALUES
+        u16_to_s64, u16_to_u64,
+        #endif
         #ifndef NO_FLOAT_VALUES
         u16_to_f32, u16_to_f64,
         #endif
@@ -1744,8 +1797,10 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         dummy_eq, dummy_neq, dummy_lt, dummy_gt, dummy_le, dummy_ge
     },
     {   /* S32 */
-        s32_to_s8, s32_to_u8, s32_to_s16, s32_to_u16,
-        s32_to_s32, s32_to_u32, s32_to_s64, s32_to_u64,
+        s32_to_s8, s32_to_u8, s32_to_s16, s32_to_u16, s32_to_s32, s32_to_u32,
+        #ifndef NO_64BIT_VALUES
+        s32_to_s64, s32_to_u64,
+        #endif
         #ifndef NO_FLOAT_VALUES
         s32_to_f32, s32_to_f64,
         #endif
@@ -1757,8 +1812,10 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         s32_eq, s32_neq, s32_lt, s32_gt, s32_le, s32_ge
     },
     {   /* U32 */
-        u32_to_s8, u32_to_u8, u32_to_s16, u32_to_u16,
-        u32_to_s32, u32_to_u32, u32_to_s64, u32_to_u64,
+        u32_to_s8, u32_to_u8, u32_to_s16, u32_to_u16, u32_to_s32, u32_to_u32,
+        #ifndef NO_64BIT_VALUES
+        u32_to_s64, u32_to_u64,
+        #endif
         #ifndef NO_FLOAT_VALUES
         u32_to_f32, u32_to_f64,
         #endif
@@ -1768,10 +1825,11 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         u32_add, u32_sub, u32_mul, u32_div, u32_mod,
         u32_and, u32_xor, u32_or, u32_shl, u32_shr,
         u32_eq, u32_neq, u32_lt, u32_gt, u32_le, u32_ge
-    },
-    {   /* S64 */
-        s64_to_s8, s64_to_u8, s64_to_s16, s64_to_u16,
-        s64_to_s32, s64_to_u32, s64_to_s64, s64_to_u64,
+    }
+    #ifndef NO_64BIT_VALUES
+    , {   /* S64 */
+        s64_to_s8, s64_to_u8, s64_to_s16, s64_to_u16, s64_to_s32, s64_to_u32,
+        s64_to_s64, s64_to_u64,
         #ifndef NO_FLOAT_VALUES
         s64_to_f32, s64_to_f64,
         #endif
@@ -1783,8 +1841,8 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         s64_eq, s64_neq, s64_lt, s64_gt, s64_le, s64_ge
     },
     {   /* U64 */
-        u64_to_s8, u64_to_u8, u64_to_s16, u64_to_u16,
-        u64_to_s32, u64_to_u32, u64_to_s64, u64_to_u64,
+        u64_to_s8, u64_to_u8, u64_to_s16, u64_to_u16, u64_to_s32, u64_to_u32,
+        u64_to_s64, u64_to_u64,
         #ifndef NO_FLOAT_VALUES
         u64_to_f32, u64_to_f64,
         #endif
@@ -1795,10 +1853,13 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         u64_and, u64_xor, u64_or, u64_shl, u64_shr,
         u64_eq, u64_neq, u64_lt, u64_gt, u64_le, u64_ge
     }
-#ifndef NO_FLOAT_VALUES
+    #endif
+    #ifndef NO_FLOAT_VALUES
     , { /* F32 */
-        f32_to_s8, f32_to_u8, f32_to_s16, f32_to_u16,
-        f32_to_s32, f32_to_u32, f32_to_s64, f32_to_u64,
+        f32_to_s8, f32_to_u8, f32_to_s16, f32_to_u16, f32_to_s32, f32_to_u32,
+        #ifndef NO_64BIT_VALUES
+        f32_to_s64, f32_to_u64,
+        #endif
         f32_to_f32, f32_to_f64,
         f32_assign,
 
@@ -1808,8 +1869,10 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         f32_eq, f32_neq, f32_lt, f32_gt, f32_le, f32_ge
     },
     {   /* F64 */
-        f64_to_s8, f64_to_u8, f64_to_s16, f64_to_u16,
-        f64_to_s32, f64_to_u32, f64_to_s64, f64_to_u64,
+        f64_to_s8, f64_to_u8, f64_to_s16, f64_to_u16, f64_to_s32, f64_to_u32,
+        #ifndef NO_64BIT_VALUES
+        f64_to_s64, f64_to_u64,
+        #endif
         f64_to_f32, f64_to_f64,
         f64_assign,
 
@@ -1818,5 +1881,5 @@ const struct value_operations value_ops[VALUE_TYPES] = {
         dummy_nop, dummy_nop, dummy_nop, dummy_nop, dummy_nop,
         f64_eq, f64_neq, f64_lt, f64_gt, f64_le, f64_ge
     }
-#endif
+    #endif
 };

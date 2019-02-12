@@ -19,24 +19,36 @@ enum value_type {
 
     S8  = 0x000101, S8PTR  = S8  | PTR,
     U8  = 0x010101, U8PTR  = U8  | PTR,
-
     S16 = 0x020102, S16PTR = S16 | PTR,
     U16 = 0x030102, U16PTR = U16 | PTR,
-
     S32 = 0x040104, S32PTR = S32 | PTR,
     U32 = 0x050104, U32PTR = U32 | PTR,
 
+    #ifndef NO_64BIT_VALUES
     S64 = 0x060108, S64PTR = S64 | PTR,
     U64 = 0x070108, U64PTR = U64 | PTR,
+    SMAX = S64, UMAX = U64,
+    #else
+    SMAX = S32, UMAX = U32,
+    #endif
 
     #ifndef NO_FLOAT_VALUES
     F32 = 0x080200 | sizeof(float),  F32PTR = F32 | PTR,
     F64 = 0x090200 | sizeof(double), F64PTR = F64 | PTR,
     #endif
 
-    VALUE_TYPES = 4 + 4 + 2
-    #ifdef NO_FLOAT_VALUES
-                            - 2
+    #if ADDR_BITS == 64
+    ADDR_TYPE = U64,
+    #else
+    ADDR_TYPE = U32,
+    #endif
+
+    VALUE_TYPES = 6
+    #ifndef NO_64BIT_VALUES
+                    + 2
+    #endif
+    #ifndef NO_FLOAT_VALUES
+                        + 2
     #endif
 };
 
@@ -49,9 +61,19 @@ union value_data {
     int8_t s8; uint8_t u8;
     int16_t s16; uint16_t u16;
     int32_t s32; uint32_t u32;
+    #ifndef NO_64BIT_VALUES
     int64_t s64; uint64_t u64;
+    #endif
     #ifndef NO_FLOAT_VALUES
     float f32; double f64;
+    #endif
+
+    #ifndef NO_64BIT_VALUES
+    int64_t smax;
+    uint64_t umax;
+    #else
+    int32_t smax;
+    uint32_t umax;
     #endif
 
     #if ADDR_BITS == 64
@@ -78,8 +100,10 @@ struct value_operations {
     int (*cast_to_u16)(struct value *this, struct value *out);
     int (*cast_to_s32)(struct value *this, struct value *out);
     int (*cast_to_u32)(struct value *this, struct value *out);
+    #ifndef NO_64BIT_VALUES
     int (*cast_to_s64)(struct value *this, struct value *out);
     int (*cast_to_u64)(struct value *this, struct value *out);
+    #endif
     #ifndef NO_FLOAT_VALUES
     int (*cast_to_f32)(struct value *this, struct value *out);
     int (*cast_to_f64)(struct value *this, struct value *out);
@@ -123,8 +147,10 @@ int value_init_s16(struct value *dest, int16_t value);
 int value_init_u16(struct value *dest, uint16_t value);
 int value_init_s32(struct value *dest, int32_t value);
 int value_init_u32(struct value *dest, uint32_t value);
+#ifndef NO_64BIT_VALUES
 int value_init_s64(struct value *dest, int64_t value);
 int value_init_u64(struct value *dest, uint64_t value);
+#endif
 #ifndef NO_FLOAT_VALUES
 int value_init_f32(struct value *dest, float value);
 int value_init_f64(struct value *dest, double value);

@@ -535,28 +535,36 @@ static struct ast *factor(struct parser *p)
         }
     } else if (accept(p, LEX_INTEGER)) {
         struct value value;
+        #ifndef NO_64BIT_VALUES
         intmax_t sint = p->accepted->value.integer;
         if ((uintmax_t)sint != (uint32_t)sint) {
             value_init_s64(&value, sint);
         } else {
             value_init_s32(&value, sint);
         }
+        #else
+        value_init_s32(&value, (int32_t)p->accepted->value.integer);
+        #endif
         root = ast_value_new(&value);
     } else if (accept(p, LEX_UINTEGER)) {
         struct value value;
+        #ifndef NO_64BIT_VALUES
         uintmax_t uint = (uintmax_t)p->accepted->value.integer;
         if (uint != (uint32_t)uint) {
             value_init_u64(&value, uint);
         } else {
             value_init_u32(&value, uint);
         }
+        #else
+        value_init_u32(&value, (uint32_t)p->accepted->value.integer);
+        #endif
         root = ast_value_new(&value);
-#ifndef NO_FLOAT_VALUES
+    #ifndef NO_FLOAT_VALUES
     } else if (accept(p, LEX_FLOATING_POINT)) {
         struct value value;
         value_init_f64(&value, p->accepted->value.fp);
         root = ast_value_new(&value);
-#endif
+    #endif
     } else if (accept(p, LEX_LEFT_PARENTHESE)) {
         root = expression(p);
         expect(p, LEX_RIGHT_PARENTHESE);
