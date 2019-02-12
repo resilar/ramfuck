@@ -27,6 +27,7 @@ struct config *config_new()
 {
     struct config *cfg;
     if ((cfg = malloc(sizeof(struct config)))) {
+        cfg->block.size = 256;
         cfg->cli.base = 10;
         cfg->search.align = 0;
         cfg->search.prot = 6; /* MEM_READ | MEM_WRITE */
@@ -42,13 +43,26 @@ void config_delete(struct config *cfg)
 int config_process_line(struct config *cfg, const char *in)
 {
     if (eol(in)) {
+        config_process_line(cfg, "block.size");
         config_process_line(cfg, "cli.base");
         config_process_line(cfg, "search.align");
         config_process_line(cfg, "search.prot");
         return 1;
     }
 
-    if (accept(&in, "cli.base")) {
+    if (accept(&in, "block.size")) {
+        if (!eol(in)) {
+            char *end;
+            unsigned long value = strtoul(in, &end, 0);
+            if (*end || !value) {
+                errf("config: bad block.size value");
+                return 0;
+            }
+            cfg->block.size = value;
+        }
+        infof("block.size = %u", cfg->block.size);
+        return 1;
+    } else if (accept(&in, "cli.base")) {
         if (!eol(in)) {
             char *end;
             unsigned long value = strtoul(in, &end, 10);

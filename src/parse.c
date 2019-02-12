@@ -11,9 +11,9 @@
 void parser_init(struct parser *target)
 {
     memset(target, 0, sizeof(struct parser));
+    target->addr_type = U32;
     target->symbol = &target->tokens[0];
     target->accepted = &target->tokens[1];
-    target->addr_type = U32;
 }
 
 static struct ast *expression(struct parser *p);

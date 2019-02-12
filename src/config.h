@@ -4,6 +4,13 @@
 struct config {
     struct {
         /*
+         * Default block size for various commands (e.g., hex).
+         */
+        unsigned long size;
+    } block;
+
+    struct {
+        /*
          * Default base for displaying numbers in CLI.
          * 10 -> decimal
          * 16 -> hexadecimal

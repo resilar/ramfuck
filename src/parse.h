@@ -17,7 +17,6 @@ struct parser {
     struct target *target;
     int has_deref;
 
-    /* Internal */
     struct lex_token *symbol;   /* symbol being processed */
     struct lex_token *accepted; /* last accepted symbol */
     struct lex_token tokens[2]; /* symbol and accepted fields point here */

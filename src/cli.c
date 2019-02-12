@@ -433,6 +433,92 @@ static int do_detach(struct ramfuck *ctx, const char *in)
 }
 
 /*
+ * Print hex dump.
+ * Usage: hex <addr>
+ *        hex <addr> <len>
+ */
+static int do_hex(struct ramfuck *ctx, const char *in)
+{
+    enum value_type addr_type;
+    addr_t addr;
+    addr_t len;
+    int size;
+    char suffix;
+    unsigned char *buf;
+    unsigned char *p;
+
+    if (!ctx->target) {
+        errf("hex: attach first");
+        return 1;
+    }
+
+    if (eol(in)) {
+        errf("hex: address & length expected");
+        return 2;
+    }
+
+    addr_type = ctx_addr_type(ctx);
+    if (!accept_addr(&in, addr_type, 1, &addr)) {
+        errf("hex: invalid address");
+        return 3;
+    }
+
+    if (eol(in)) {
+        len = ctx->config->block.size;
+    } else if (!accept_addr(&in, addr_type, 0, &len)) {
+        errf("hex: invalid len");
+        return 4;
+    }
+
+    if (!(buf = malloc(len))) {
+        human_readable_size((size_t)len, &size, &suffix);
+        errf("hex: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
+             len, size, suffix);
+        return 5;
+    }
+
+    if (!ramfuck_read(ctx, addr, buf, len)) {
+        human_readable_size((size_t)len, &size, &suffix);
+        errf("hex: error reading %" PRIaddru " bytes (%d%c) from"
+             " address 0x%08" PRIaddr, len, size, suffix, addr);
+        free(buf);
+        return 6;
+    }
+
+    p = buf;
+    while (len) {
+        int i;
+        fprintf(stdout, "0x%08" PRIaddr, addr);
+
+        fputs("  ", stdout);
+        for (i = 0; i < 16; i++) {
+            if (i < len) {
+                fprintf(stdout, "%02x", p[i]);
+            } else {
+                fputs("  ", stdout);
+            }
+            if ((i & 1) && i < 16-1)
+                fputc(' ', stdout);
+        }
+        fputs("  ", stdout);
+        for (i = 0; i < 16 && i < len; i++) {
+            fputc(isgraph(p[i]) ? p[i] : '.', stdout);
+        }
+        fputc('\n', stdout);
+
+        if (len < 16)
+            break;
+        addr += 16;
+        len -= 16;
+        p += 16;
+    }
+    fflush(stdout);
+    free(buf);
+
+    return 0;
+}
+
+/*
  * Evaluate expression and print its value.
  * Usage: eval <expr>
  */
@@ -935,39 +1021,44 @@ static int do_read(struct ramfuck *ctx, const char *in)
     int size;
     char suffix;
 
+    if (!ctx->target) {
+        errf("read: attach first");
+        return 1;
+    }
+
     if (eol(in)) {
         errf("read: address & length & file expected");
-        return 1;
+        return 2;
     }
 
     addr_type = ctx_addr_type(ctx);
     if (!accept_addr(&in, addr_type, 1, &addr)) {
         errf("read: invalid address");
-        return 2;
+        return 3;
     }
 
     if (eol(in)) {
         errf("read: length expected");
-        return 3;
+        return 4;
     }
 
     if (!accept_addr(&in, addr_type, 1, &len)) {
         errf("read: invalid length");
-        return 4;
+        return 5;
     }
     human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
         errf("read: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
              len, size, suffix);
-        return 5;
+        return 6;
     }
 
     if (!ramfuck_read(ctx, addr, buf, len)) {
         errf("read: error reading %" PRIaddru " bytes (%d%c) from"
              " address 0x%08" PRIaddr, len, size, suffix, addr);
         free(buf);
-        return 6;
+        return 7;
     }
 
     path = in;
@@ -976,7 +1067,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
     } else if (!(file = fopen(path, "wb"))) {
         errf("read: error opening output file %s for writing", path);
         free(buf);
-        return 7;
+        return 8;
     }
 
     p = buf;
@@ -993,7 +1084,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
     free(buf);
     if (p == buf) {
         errf("read: error writing to file %s", path);
-        return 8;
+        return 9;
     }
 
     if (path[0] != '-' || path[1] != '\0') {
@@ -1006,7 +1097,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
         human_readable_size((size_t)len, &size, &suffix);
         errf("read: error writing last %" PRIaddru " bytes (%d%c) to file %s",
              len, size, suffix, path);
-        return 9;
+        return 10;
     }
 
     return 0;
@@ -1115,32 +1206,37 @@ static int do_write(struct ramfuck *ctx, const char *in)
     int size, ok;
     char suffix;
 
+    if (!ctx->target) {
+        errf("write: attach first");
+        return 1;
+    }
+
     if (eol(in)) {
         errf("write: address & length & file expected");
-        return 1;
+        return 2;
     }
 
     addr_type = ctx_addr_type(ctx);
     if (!accept_addr(&in, addr_type, 1, &addr)) {
         errf("write: invalid address");
-        return 2;
+        return 3;
     }
 
     if (eol(in)) {
         errf("write: length expected");
-        return 3;
+        return 4;
     }
 
     if (!accept_addr(&in, addr_type, 1, &len)) {
         errf("write: invalid length");
-        return 4;
+        return 5;
     }
     human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
         errf("write: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
              len, size, suffix);
-        return 5;
+        return 6;
     }
 
     path = in;
@@ -1149,7 +1245,7 @@ static int do_write(struct ramfuck *ctx, const char *in)
     } else if (!(file = fopen(path, "rb"))) {
         errf("write: error opening input file %s for reading", path);
         free(buf);
-        return 6;
+        return 7;
     }
 
     p = buf;
@@ -1166,13 +1262,13 @@ static int do_write(struct ramfuck *ctx, const char *in)
     if (p == buf) {
         errf("write: error reading from input file %s", path);
         free(buf);
-        return 7;
+        return 8;
     } else if (left > 0) {
         human_readable_size((size_t)left, &size, &suffix);
         errf("write: error reading last %" PRIaddru " bytes (%d%c) of file %s",
              left, size, suffix, path);
         free(buf);
-        return 8;
+        return 9;
     }
 
     ok = ramfuck_write(ctx, addr, buf, len);
@@ -1180,7 +1276,7 @@ static int do_write(struct ramfuck *ctx, const char *in)
     if (!ok) {
         errf("write: error writing %" PRIaddru " bytes (%d%c) from"
              " address 0x%08" PRIaddr, len, size, suffix, addr);
-        return 9;
+        return 10;
     }
 
     if (path[0] != '-' || path[1] != '\0') {
@@ -1212,6 +1308,8 @@ int cli_execute_line(struct ramfuck *ctx, const char *in)
         rc = do_continue(ctx, in);
     } else if (accept(&in, "detach")) {
         rc = do_detach(ctx, in);
+    } else if (accept(&in, "hex")) {
+        rc = do_hex(ctx, in);
     } else if (accept(&in, "explain")) {
         rc = do_explain(ctx, in);
     } else if (accept(&in, "filter") || accept(&in, "next")) {
