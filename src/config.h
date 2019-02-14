@@ -16,6 +16,13 @@ struct config {
          * 16 -> hexadecimal
          */
         unsigned int base;
+
+        /*
+         * Quiet CLI mode.
+         * 0 -> isatty(STDOUT_FILENO)
+         * 1 -> !isatty(STDOUT_FILENO)
+         */
+        int quiet;
     } cli;
 
     struct {

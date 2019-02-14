@@ -672,8 +672,6 @@ static int do_list(struct ramfuck *ctx, const char *in)
 {
     size_t i;
     struct target *target;
-    struct hit *hit;
-    struct value value;
 
     if (!eol(in)) {
         errf("list: trailing characters");
@@ -688,11 +686,18 @@ static int do_list(struct ramfuck *ctx, const char *in)
     target = ctx->target;
     ramfuck_break(ctx);
     for (i = 0; i < ctx->hits->size; i++) {
-        hit = &ctx->hits->items[i];
-        fprintf(stdout, "%lu. *(%s *)0x%08" PRIaddr " = ", (unsigned long)i+1,
-                value_type_to_string(hit->type), hit->addr);
+        struct hit *hit = &ctx->hits->items[i];
+        if (!ctx->config->cli.quiet) {
+            fprintf(stdout, "%lu. *(%s *)",
+                    (unsigned long)i+1, value_type_to_string(hit->type));
+        } else {
+            fprintf(stdout, "%s ", value_type_to_string(hit->type));
+        }
+        fprintf(stdout, "0x%08" PRIaddr, hit->addr);
+        fputs(ctx->config->cli.quiet ? " " : " = ", stdout);
         if (target) {
             size_t size;
+            struct value value;
             value.type = hit->type;
             if (hit->type & PTR) {
                 value.data.addr = 0;

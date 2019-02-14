@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void infof(const char *format, ...)
 {
@@ -65,6 +66,7 @@ int ramfuck_init(struct ramfuck *ctx)
     ctx->rc = 0;
     if (!(ctx->config = config_new()))
         return 0;
+    ctx->config->cli.quiet = !isatty(STDOUT_FILENO);
     ctx->linereader = NULL;
     ctx->target = NULL;
     ctx->breaks = 0;
@@ -132,7 +134,7 @@ char *ramfuck_get_line(struct ramfuck *ctx)
 {
     char buf[64], *line, *prompt = NULL;
 
-    if (isatty(STDOUT_FILENO)) {
+    if (!ctx->config->cli.quiet) {
         unsigned long hits = (unsigned long)(ctx->hits ? ctx->hits->size : 0);
         size_t len = snprintf(NULL, 0, "%lu> ", hits);
         if (0 < len && len < SIZE_MAX) {

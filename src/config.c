@@ -2,6 +2,7 @@
 #include "ramfuck.h"
 
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,6 +30,7 @@ struct config *config_new()
     if ((cfg = malloc(sizeof(struct config)))) {
         cfg->block.size = 256;
         cfg->cli.base = 10;
+        cfg->cli.quiet = 0;
         cfg->search.align = 0;
         cfg->search.prot = 6; /* MEM_READ | MEM_WRITE */
     }
@@ -43,66 +45,107 @@ void config_delete(struct config *cfg)
 int config_process_line(struct config *cfg, const char *in)
 {
     if (eol(in)) {
+        const int quiet = cfg->cli.quiet;
+        if (quiet)
+            cfg->cli.quiet = 0;
         config_process_line(cfg, "block.size");
         config_process_line(cfg, "cli.base");
+        fprintf(stdout, "cli.quiet = %d\n", quiet);
         config_process_line(cfg, "search.align");
         config_process_line(cfg, "search.prot");
+        if (quiet)
+            cfg->cli.quiet = 1;
         return 1;
     }
 
     if (accept(&in, "block.size")) {
         if (!eol(in)) {
             char *end;
-            unsigned long value = strtoul(in, &end, 0);
-            if (*end || !value) {
+            long value = strtol(in, &end, 0);
+            while (isspace(*end)) end++;
+            if (*end || value <= 0) {
                 errf("config: bad block.size value");
                 return 0;
             }
             cfg->block.size = value;
+            if (cfg->cli.quiet)
+                return 1;
         }
-        infof("block.size = %u", cfg->block.size);
-        return 1;
+        if (!cfg->cli.quiet)
+            fputs("block.size = ", stdout);
+        fprintf(stdout, "%lu", cfg->block.size);
     } else if (accept(&in, "cli.base")) {
         if (!eol(in)) {
             char *end;
             unsigned long value = strtoul(in, &end, 10);
+            while (isspace(*end)) end++;
             if (*end || (value != 10 && value != 16)) {
                 errf("config: bad cli.base value");
                 return 0;
             }
             cfg->cli.base = value;
+            if (cfg->cli.quiet)
+                return 1;
         }
-        infof("cli.base = %u", cfg->cli.base);
-        return 1;
+        if (!cfg->cli.quiet)
+            fputs("cli.base = ", stdout);
+        fprintf(stdout, "%u", cfg->cli.base);
+    } else if (accept(&in, "cli.quiet")) {
+        if (!eol(in)) {
+            int quiet = accept(&in, "1");
+            if (!quiet && accept(&in, "0") && eol(in)) {
+                cfg->cli.quiet = 0;
+            } else if (quiet && eol(in)) {
+                cfg->cli.quiet = 1;
+            } else {
+                errf("config: bad cli.quiet value");
+                return 0;
+            }
+            if (cfg->cli.quiet)
+                return 1;
+        }
+        if (!cfg->cli.quiet)
+            fputs("cli.quiet = ", stdout);
+        fprintf(stdout, "%d", cfg->cli.quiet);
     } else if (accept(&in, "search.align")) {
         if (!eol(in)) {
             char *end;
             unsigned long value = strtoul(in, &end, 10);
+            while (isspace(*end)) end++;
             if (*end || value != (unsigned int)value) {
                 errf("config: bad search.align value");
                 return 0;
             }
             cfg->search.align = value;
+            if (cfg->cli.quiet)
+                return 1;
         }
-        infof("search.align = %u", cfg->search.align);
-        return 1;
+        if (!cfg->cli.quiet)
+            fputs("search.align = ", stdout);
+        fprintf(stdout, "%u", cfg->search.align);
     } else if (accept(&in, "search.prot")) {
         if (!eol(in)) {
             char *end;
             unsigned long value = strtoul(in, &end, 10);
-            if (*end || value != (unsigned int)value || value > 7) {
+            while (isspace(*end)) end++;
+            if (*end || value > 7) {
                 errf("config: bad search.prot value");
                 return 0;
             }
             cfg->search.prot = value;
+            if (cfg->cli.quiet)
+                return 1;
         }
-        infof("search.prot = %u", cfg->search.prot);
-        return 1;
+        if (!cfg->cli.quiet)
+            fputs("search.prot = ", stdout);
+        fprintf(stdout, "%u", cfg->search.prot);
     } else {
         size_t i;
         for (i = 0; in[i] && in[i] != '=' && !isspace(in[i]); i++);
         errf("config: unknown config item '%.*s'", i, in);
+        return 0;
     }
 
-    return 0;
+    fputc('\n', stdout);
+    return 1;
 }

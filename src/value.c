@@ -96,25 +96,25 @@ const char *value_type_to_string(enum value_type type)
     {
     case INT: return "int";
     case FPU: return "fpu";
-    case PTR: return "void *";
+    case PTR: return "void*";
 
-    case S8: return "s8"; case S8PTR: return "s8 *";
-    case U8: return "u8"; case U8PTR:  return "u8 *";
+    case S8: return "s8"; case S8PTR: return "s8*";
+    case U8: return "u8"; case U8PTR:  return "u8*";
 
-    case S16: return "s16"; case S16PTR: return "s16 *";
-    case U16: return "u16"; case U16PTR: return "u16 *";
+    case S16: return "s16"; case S16PTR: return "s16*";
+    case U16: return "u16"; case U16PTR: return "u16*";
 
-    case S32: return "s32"; case S32PTR: return "s32 *";
-    case U32: return "u32"; case U32PTR: return "u32 *";
+    case S32: return "s32"; case S32PTR: return "s32*";
+    case U32: return "u32"; case U32PTR: return "u32*";
 
     #ifndef NO_64BIT_VALUES
-    case S64: return "s64"; case S64PTR: return "s64 *";
-    case U64: return "u64"; case U64PTR: return "u64 *";
+    case S64: return "s64"; case S64PTR: return "s64*";
+    case U64: return "u64"; case U64PTR: return "u64*";
     #endif
 
     #ifndef NO_FLOAT_VALUES
-    case F32: return "f32"; case F32PTR: return "f32 *";
-    case F64: return "f64"; case F64PTR: return "f64 *";
+    case F32: return "f32"; case F32PTR: return "f32*";
+    case F64: return "f64"; case F64PTR: return "f64*";
     #endif
 
     default: break;
