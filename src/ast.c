@@ -216,7 +216,19 @@ static size_t ast_unary_snprint(struct ast *this, const char *op,
 
 static size_t ast_deref_snprint(struct ast *this, char *out, size_t size)
 {
-    return ast_unary_snprint(this, "u*", out, size);
+    const char *type;
+    struct ast *child = ((struct ast_unary *)this)->child;
+    size_t len = 0;
+    if (size && len < size-1) {
+        len += ast_snprint(child, out, size);
+    } else len += ast_snprint(child, NULL, 0);
+
+    type = value_type_to_string(this->value_type);
+    if (size && len < size-1)
+        len += snprintf(out+len, size-len, " *(%s *)", type);
+    else len += snprintf(NULL, 0, " *(%s *)", type);
+
+    return len;
 }
 
 static size_t ast_binary_snprint(struct ast *this, const char *op,
