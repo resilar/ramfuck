@@ -81,6 +81,28 @@ static int expect(struct parser *p, enum lex_token_type sym)
     return 1;
 }
 
+static int accept_typecast(struct parser *p, enum value_type *type, int *ptrs)
+{
+    const char *pin = p->in;
+    if (accept(p, LEX_LEFT_PARENTHESE) && accept(p, LEX_IDENTIFIER)) {
+        char buf[512];
+        size_t len = p->accepted->value.identifier.len;
+        if (len < sizeof(buf)) {
+            const char *name = p->accepted->value.identifier.name;
+            buf[len] = '\0';
+            if ((*type = value_type_from_string(memcpy(buf, name, len)))) {
+                for (*ptrs = 0; accept(p, LEX_MUL); (*ptrs)++);
+                if (accept(p, LEX_RIGHT_PARENTHESE))
+                    return 1;
+            }
+        }
+    }
+
+    /* Restore old input pointer */
+    p->in = pin;
+    return 0;
+}
+
 struct ast *parse_expression(struct parser *p, const char *in)
 {
     struct ast *out;
@@ -363,48 +385,33 @@ static struct ast *muldiv_expression(struct parser *p)
 
 static struct ast *cast_expression(struct parser *p)
 {
-    if (p->symbol->type == LEX_LEFT_PARENTHESE) {
-        struct lex_token peek[3];
-        const char *pin = p->in;
-        if (lexer(&pin, &peek[0]) && lexer(&pin, &peek[1])
-                && peek[0].type == LEX_IDENTIFIER
-                && (peek[1].type == LEX_RIGHT_PARENTHESE
-                || (peek[1].type == LEX_MUL && lexer(&pin, &peek[2])
-                 && peek[2].type == LEX_RIGHT_PARENTHESE))) {
-            char buf[16];
-            size_t len = peek[0].value.identifier.len;
-            const char *name = peek[0].value.identifier.name;
-            if (len < sizeof(buf)-1) {
-                enum value_type type;
-                buf[len] = '\0';
-                type = value_type_from_string(memcpy(buf, name, len));
-                if (type && accept(p, LEX_LEFT_PARENTHESE)
-                         && accept(p, LEX_IDENTIFIER)
-                         && (peek[1].type != LEX_MUL || accept(p, LEX_MUL))
-                         && accept(p, LEX_RIGHT_PARENTHESE)) {
-                    struct ast *child;
-                    if (!(child = cast_expression(p)))
-                        return NULL;
-                    if (child->value_type & PTR) {
-                        struct ast *gchild = ((struct ast_unary *)child)->child;
-                        free(child);
-                        child = gchild;
-                    }
-                    if (peek[1].type != LEX_MUL)
-                        return ast_cast_new(type, child);
-                    if (child->value_type < p->addr_type) {
-                        struct ast *cast;
-                        if (!(cast = ast_cast_new(p->addr_type, child))) {
-                            parse_error(p, "out-of-memory for pointer cast");
-                            ast_delete(child);
-                            return NULL;
-                        }
-                        child = cast;
-                    }
-                    return ast_cast_new(type|PTR, child);
-                }
-            }
+    int ptrs;
+    enum value_type type;
+    if (accept_typecast(p, &type, &ptrs)) {
+        struct ast *child;
+        if (ptrs > 1) {
+            parse_error(p, "multi-level pointers unimplemented");
+            return NULL;
         }
+        if (!(child = cast_expression(p)))
+            return NULL;
+        if (child->value_type & PTR) {
+            struct ast *gchild = ((struct ast_unary *)child)->child;
+            free(child);
+            child = gchild;
+        }
+        if (!ptrs)
+            return ast_cast_new(type, child);
+        if (child->value_type < p->addr_type) {
+            struct ast *cast;
+            if (!(cast = ast_cast_new(p->addr_type, child))) {
+                parse_error(p, "out-of-memory for pointer cast");
+                ast_delete(child);
+                return NULL;
+            }
+            child = cast;
+        }
+        return ast_cast_new(type|PTR, child);
     }
     return unary_expression(p);
 }
