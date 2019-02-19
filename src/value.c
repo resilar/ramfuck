@@ -94,8 +94,6 @@ const char *value_type_to_string(enum value_type type)
 {
     switch (type)
     {
-    case INT: return "int";
-    case FPU: return "fpu";
     case PTR: return "void*";
 
     case S8: return "s8"; case S8PTR: return "s8*";
@@ -205,17 +203,17 @@ size_t value_to_hexstring(const struct value *value, char *out, size_t size)
 
 enum value_type value_type_from_substring(const char *str, size_t len)
 {
-    size_t i, j;
-    enum value_type mask = 0;
+    size_t i, j, k;
+    enum value_type mask;
     while (len && isspace(*str)) { len--; str++; }
     for (i = 0; i < len && !isspace(str[i]) && str[i] != '*'; i++);
     for (j = i; j < len && isspace(str[j]); j++);
-    if (j < len) {
-        if (str[j] == '*') {
-            for (j++; j < len && isspace(str[j]); j++);
-            mask |= PTR;
-        } /* else if (str[j] == '[') { ... } */
+    k = j;
+    while (j < len && str[j] == '*') {
+        while (++j < len && isspace(str[j]));
+        /* if (ptrs) (*ptrs)++; */
     }
+    mask = (j != k) ? PTR : 0;
 
     if (j == len && (i == 2 || i == 3)) {
         len = i;

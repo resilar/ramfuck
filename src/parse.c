@@ -128,9 +128,15 @@ struct ast *parse_expression(struct parser *p, const char *in)
     return out;
 }
 
+#define INT UMAX
+#ifndef NO_FLOAT_VALUES
+#define INTFPU FMAX
+#else
+#define INTFPU INT
+#endif
 static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
                                       struct ast *left, struct ast *right,
-                                      enum value_type mask)
+                                      enum value_type max_type)
 {
     const char *errfmt;
     struct ast_cast *cast, **pcast;
@@ -172,7 +178,8 @@ static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
         cast = NULL;
     }
 
-    if ((left->value_type & mask) && (right->value_type & mask)) {
+    if ((left->value_type <= max_type || left->value_type & PTR)
+            && (right->value_type <= max_type || right->value_type & PTR)) {
         if (cast) {
             if (((struct ast *)cast)->node_type != AST_CAST) {
                 errfmt = "unexpected pointer from non-cast node in '%s'";
@@ -189,24 +196,24 @@ static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
             if (right->value_type < left->value_type)
                 right = ast_cast_new(left->value_type, right);
             if (left) {
-                if (left->value_type & INT) {
+                if (value_type_is_int(left->value_type)) {
                     if (left->value_type < S32)
                         left = ast_cast_new(S32, left);
                 }
                 #ifndef NO_FLOAT_VALUES
-                else if (left->value_type & FPU) {
+                else if (value_type_is_fpu(left->value_type)) {
                     if (left->value_type < F64)
                         left = ast_cast_new(F64, left);
                 }
                 #endif
             }
             if (right) {
-                if (right->value_type & INT) {
+                if (value_type_is_int(right->value_type)) {
                     if (right->value_type < S32)
                         right = ast_cast_new(S32, right);
                 }
                 #ifndef NO_FLOAT_VALUES
-                else if (right->value_type & FPU)  {
+                else if (value_type_is_fpu(right->value_type))  {
                     if (right->value_type < F64)
                         right = ast_cast_new(F64, right);
                 }
@@ -262,7 +269,7 @@ static struct ast *conditional_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = equality_expression(p);
-        root = ast_binary_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INTFPU);
     }
 
     return root;
@@ -276,7 +283,7 @@ static struct ast *equality_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = relational_expression(p);
-        root = ast_binary_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INTFPU);
     }
 
     return root;
@@ -291,7 +298,7 @@ static struct ast *relational_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = or_expression(p);
-        root = ast_binary_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INTFPU);
     }
 
     return root;
@@ -356,7 +363,7 @@ static struct ast *addsub_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = muldiv_expression(p);
-        root = ast_binary_try_new(p, type, left, right, INT|FPU);
+        root = ast_binary_try_new(p, type, left, right, INTFPU);
     }
 
     return root;
@@ -372,7 +379,7 @@ static struct ast *muldiv_expression(struct parser *p)
         enum ast_type type = lex_to_ast_type(p->accepted->type);
         struct ast *left = root;
         struct ast *right = cast_expression(p);
-        enum value_type valid_types = (type == AST_MOD) ? INT : (INT|FPU);
+        enum value_type valid_types = (type == AST_MOD) ? INT : INTFPU;
         root = ast_binary_try_new(p, type, left, right, valid_types);
     }
 
@@ -477,7 +484,7 @@ static struct ast *unary_expression(struct parser *p)
             return root;
         }
 
-        if (child->value_type & ((type == AST_NEG) ? INT|FPU : INT)) {
+        if (child->value_type & ((type == AST_NEG) ? INTFPU : INT)) {
             if (child->value_type < S32)
                 child = ast_cast_new(S32, child);
             if (child) {

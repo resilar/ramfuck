@@ -11,30 +11,29 @@
  * Rank is used in (implicit) value type conversions.
  */
 enum value_type {
-    INT = 0x000100,
-    FPU = 0x000200,
 
-    PTR = 0x100000,
-    ARR = 0x200000,
+    PTR = 0x10000000,
+    ARR = 0x20000000,
 
-    S8  = 0x000101, S8PTR  = S8  | PTR,
-    U8  = 0x010101, U8PTR  = U8  | PTR,
-    S16 = 0x020102, S16PTR = S16 | PTR,
-    U16 = 0x030102, U16PTR = U16 | PTR,
-    S32 = 0x040104, S32PTR = S32 | PTR,
-    U32 = 0x050104, U32PTR = U32 | PTR,
+    S8  = 0x00000001, S8PTR  = S8  | PTR,
+    U8  = 0x00010001, U8PTR  = U8  | PTR,
+    S16 = 0x00020002, S16PTR = S16 | PTR,
+    U16 = 0x00030002, U16PTR = U16 | PTR,
+    S32 = 0x00040004, S32PTR = S32 | PTR,
+    U32 = 0x00050004, U32PTR = U32 | PTR,
 
     #ifndef NO_64BIT_VALUES
-    S64 = 0x060108, S64PTR = S64 | PTR,
-    U64 = 0x070108, U64PTR = U64 | PTR,
+    S64 = 0x00060008, S64PTR = S64 | PTR,
+    U64 = 0x00070008, U64PTR = U64 | PTR,
     SMAX = S64, UMAX = U64,
     #else
     SMAX = S32, UMAX = U32,
     #endif
 
     #ifndef NO_FLOAT_VALUES
-    F32 = 0x080200 | sizeof(float),  F32PTR = F32 | PTR,
-    F64 = 0x090200 | sizeof(double), F64PTR = F64 | PTR,
+    F32 = 0x00080004, F32PTR = F32 | PTR,
+    F64 = 0x00090008, F64PTR = F64 | PTR,
+    FMAX = F64,
     #endif
 
     #if ADDR_BITS == 64
@@ -56,6 +55,12 @@ enum value_type {
 
 #define value_type_index(t) ((t) >> 16)
 #define value_type_sizeof(t) ((t) & 0xFF)
+#define value_type_is_int(t) ((t) <= UMAX)
+#ifndef NO_FLOAT_VALUES
+#define value_type_is_fpu(t) ((t) > UMAX && (t) <= FMAX)
+#else
+#define value_type_is_fpu(t) 0
+#endif
 
 union value_data {
     int8_t s8; uint8_t u8;
@@ -88,7 +93,8 @@ struct value {
     union value_data data;
 };
 
-#define value_sizeof(v) (((v)->type) & 0xFF)
+#define value_index(v) value_type_index((v)->type)
+#define value_sizeof(v) value_type_sizeof((v)->type)
 
 /*
  * Value operations.
@@ -137,8 +143,8 @@ struct value_operations {
 };
 
 const struct value_operations value_ops[VALUE_TYPES];
-#define value_ops(v) (&value_ops[(v)->type >> 16])
-#define value_type_ops(t) (&value_ops[(t) >> 16])
+#define value_ops(v) (&value_ops[value_index((v))])
+#define value_type_ops(t) (&value_ops[value_type_index((t))])
 
 /* Initialize value structure (destroying not needed) */
 int value_init_s8(struct value *dest, int8_t value);
@@ -172,7 +178,7 @@ size_t value_to_string(const struct value *value, char *out, size_t size);
 size_t value_to_hexstring(const struct value *value, char *out, size_t size);
 
 /*
- * Inverse of value_type_to_string.
+ * Inverse of value_type_to_string().
  *
  * Returns value type (or 0 on an error).
  */
