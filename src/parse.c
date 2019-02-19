@@ -85,16 +85,12 @@ static int accept_typecast(struct parser *p, enum value_type *type, int *ptrs)
 {
     const char *pin = p->in;
     if (accept(p, LEX_LEFT_PARENTHESE) && accept(p, LEX_IDENTIFIER)) {
-        char buf[512];
         size_t len = p->accepted->value.identifier.len;
-        if (len < sizeof(buf)) {
-            const char *name = p->accepted->value.identifier.name;
-            buf[len] = '\0';
-            if ((*type = value_type_from_string(memcpy(buf, name, len)))) {
-                for (*ptrs = 0; accept(p, LEX_MUL); (*ptrs)++);
-                if (accept(p, LEX_RIGHT_PARENTHESE))
-                    return 1;
-            }
+        const char *name = p->accepted->value.identifier.name;
+        if ((*type = value_type_from_substring(name, len))) {
+            for (*ptrs = 0; accept(p, LEX_MUL); (*ptrs)++);
+            if (accept(p, LEX_RIGHT_PARENTHESE))
+                return 1;
         }
     }
 

@@ -176,7 +176,6 @@ size_t value_to_hexstring(const struct value *value, char *out, size_t size);
  *
  * Returns value type (or 0 on an error).
  */
-enum value_type value_type_from_string(const char *str);
 enum value_type value_type_from_substring(const char *str, size_t len);
 
 #endif

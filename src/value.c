@@ -203,11 +203,6 @@ size_t value_to_hexstring(const struct value *value, char *out, size_t size)
     return value_to_string(value, out, size);
 }
 
-enum value_type value_type_from_string(const char *str)
-{
-    return value_type_from_substring(str, strlen(str));
-}
-
 enum value_type value_type_from_substring(const char *str, size_t len)
 {
     size_t i, j;
