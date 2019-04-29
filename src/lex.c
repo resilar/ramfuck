@@ -240,8 +240,8 @@ int lexer(const char **pin, struct lex_token *out)
     memset(out, 0, sizeof(struct lex_token));
 
     switch (get(pin)) {
-    case '(': out->type = LEX_LEFT_PARENTHESE; break;
-    case ')': out->type = LEX_RIGHT_PARENTHESE; break;
+    case '(': out->type = LEX_LEFT_PARENTHESIS; break;
+    case ')': out->type = LEX_RIGHT_PARENTHESIS; break;
 
     case '.':
     case '0': case '1': case '2': case '3': case '4':
@@ -326,8 +326,8 @@ const char *lex_token_type_string[LEX_TYPES] = {
     "NIL",  /* LEX_NIL */
 
     "EOL",  /* LEX_EOL */
-    "(",    /* LEX_LEFT_PARENTHESE */
-    ")",    /* LEX_RIGHT_PARENTHESE */
+    "(",    /* LEX_LEFT_PARENTHESIS */
+    ")",    /* LEX_RIGHT_PARENTHESIS */
 
     "sint", /* LEX_INTEGER */
     "uint", /* LEX_UINTEGER */

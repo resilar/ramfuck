@@ -84,12 +84,12 @@ static int expect(struct parser *p, enum lex_token_type sym)
 static int accept_typecast(struct parser *p, enum value_type *type, int *ptrs)
 {
     const char *pin = p->in;
-    if (accept(p, LEX_LEFT_PARENTHESE) && accept(p, LEX_IDENTIFIER)) {
+    if (accept(p, LEX_LEFT_PARENTHESIS) && accept(p, LEX_IDENTIFIER)) {
         size_t len = p->accepted->value.identifier.len;
         const char *name = p->accepted->value.identifier.name;
         if ((*type = value_type_from_substring(name, len))) {
             for (*ptrs = 0; accept(p, LEX_MUL); (*ptrs)++);
-            if (accept(p, LEX_RIGHT_PARENTHESE))
+            if (accept(p, LEX_RIGHT_PARENTHESIS))
                 return 1;
         }
     }
@@ -575,9 +575,9 @@ static struct ast *factor(struct parser *p)
         value_init_f64(&value, p->accepted->value.fp);
         root = ast_value_new(&value);
     #endif
-    } else if (accept(p, LEX_LEFT_PARENTHESE)) {
+    } else if (accept(p, LEX_LEFT_PARENTHESIS)) {
         root = expression(p);
-        expect(p, LEX_RIGHT_PARENTHESE);
+        expect(p, LEX_RIGHT_PARENTHESIS);
     } else {
         if (p->symbol->type != LEX_EOL) {
             const char *token = lex_token_type_string[p->symbol->type];
