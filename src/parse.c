@@ -84,18 +84,20 @@ static int expect(struct parser *p, enum lex_token_type sym)
 static int accept_typecast(struct parser *p, enum value_type *type, int *ptrs)
 {
     const char *pin = p->in;
-    if (accept(p, LEX_LEFT_PARENTHESIS) && accept(p, LEX_IDENTIFIER)) {
-        size_t len = p->accepted->value.identifier.len;
-        const char *name = p->accepted->value.identifier.name;
-        if ((*type = value_type_from_substring(name, len))) {
-            for (*ptrs = 0; accept(p, LEX_MUL); (*ptrs)++);
-            if (accept(p, LEX_RIGHT_PARENTHESIS))
-                return 1;
+    if (accept(p, LEX_LEFT_PARENTHESIS)) {
+        if (accept(p, LEX_IDENTIFIER)) {
+            size_t len = p->accepted->value.identifier.len;
+            const char *name = p->accepted->value.identifier.name;
+            if ((*type = value_type_from_substring(name, len))) {
+                for (*ptrs = 0; accept(p, LEX_MUL); (*ptrs)++);
+                if (accept(p, LEX_RIGHT_PARENTHESIS))
+                    return 1;
+            }
         }
+        /* Restore old parser state */
+        p->symbol->type = LEX_LEFT_PARENTHESIS;
+        p->in = pin;
     }
-
-    /* Restore old input pointer */
-    p->in = pin;
     return 0;
 }
 
