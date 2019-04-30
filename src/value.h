@@ -31,8 +31,13 @@ enum value_type {
     #endif
 
     #ifndef NO_FLOAT_VALUES
+    #ifndef NO_64BIT_VALUES
     F32 = 0x00080004, F32PTR = F32 | PTR,
     F64 = 0x00090008, F64PTR = F64 | PTR,
+    #else
+    F32 = 0x00060004, F32PTR = F32 | PTR,
+    F64 = 0x00070008, F64PTR = F64 | PTR,
+    #endif
     FMAX = F64,
     #endif
 
