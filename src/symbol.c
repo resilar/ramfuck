@@ -34,7 +34,7 @@ struct symbol_table *symbol_table_new(struct ramfuck *ctx)
         if ((symbols = malloc(symtab->capacity * sizeof(struct symbol *)))) {
             symtab->symbols = &symbols[-1]; /* indexing from 1 */
         } else {
-            symbol_table_delete(symtab);
+            free(symtab);
             symtab = NULL;
         }
     }
@@ -67,7 +67,10 @@ size_t symbol_table_add(struct symbol_table *symtab, const char *name,
         struct symbol **new;
         new = realloc(&symtab->symbols[1],
                       symtab->capacity * 2 * sizeof(struct symbol *));
-        if (!new) return 0;
+        if (!new) {
+            symbol_delete(sym);
+            return 0;
+        }
         symtab->symbols = &new[-1];
         symtab->capacity *= 2;
     }

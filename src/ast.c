@@ -36,11 +36,11 @@ struct ast *ast_var_new(struct symbol_table *symtab, size_t sym, size_t size)
 
 struct ast *ast_cast_new(enum value_type value_type, struct ast *child)
 {
-    struct ast_unary *n;
+    struct ast_cast *n;
     if ((n = malloc(sizeof(struct ast_cast)))) {
-        n->tree.node_type = AST_CAST;
-        n->tree.value_type = value_type;
-        n->child = child;
+        ((struct ast *)n)->node_type = AST_CAST;
+        ((struct ast *)n)->value_type = value_type;
+        ((struct ast_unary *)n)->child = child;
     }
     return (struct ast *)n;
 }
@@ -48,12 +48,12 @@ struct ast *ast_cast_new(enum value_type value_type, struct ast *child)
 struct ast *ast_deref_new(struct ast *child, enum value_type value_type,
                           struct target *target)
 {
-    struct ast_unary *n;
+    struct ast_deref *n;
     if ((n = malloc(sizeof(struct ast_deref)))) {
-        n->tree.node_type = AST_DEREF;
-        n->tree.value_type = value_type;
-        n->child = child;
-        ((struct ast_deref *)n)->target = target;
+        ((struct ast *)n)->node_type = AST_DEREF;
+        ((struct ast *)n)->value_type = value_type;
+        ((struct ast_unary *)n)->child = child;
+        n->target = target;
     }
     return (struct ast *)n;
 }
