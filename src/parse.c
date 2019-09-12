@@ -101,6 +101,20 @@ static int accept_typecast(struct parser *p, enum value_type *type, int *ptrs)
     return 0;
 }
 
+static struct ast *promote_type(struct ast *ast, enum value_type type)
+{
+    if (ast->value_type < type) {
+        struct ast *cast;
+        if ((cast = ast_cast_new(type, ast))) {
+            ast = cast;
+        } else {
+            ast_delete(ast);
+            ast = NULL;
+        }
+    }
+    return ast;
+}
+
 struct ast *parse_expression(struct parser *p, const char *in)
 {
     struct ast *out;
@@ -187,38 +201,26 @@ static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
                 errfmt = "unexpected pointer from non-cast node in '%s'";
                 goto print_error;
             }
-            if (!ast_type_is_conditional(node_type)) {
-                if ((*pother)->value_type < p->addr_type)
-                    *pother = ast_cast_new(p->addr_type, *pother);
-            }
+            if (!ast_type_is_conditional(node_type))
+                *pother = promote_type(*pother, p->addr_type);
             *(struct ast **)pcast = cast->tree.child;
         } else {
-            if (left->value_type < right->value_type)
-                left = ast_cast_new(right->value_type, left);
-            if (right->value_type < left->value_type)
-                right = ast_cast_new(left->value_type, right);
+            left = promote_type(left, right->value_type);
+            right = promote_type(right, left->value_type);
             if (left) {
-                if (value_type_is_int(left->value_type)) {
-                    if (left->value_type < S32)
-                        left = ast_cast_new(S32, left);
-                }
+                if (value_type_is_int(left->value_type))
+                    left = promote_type(left, S32);
                 #ifndef NO_FLOAT_VALUES
-                else if (value_type_is_fpu(left->value_type)) {
-                    if (left->value_type < F64)
-                        left = ast_cast_new(F64, left);
-                }
+                else if (value_type_is_fpu(left->value_type))
+                    left = promote_type(left, F64);
                 #endif
             }
             if (right) {
-                if (value_type_is_int(right->value_type)) {
-                    if (right->value_type < S32)
-                        right = ast_cast_new(S32, right);
-                }
+                if (value_type_is_int(right->value_type))
+                    right = promote_type(right, S32);
                 #ifndef NO_FLOAT_VALUES
-                else if (value_type_is_fpu(right->value_type))  {
-                    if (right->value_type < F64)
-                        right = ast_cast_new(F64, right);
-                }
+                else if (value_type_is_fpu(right->value_type))
+                    right = promote_type(right, F64);
                 #endif
             }
         }
@@ -240,7 +242,7 @@ static struct ast *ast_binary_try_new(struct parser *p, enum ast_type node_type,
                 errfmt = "out-of-memory for AST node '%s'";
             }
         } else {
-            errfmt = "out-of-memory for promoted operands for '%s'";
+            errfmt = "out-of-memory for promoting operands for '%s'";
         }
     } else {
         errfmt = "invalid operand types for '%s'";
@@ -393,7 +395,7 @@ static struct ast *cast_expression(struct parser *p)
     int ptrs;
     enum value_type type;
     if (accept_typecast(p, &type, &ptrs)) {
-        struct ast *child;
+        struct ast *child, *gchild;
         if (ptrs > 1) {
             parse_error(p, "multi-level pointers unimplemented");
             return NULL;
@@ -401,22 +403,20 @@ static struct ast *cast_expression(struct parser *p)
         if (!(child = cast_expression(p)))
             return NULL;
         if (child->value_type & PTR) {
-            struct ast *gchild = ((struct ast_unary *)child)->child;
+            gchild = ((struct ast_unary *)child)->child;
             free(child);
             child = gchild;
         }
-        if (!ptrs)
-            return ast_cast_new(type, child);
-        if (child->value_type < p->addr_type) {
-            struct ast *cast;
-            if (!(cast = ast_cast_new(p->addr_type, child))) {
+        if (ptrs) {
+            if (!(child = promote_type(child, p->addr_type)))
                 parse_error(p, "out-of-memory for pointer cast");
-                ast_delete(child);
-                return NULL;
-            }
-            child = cast;
+            type |= PTR;
         }
-        return ast_cast_new(type|PTR, child);
+        if (child && !(child = ast_cast_new(type, (gchild = child)))) {
+            parse_error(p, "out-of-memory for cast");
+            ast_delete(gchild);
+        }
+        return child;
     }
     return unary_expression(p);
 }
@@ -487,24 +487,23 @@ static struct ast *unary_expression(struct parser *p)
         }
 
         if (child->value_type & ((type == AST_NEG) ? INTFPU : INT)) {
-            if (child->value_type < S32)
-                child = ast_cast_new(S32, child);
-            if (child) {
+            if ((child = promote_type(child, S32))) {
                 if ((root = ast_unary_new(type, child))) {
                     root->value_type = child->value_type;
                     return root;
                 }
                 errfmt = "out-of-memory for AST node '%s'";
+                ast_delete(child);
             } else {
                 errfmt = "out-of-memory for implicit cast for '%s'";
             }
         } else {
             errfmt = "invalid operand type for '%s'";
+            ast_delete(child);
         }
 
         op = lex_token_type_string[ast_to_lex_type(type)];
         parse_error(p, errfmt, op);
-        ast_delete(child);
         return NULL;
     } else {
         root = factor(p);
@@ -525,8 +524,7 @@ static struct ast *factor(struct parser *p)
             struct symbol *symbol = p->symtab->symbols[sym];
             if (symbol->type & PTR) {
                 size_t size = value_type_sizeof(p->addr_type);
-                root = ast_var_new(p->symtab, sym, size);
-                if (root) {
+                if ((root = ast_var_new(p->symtab, sym, size))) {
                     struct ast *cast;
                     root->value_type = p->addr_type;
                     if ((cast = ast_cast_new(symbol->type, root))) {
