@@ -29,5 +29,4 @@ void hits_delete(struct hits *hits);
 
 int hits_add(struct hits *hits, addr_t addr, enum value_type type,
              union value_data *data);
-
 #endif

@@ -73,24 +73,15 @@ union value_data {
     int32_t s32; uint32_t u32;
     #ifndef NO_64BIT_VALUES
     int64_t s64; uint64_t u64;
+    int64_t smax; uint64_t umax;
+    #else
+    int32_t smax; uint32_t umax;
     #endif
     #ifndef NO_FLOAT_VALUES
     float f32; double f64;
     #endif
 
-    #ifndef NO_64BIT_VALUES
-    int64_t smax;
-    uint64_t umax;
-    #else
-    int32_t smax;
-    uint32_t umax;
-    #endif
-
-    #if ADDR_BITS == 64
-    uint64_t addr;
-    #else
-    uint32_t addr;
-    #endif
+    addr_t addr;
 };
 
 struct value {

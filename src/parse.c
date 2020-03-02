@@ -486,7 +486,7 @@ static struct ast *unary_expression(struct parser *p)
             return root;
         }
 
-        if (child->value_type & ((type == AST_NEG) ? INTFPU : INT)) {
+        if (child->value_type <= ((type == AST_NEG) ? INTFPU : INT)) {
             if ((child = promote_type(child, S32))) {
                 if ((root = ast_unary_new(type, child))) {
                     root->value_type = child->value_type;
