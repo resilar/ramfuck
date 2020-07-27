@@ -138,7 +138,7 @@ struct value_operations {
     int (*ge)(struct value *op1, struct value *op2, struct value *out);
 };
 
-const struct value_operations value_ops[VALUE_TYPES];
+extern const struct value_operations value_ops[VALUE_TYPES];
 #define value_ops(v) (&value_ops[value_index((v))])
 #define value_type_ops(t) (&value_ops[value_type_index((t))])
 
