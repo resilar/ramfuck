@@ -23,7 +23,7 @@ struct ramfuck {
 
     struct target *target;
     int breaks;
-    int addr_size;
+    int addr_type;
     struct hits *hits;
     struct hits *undo;
     struct hits *redo;

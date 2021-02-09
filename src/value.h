@@ -11,7 +11,6 @@
  * Rank is used in (implicit) value type conversions.
  */
 enum value_type {
-
     PTR = 0x10000000,
     ARR = 0x20000000,
 
@@ -22,29 +21,24 @@ enum value_type {
     S32 = 0x00040004, S32PTR = S32 | PTR,
     U32 = 0x00050004, U32PTR = U32 | PTR,
 
-    #ifndef NO_64BIT_VALUES
+    #ifdef NO_64BIT_VALUES
+    SMAX = S32, UMAX = U32,
+    #else
     S64 = 0x00060008, S64PTR = S64 | PTR,
     U64 = 0x00070008, U64PTR = U64 | PTR,
     SMAX = S64, UMAX = U64,
-    #else
-    SMAX = S32, UMAX = U32,
     #endif
 
     #ifndef NO_FLOAT_VALUES
-    #ifndef NO_64BIT_VALUES
-    F32 = 0x00080004, F32PTR = F32 | PTR,
-    F64 = 0x00090008, F64PTR = F64 | PTR,
-    #else
-    F32 = 0x00060004, F32PTR = F32 | PTR,
-    F64 = 0x00070008, F64PTR = F64 | PTR,
-    #endif
+    F32 = (UMAX & 0x00FF0000) + 0x00010004, F32PTR = F32 | PTR,
+    F64 = (UMAX & 0x00FF0000) + 0x00020008, F64PTR = F64 | PTR,
     FMAX = F64,
     #endif
 
-    #if ADDR_BITS == 64
-    ADDR_TYPE = U64,
-    #else
-    ADDR_TYPE = U32,
+    #if ADDR_BITS == 32
+    ADDR = U32,
+    #elif ADDR_BITS == 64
+    ADDR = U64,
     #endif
 
     VALUE_TYPES = 6
@@ -73,15 +67,12 @@ union value_data {
     int32_t s32; uint32_t u32;
     #ifndef NO_64BIT_VALUES
     int64_t s64; uint64_t u64;
-    int64_t smax; uint64_t umax;
-    #else
-    int32_t smax; uint32_t umax;
     #endif
     #ifndef NO_FLOAT_VALUES
     float f32; double f64;
     #endif
-
     addr_t addr;
+    smax_t smax; umax_t umax;
 };
 
 struct value {
@@ -91,6 +82,8 @@ struct value {
 
 #define value_index(v) value_type_index((v)->type)
 #define value_sizeof(v) value_type_sizeof((v)->type)
+#define value_is_int(v) value_type_is_int((v)->type)
+#define value_is_fpu(v) value_type_is_fpu((v)->type)
 
 /*
  * Value operations.
@@ -157,27 +150,25 @@ int value_init_u64(struct value *dest, uint64_t value);
 int value_init_f32(struct value *dest, float value);
 int value_init_f64(struct value *dest, double value);
 #endif
+int value_init_addr(struct value *dest, addr_t value);
+int value_init_smax(struct value *dest, smax_t value);
+int value_init_umax(struct value *dest, umax_t value);
+
+/* Initialize zero value of given type */
+int value_init_zero(struct value *dest, enum value_type type);
 
 /* Check whether value is (non-)zero */
 int value_is_zero(const struct value *dest);
 #define value_is_nonzero(dest) (!value_is_zero((dest)))
 
-/*
- * Return a constant string representing a value type.
- */
+/* Return a constant string representing a value type */
 const char *value_type_to_string(enum value_type type);
 
-/*
- * Produce a (hex)string representation of a value.
- */
+/* Produce a (hex)string representation of a value */
 size_t value_to_string(const struct value *value, char *out, size_t size);
 size_t value_to_hexstring(const struct value *value, char *out, size_t size);
 
-/*
- * Inverse of value_type_to_string().
- *
- * Returns value type (or 0 on an error).
- */
+/* Inverse of value_type_to_string() returning value type (or 0 on an error) */
 enum value_type value_type_from_substring(const char *str, size_t len);
 
 #endif

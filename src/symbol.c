@@ -17,9 +17,7 @@ struct symbol *symbol_new(const char *name,
 
 void symbol_delete(struct symbol *sym)
 {
-    if (sym) {
-        free(sym);
-    }
+    free(sym);
 }
 
 struct symbol_table *symbol_table_new(struct ramfuck *ctx)
@@ -44,31 +42,23 @@ struct symbol_table *symbol_table_new(struct ramfuck *ctx)
 
 void symbol_table_delete(struct symbol_table *symtab)
 {
-    size_t i;
-    for (i = 1; i <= symtab->size; i++)
-        symbol_delete(symtab->symbols[i]);
-    free(&symtab->symbols[1]);
-    free(symtab);
+    if (symtab) {
+        size_t i;
+        for (i = 1; i <= symtab->size; i++)
+            symbol_delete(symtab->symbols[i]);
+        free(&symtab->symbols[1]);
+        free(symtab);
+    }
 }
 
-size_t symbol_table_add(struct symbol_table *symtab, const char *name,
-                        enum value_type type, union value_data *data)
+size_t symbol_table_add_symbol(struct symbol_table *symtab, struct symbol *sym)
 {
-    struct symbol *sym;
-    if (symbol_table_lookup(symtab, name, strlen(name))) {
-        errf("symbol: symtab already contains '%s'", name);
-        return 0;
-    }
-
-    if (!(sym = symbol_new(name, type, data)))
-        return 0;
-
-    if (symtab->size >= symtab->capacity) {
+    while (symtab->size >= symtab->capacity) {
         struct symbol **new;
-        new = realloc(&symtab->symbols[1],
-                      symtab->capacity * 2 * sizeof(struct symbol *));
-        if (!new) {
-            symbol_delete(sym);
+        size_t size = symtab->capacity * 2 * sizeof(struct symbol *);
+        if (!(new = realloc(&symtab->symbols[1], size))) {
+            unsigned long bytes = (unsigned long)size;
+            errf("symbol: symbol table realloc(%lu bytes) failed", bytes);
             return 0;
         }
         symtab->symbols = &new[-1];
@@ -79,10 +69,36 @@ size_t symbol_table_add(struct symbol_table *symtab, const char *name,
     return symtab->size;
 }
 
+size_t symbol_table_add(struct symbol_table *symtab, const char *name,
+                        enum value_type type, union value_data *data)
+{
+    size_t ret;
+    struct symbol *sym;
+
+    if (symbol_table_lookup(symtab, name, 0)) {
+        errf("symbol: symtab already contains symbol '%s'", name);
+        return 0;
+    }
+
+    if (!(sym = symbol_new(name, type, data))) {
+        errf("symbol: error allocating symbol '%s' for symtab failed", name);
+        return 0;
+    }
+
+    if (!(ret = symbol_table_add_symbol(symtab, sym))) {
+        symbol_delete(sym);
+        return 0;
+    }
+
+    return ret;
+}
+
 size_t symbol_table_lookup(struct symbol_table *symtab,
                            const char *name, size_t len)
 {
     size_t i, j;
+    if (len == 0)
+        len = strlen(name);
     for (i = 1; i <= symtab->size; i++) {
         for (j = 0; j < len; j++) {
             if (symbol_name(symtab->symbols[i])[j] != name[j])

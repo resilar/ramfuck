@@ -120,13 +120,13 @@ static scan_error_t scan_number(const char **pin, struct lex_token *out)
 {
     uintmax_t value, fraction, exponent;
     int digits, fraction_digits, exponent_digits;
-    int base, has_exponent, neg_exponent, is_float;
+    int base, has_exponent, is_float;
     #ifndef NO_FLOAT_VALUES
     const char *in0 = *pin;
     #endif
     value = fraction = exponent = 0;
     digits = fraction_digits = exponent_digits = 0;
-    base = has_exponent = neg_exponent = is_float = 0;
+    base = has_exponent = is_float = 0;
 
     /* Determine base */
     if (accept(pin, '0')) {

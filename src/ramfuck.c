@@ -70,7 +70,7 @@ int ramfuck_init(struct ramfuck *ctx)
     ctx->linereader = NULL;
     ctx->target = NULL;
     ctx->breaks = 0;
-    ctx->addr_size = sizeof(uint32_t);
+    ctx->addr_type = U32;
     ctx->hits = NULL;
     ctx->undo = NULL;
     ctx->redo = NULL;
@@ -97,7 +97,7 @@ void ramfuck_destroy(struct ramfuck *ctx)
             ctx->target = NULL;
         }
         ctx->breaks = 0;
-        ctx->addr_size = 0;
+        ctx->addr_type = 0;
         if (ctx->hits) {
             hits_delete(ctx->hits);
             ctx->hits = NULL;
@@ -133,25 +133,26 @@ void ramfuck_close_input_stream(struct ramfuck *ctx)
 char *ramfuck_get_line(struct ramfuck *ctx)
 {
     char buf[64], *line, *prompt = NULL;
-
     if (!ctx->config->cli.quiet) {
-        unsigned long hits = (unsigned long)(ctx->hits ? ctx->hits->size : 0);
-        size_t len = snprintf(NULL, 0, "%lu> ", hits);
-        if (0 < len && len < SIZE_MAX) {
-            if (len + 1 > sizeof(buf)) {
-                if (!(prompt = malloc(len + 1)))
-                    errf("ramfuck: out-of-memory for get_line prompt");
-            } else {
-                prompt = buf;
-            }
+        umax_t hits = ctx->hits ? ctx->hits->size : 0;
+        const char *fmt = (ctx->config->cli.base == 16)
+                        ? "0x%02"PRIxmax"> " : "%"PRIumax"> ";
+        int n = snprintf(NULL, 0, fmt, hits);
+        if (n < 0) {
+            errf("ramfuck: bad prompt format '%s'", fmt);
+        } else if ((prompt = (sizeof(buf) <= n) ? malloc((size_t)n+1) : buf)) {
+            snprintf(prompt, (size_t)n+1, fmt, hits);
+        } else {
+            errf("ramfuck: out-of-memory for get_line prompt");
         }
-        if (prompt)
-            snprintf(prompt, len + 1, "%lu> ", hits);
+        if (!prompt) {
+            buf[0] = '>';
+            buf[1] = '\0';
+            prompt = buf;
+        }
     }
-
     line = linereader_get_line(ctx->linereader, prompt);
-
-    if (prompt && prompt != buf)
+    if (prompt != buf)
         free(prompt);
     return line;
 }

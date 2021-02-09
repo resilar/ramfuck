@@ -16,7 +16,7 @@ struct hit {
 
 struct hits {
     struct hit *items;
-    size_t size, capacity;
+    umax_t size, capacity;
     enum value_type addr_type;
     enum value_type value_type;
 };
@@ -27,6 +27,9 @@ struct hits {
 struct hits *hits_new();
 void hits_delete(struct hits *hits);
 
+/*
+ * Add a new hit.
+ */
 int hits_add(struct hits *hits, addr_t addr, enum value_type type,
              union value_data *data);
 #endif

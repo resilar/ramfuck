@@ -26,18 +26,20 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
     char *region_buf, *snprint_buf;
     struct parser parser;
     struct symbol_table *symtab;
-    struct value value;
-    unsigned int align;
-    addr_t addr, end;
     enum value_type addr_type;
+    struct value value, addr, align_value;
+    const struct value_operations *ops;
     union value_data **ppdata;
     struct ast *ast, *opt;
     struct hits *hits, *ret;
+    addr_t align;
+    int quiet;
 
     ast = NULL;
     symtab = NULL;
     hits = ret = NULL;
     region_buf = snprint_buf = NULL;
+    region_size_max = snprint_len_max = 0;
 
     regions_size = 0;
     regions_capacity = 16;
@@ -46,16 +48,21 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
         return NULL;
     }
 
+    /* U mad bro? */
+    switch (ctx->config->search.progress) {
+    case 1: if (ctx->config->cli.quiet)
+    case 0: { quiet = 1; break; }
+    default:  quiet = 0; break;
+    }
+
     addr_type = U32;
-    region_size_max = snprint_len_max = 0;
     target = ctx->target;
     for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
-#if ADDR_BITS == 64
-        if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
-            addr_type = U64;
-#endif
         if ((mr->prot & ctx->config->search.prot) == ctx->config->search.prot) {
-            size_t len;
+#if ADDR_BITS == 64
+            if (addr_type == U32 && (mr->start + mr->size-1) > UINT32_MAX)
+                addr_type = U64;
+#endif
             if (regions_size == regions_capacity) {
                 size_t new_size;
                 regions_capacity *= 2;
@@ -72,8 +79,11 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
             if (region_size_max < mr->size)
                 region_size_max = mr->size;
 
-            if (snprint_len_max < (len = region_snprint(mr, NULL, 0)))
-                snprint_len_max = len;
+            if (!quiet) {
+                size_t len = region_snprint(mr, NULL, 0);
+                if (snprint_len_max < len)
+                    snprint_len_max = len;
+            }
         }
     }
     if (!regions_size) {
@@ -91,29 +101,30 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
         goto fail;
     }
 
-    if (!(snprint_buf = malloc(snprint_len_max + 1))) {
+    if (!quiet && !(snprint_buf = malloc(snprint_len_max + 1))) {
         errf("search: out-of-memory for memory region text representation");
         goto fail;
     }
 
     if ((symtab = symbol_table_new(ctx))) {
         size_t value_sym;
+        value_init_zero(&addr, addr_type);
+        if (!(align = ctx->config->search.align))
+            align = value_type_sizeof((type & PTR) ? addr_type : type);
 #if ADDR_BITS == 64
         if (addr_type == U32) {
-            /* Endianess test to get a u32 pointer to the lower half of u64 */
-            union { uint64_t u64; uint32_t u32; } lebe;
-            uint32_t *data;
-            lebe.u64 = UINT64_C(0x8765432112345678);
-            data = (uint32_t *)&addr + (lebe.u32 == 0x87654321);
-            symbol_table_add(symtab, "addr", addr_type, (void *)data);
+            value_init_u32(&align_value, (uint32_t)align);
+            ops = value_type_ops(U32);
         } else {
-            symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+            value_init_u64(&align_value, (uint64_t)align);
+            ops = value_type_ops(U64);
         }
 #else
-        symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+        value_init_addr(&align_value, align);
+        ops = value_type_ops(ADDR);
 #endif
-        value.type = type;
-        value_sym = symbol_table_add(symtab, "value", value.type, &value.data);
+        symbol_table_add(symtab, "addr", addr.type, &addr.data);
+        value_sym = symbol_table_add(symtab, "value", type, NULL);
         ppdata = &symtab->symbols[value_sym]->pdata;
     } else {
         errf("search: error creating new symbol table");
@@ -135,37 +146,36 @@ struct hits *search(struct ramfuck *ctx, enum value_type type,
 
     if ((hits = hits_new())) {
         hits->addr_type = addr_type;
-        hits->value_type = value.type;
+        hits->value_type = type;
     } else {
         errf("search: error allocating hits container");
         goto fail;
     }
 
-    if (!(align = ctx->config->search.align)) {
-        if (!(align = value_sizeof(&value)))
-            align = 1;
-    }
-
     ramfuck_break(ctx);
     for (region_idx = 0; region_idx < regions_size; region_idx++) {
+        addr_t address;
         const struct region *region = &regions[region_idx];
         if (!target->read(target, region->start, region_buf, region->size))
             continue;
-        *ppdata = (union value_data *)region_buf;
-        region_snprint(region, snprint_buf, snprint_len_max + 1);
-        fprintf(stderr, "%s\n", snprint_buf);
+        if (!quiet) {
+            region_snprint(region, snprint_buf, snprint_len_max + 1);
+            fprintf(stderr, "%s\n", snprint_buf);
+        }
 
-        addr = region->start;
-        end = addr + region->size;
-        while (addr < end) {
+        address = region->start;
+        value_init_addr(&addr, address);
+        ops->assign(&addr, &addr);
+        while (address < region->start + region->size) {
+            *ppdata = (union value_data *)&region_buf[address - region->start];
             if (ast_evaluate(ast, &value) && value_is_nonzero(&value)) {
-                if (!hits_add(hits, addr, type, *ppdata)) {
+                if (!hits_add(hits, address, type, *ppdata)) {
                     region_idx = regions_size;
                     break;
                 }
             }
-            *ppdata = (union value_data *)((char *)*ppdata + align);
-            addr += align;
+            ops->add(&addr, &align_value, &addr);
+            address += align;
         }
     }
     ramfuck_continue(ctx);
@@ -187,16 +197,13 @@ fail:
 struct hits *filter(struct ramfuck *ctx, struct hits *hits,
                     const char *expression)
 {
-    struct target *target;
     struct symbol_table *symtab;
     struct parser parser;
     struct ast *ast, *opt;
     struct hits *filtered, *ret;
     struct value value, result;
-    union value_data **ppdata;
     enum value_type addr_type, value_type;
-    addr_t addr;
-    size_t i;
+    union value_data **ppdata, idx, addr;
 
     ast = NULL;
     symtab = NULL;
@@ -207,7 +214,8 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
     value_type = hits->value_type;
     if ((symtab = symbol_table_new(ctx))) {
         size_t prev_sym;
-        symbol_table_add(symtab, "addr", addr_type, (void *)&addr);
+        symbol_table_add(symtab, "idx", addr_type, &idx);
+        symbol_table_add(symtab, "addr", addr_type, &addr);
         symbol_table_add(symtab, "value", value_type, &value.data);
         prev_sym = symbol_table_add(symtab, "prev", value_type, NULL);
         ppdata = &symtab->symbols[prev_sym]->pdata;
@@ -239,18 +247,20 @@ struct hits *filter(struct ramfuck *ctx, struct hits *hits,
 
     if (!ramfuck_break(ctx))
         goto fail;
-    target = ctx->target;
-    for (i = 0; i < hits->size; i++) {
+
+    idx.umax = 0;
+    while (idx.umax < hits->size) {
         size_t size;
-        addr = hits->items[i].addr;
+        umax_t i = idx.umax++;
+        addr.addr = hits->items[i].addr;
         value.type = hits->items[i].type;
         size = value_type_sizeof((value.type & PTR) ? addr_type : value.type);
-        if (!target->read(target, addr, &value.data, size))
+        if (!ctx->target->read(ctx->target, addr.addr, &value.data, size))
             continue;
 
         *ppdata = &hits->items[i].prev;
         if (ast_evaluate(ast, &result) && value_is_nonzero(&result)) {
-            if (!hits_add(filtered, addr, value_type, &value.data))
+            if (!hits_add(filtered, addr.addr, value_type, &value.data))
                 break;
         }
     }

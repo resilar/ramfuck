@@ -80,6 +80,37 @@ int value_init_f64(struct value *dest, double value)
 }
 #endif
 
+int value_init_addr(struct value *dest, addr_t value)
+{
+    dest->type = ADDR;
+    dest->data.addr = value;
+    return 1;
+}
+
+int value_init_smax(struct value *dest, smax_t value)
+{
+    dest->type = SMAX;
+    dest->data.smax = value;
+    return 1;
+}
+
+int value_init_umax(struct value *dest, umax_t value)
+{
+    dest->type = UMAX;
+    dest->data.umax = value;
+    return 1;
+}
+
+int value_init_zero(struct value *dest, enum value_type type)
+{
+    size_t i, j;
+    dest->type = type;
+    for (i = 0, j = value_sizeof(dest); i < j; i++) {
+        ((char *)&dest->data)[i] = 0;
+    }
+    return 1;
+}
+
 int value_is_zero(const struct value *dest)
 {
     size_t i, j;
@@ -124,18 +155,18 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
 {
     switch (value->type)
     {
-    case S8: return snprintf(out, size, "%" PRId8, value->data.s8);
-    case U8: return snprintf(out, size, "%" PRIu8, value->data.u8);
+    case S8: return snprintf(out, size, "%"PRId8, value->data.s8);
+    case U8: return snprintf(out, size, "%"PRIu8, value->data.u8);
 
-    case S16: return snprintf(out, size, "%" PRId16, value->data.s16);
-    case U16: return snprintf(out, size, "%" PRIu16, value->data.u16);
+    case S16: return snprintf(out, size, "%"PRId16, value->data.s16);
+    case U16: return snprintf(out, size, "%"PRIu16, value->data.u16);
 
-    case S32: return snprintf(out, size, "%" PRId32, value->data.s32);
-    case U32: return snprintf(out, size, "%" PRIu32, value->data.u32);
+    case S32: return snprintf(out, size, "%"PRId32, value->data.s32);
+    case U32: return snprintf(out, size, "%"PRIu32, value->data.u32);
 
     #ifndef NO_64BIT_VALUES
-    case S64: return snprintf(out, size, "%" PRId64, value->data.s64);
-    case U64: return snprintf(out, size, "%" PRIu64, value->data.u64);
+    case S64: return snprintf(out, size, "%"PRId64, value->data.s64);
+    case U64: return snprintf(out, size, "%"PRIu64, value->data.u64);
     #endif
 
     #ifndef NO_FLOAT_VALUES
@@ -152,7 +183,7 @@ size_t value_to_string(const struct value *value, char *out, size_t size)
     #ifndef NO_FLOAT_VALUES
     case F32PTR: case F64PTR:
     #endif
-        return snprintf(out, size, "0x%08" PRIaddr, value->data.addr);
+        return snprintf(out, size, "0x%08"PRIaddr, value->data.addr);
 
     default: break;
     }
@@ -164,32 +195,32 @@ size_t value_to_hexstring(const struct value *value, char *out, size_t size)
     switch (value->type)
     {
     case S8: case U8:
-        return snprintf(out, size, "0x%02" PRIx8, value->data.u8);
+        return snprintf(out, size, "0x%02"PRIx8, value->data.u8);
 
     case S16: case U16:
-        return snprintf(out, size, "0x%04" PRIx16, value->data.u16);
+        return snprintf(out, size, "0x%04"PRIx16, value->data.u16);
 
     case S32: case U32:
-        return snprintf(out, size, "0x%08" PRIx32, value->data.u32);
+        return snprintf(out, size, "0x%08"PRIx32, value->data.u32);
 
     #ifndef NO_64BIT_VALUES
     case S64: case U64:
-        return snprintf(out, size, "0x%016" PRIx64, value->data.u64);
+        return snprintf(out, size, "0x%016"PRIx64, value->data.u64);
     #endif
 
     #ifndef NO_FLOAT_VALUES
     case F32:
-        return snprintf(out, size, "0x%08" PRIx32, value->data.u32);
+        return snprintf(out, size, "0x%08"PRIx32, value->data.u32);
     case F64:
         #ifndef NO_64BIT_VALUES
-        return snprintf(out, size, "0x%016" PRIx64, value->data.u64);
+        return snprintf(out, size, "0x%016"PRIx64, value->data.u64);
         #else
         {
             int le;
             union { uint16_t u16; uint8_t u8; } endianess_test;
             endianess_test.u16 = 0x1122;
             le = endianess_test.u8 == 0x22;
-            return snprintf(out, size, "0x%08" PRIx32 "%08" PRIx32,
+            return snprintf(out, size, "0x%08"PRIx32"%08"PRIx32,
                             ((uint32_t *)&value->data.f64)[le],
                             ((uint32_t *)&value->data.f64)[!le]);
         }

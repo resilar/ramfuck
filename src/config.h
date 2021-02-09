@@ -31,7 +31,7 @@ struct config {
          * 0 -> sizeof(value)
          * n -> n bytes
          */
-        unsigned int align;
+        unsigned long align;
 
         /*
          * Memory protections required to search a region.
@@ -40,6 +40,14 @@ struct config {
          * 4 -> READ
          */
         unsigned int prot;
+
+        /*
+         * Print progress.
+         * 0 -> Do not print progress
+         * 1 -> Output scanned memory regions (unless cli.quiet == 1)
+         * 2 -> Output scanned memory regions
+         */
+        int progress;
     } search;
 };
 

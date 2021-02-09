@@ -25,19 +25,22 @@
  * Internal definitions and configuration sanity checking.
  */
 #ifndef ADDR_BITS
-# ifndef NO_64BIT_VALUES
-#  define ADDR_BITS 64
-# else
+# ifdef NO_64BIT_VALUES
 #  define ADDR_BITS 32
+# else
+#  define ADDR_BITS 64
 # endif
-#endif
-
-#if ADDR_BITS == 64
+#elif ADDR_BITS == 64
+# ifdef NO_64_BIT_VALUES
+#  error "ADDR_BITS=64 unsupported when NO_64BIT_VALUES is defined"
+# endif
 # define _LARGE_FILE 1
 # define _LARGEFILE_SOURCE 1
 # ifndef _FILE_OFFSET_BITS
 #   define _FILE_OFFSET_BITS 64
 # endif
+#elif ADDR_BITS != 32
+# error "unsupported ADDR_BITS (expected 32 or 64)"
 #endif
 
 #include <inttypes.h>
@@ -50,16 +53,31 @@ typedef uint32_t addr_t;
 # define PRIaddru PRIu32
 # define SCNaddr SCNx32
 #elif ADDR_BITS == 64
-# ifdef NO_64BIT_VALUES
-#  error "ADDR_BITS=64 unsupported when NO_64BIT_VALUES is defined"
-# endif
 typedef uint64_t addr_t;
 # define ADDR_MAX UINT64_MAX
 # define PRIaddr PRIx64
 # define PRIaddru PRIu64
 # define SCNaddr SCNx64
+#endif
+
+#ifdef NO_64BIT_VALUES
+typedef int32_t smax_t;
+typedef uint32_t umax_t;
+# define PRIsmax PRId32
+# define PRIumax PRIu32
+# define PRIxmax PRIx32
+# define SMAX_MIN INT32_MIN
+# define SMAX_MAX INT32_MAX
+# define UMAX_MAX UINT32_MAX
 #else
-# error "unsupported ADDR_BITS (must be 32 or 64)"
+typedef int64_t smax_t;
+typedef uint64_t umax_t;
+# define PRIsmax PRId64
+# define PRIumax PRIu64
+# define PRIxmax PRIx64
+# define SMAX_MIN INT64_MIN
+# define SMAX_MAX INT64_MAX
+# define UMAX_MAX UINT64_MAX
 #endif
 
 #endif

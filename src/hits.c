@@ -30,7 +30,7 @@ int hits_add(struct hits *hits, addr_t addr, enum value_type type,
              union value_data *data)
 {
     struct hit *hit;
-    size_t size = value_type_sizeof((type & PTR) ? hits->addr_type : type);
+    umax_t size = value_type_sizeof((type & PTR) ? hits->addr_type : type);
 
     if (hits->size == hits->capacity) {
         struct hit *new;
@@ -47,6 +47,5 @@ int hits_add(struct hits *hits, addr_t addr, enum value_type type,
     hit->addr = addr;
     hit->type = type;
     memcpy(&hit->prev, data, size);
-
     return 1;
 }

@@ -405,7 +405,7 @@ size_t region_snprint(const struct region *mr, char *out, size_t size)
         suffix = '?';
     }
     return snprintf(out, size,
-                   "0x%08" PRIaddr "-0x%08" PRIaddr " %3u%c %c%c%c %s",
+                   "0x%08"PRIaddr"-0x%08"PRIaddr" %3u%c %c%c%c %s",
                     mr->start, mr->start + mr->size,
                     (unsigned int)hsize, suffix,
                     (mr->prot & MEM_READ) ? 'r' : '-',

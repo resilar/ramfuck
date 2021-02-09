@@ -45,8 +45,11 @@ struct symbol_table *symbol_table_new(struct ramfuck *ctx);
 void symbol_table_delete(struct symbol_table *symtab);
 
 /*
- * Add symbol to a symbol table.
+ * Add a symbol to a symbol table.
+ *
+ * Returns the symtab size on success or 0 on an error.
  */
+size_t symbol_table_add_symbol(struct symbol_table *symtab, struct symbol *sym);
 size_t symbol_table_add(struct symbol_table *symtab, const char *name,
                         enum value_type type, union value_data *pdata);
 

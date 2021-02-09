@@ -24,11 +24,6 @@
 #include <string.h>
 #include <time.h>
 
-#if ADDR_BITS == 64
-# define ctx_addr_type(ctx) (((ctx)->addr_size == sizeof(uint64_t)) ? U64 : U32)
-#else
-# define ctx_addr_type(ctx) (U32)
-#endif
 extern int ramfuck_read(struct ramfuck *, addr_t, void *, size_t);
 extern int ramfuck_write(struct ramfuck *, addr_t, void *, size_t);
 
@@ -155,6 +150,7 @@ static int accept_addr(const char **pin, enum value_type addr_type,
     struct value value;
     if (!accept_value(pin, addr_type, addr_type, positional, &value))
         return 0;
+    *out = value.data.addr;
 #if ADDR_BITS == 64
     *out = (addr_type == U64) ? value.data.u64 : value.data.u32;
 #else
@@ -163,12 +159,12 @@ static int accept_addr(const char **pin, enum value_type addr_type,
     return 1;
 }
 
-static int accept_sint(const char **pin, int positional, intmax_t *out)
+static int accept_smax(const char **pin, int positional, smax_t *out)
 {
     struct value value;
     enum value_type value_type, addr_type;
     value_type = SMAX;
-    addr_type = ADDR_TYPE;
+    addr_type = ADDR;
     if (!accept_value(pin, value_type, addr_type, positional, &value))
         return 0;
     *out = value.data.smax;
@@ -186,7 +182,7 @@ static size_t fput_value(struct ramfuck *ctx, const struct value *value,
         if (len+1 && (p = malloc(len+1))) {
             to_string(value, p, len+1);
         } else {
-            errf("cli: out-of-memory for %" PRIaddru "-byte value string", len);
+            errf("cli: out-of-memory for %"PRIaddru"-byte value string", len);
             p = buf;
         }
     }
@@ -275,25 +271,24 @@ static int do_attach(struct ramfuck *ctx, const char *in)
         target_detach(ctx->target);
     }
     ctx->target = target;
-
     ctx->breaks = 0;
     ramfuck_break(ctx);
+
     regions = size = 0;
-    target = ctx->target;
+    ctx->addr_type = U32;
     for (mr = target->region_first(target); mr; mr = target->region_next(mr)) {
-#if ADDR_BITS == 64
-        if ((mr->start + mr->size-1) > UINT32_MAX)
-            break;
-#endif
         size += mr->size;
         regions++;
-    }
-    if (mr) {
-        do { size += mr->size; regions++; }
-        while ((mr = target->region_next(mr)));
-        ctx->addr_size = sizeof(uint64_t);
-    } else {
-        ctx->addr_size = sizeof(uint32_t);
+        #if ADDR_BITS == 64
+        if (mr->start + mr->size - 1 > UINT32_MAX) {
+            ctx->addr_type = U64;
+            while ((mr = target->region_next(mr))) {
+                size += mr->size;
+                regions++;
+            }
+            break;
+        }
+        #endif
     }
     ramfuck_continue(ctx);
 
@@ -445,7 +440,7 @@ static int do_hex(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    addr_type = ctx_addr_type(ctx);
+    addr_type = ctx->addr_type;
     if (!accept_addr(&in, addr_type, 1, &addr)) {
         errf("hex: invalid address");
         return 3;
@@ -460,15 +455,15 @@ static int do_hex(struct ramfuck *ctx, const char *in)
 
     if (!(buf = malloc(len))) {
         human_readable_size((size_t)len, &size, &suffix);
-        errf("hex: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
+        errf("hex: error allocating %"PRIaddru" bytes (%d%c) for a buffer",
              len, size, suffix);
         return 5;
     }
 
     if (!ramfuck_read(ctx, addr, buf, len)) {
         human_readable_size((size_t)len, &size, &suffix);
-        errf("hex: error reading %" PRIaddru " bytes (%d%c) from"
-             " address 0x%08" PRIaddr, len, size, suffix, addr);
+        errf("hex: error reading %"PRIaddru" bytes (%d%c) from"
+             " address 0x%08"PRIaddr, len, size, suffix, addr);
         free(buf);
         return 6;
     }
@@ -476,7 +471,7 @@ static int do_hex(struct ramfuck *ctx, const char *in)
     p = buf;
     while (len) {
         int i;
-        fprintf(stdout, "0x%08" PRIaddr, addr);
+        fprintf(stdout, "0x%08"PRIaddr, addr);
 
         fputs("  ", stdout);
         for (i = 0; i < 16; i++) {
@@ -512,12 +507,12 @@ static int do_hex(struct ramfuck *ctx, const char *in)
  */
 static int do_eval(struct ramfuck *ctx, const char *in)
 {
-    struct parser parser;
-    struct ast *ast;
     int ok;
+    struct ast *ast;
+    struct parser parser;
     parser_init(&parser);
     parser.quiet = 1;
-    parser.addr_type = ctx_addr_type(ctx);
+    parser.addr_type = ctx->addr_type;
     parser.target = ctx->target;
     if ((ast = parse_expression(&parser, in))) {
         struct value out = {0};
@@ -557,19 +552,14 @@ static int do_explain(struct ramfuck *ctx, const char *in)
         value_init_s32(&value, 42);
         symbol_table_add(symtab, "value", S32, &value.data);
 #if ADDR_BITS == 64
-        if (ctx->addr_size == sizeof(uint64_t)) {
+        if (ctx->addr_type == U64) {
             value_init_u64(&address, UINT64_C(0x123456789ABCDEF));
-            parser.addr_type = U64;
-        } else {
-            address.data.u64 = 0;
-            value_init_u32(&address, 0x12345678);
-            parser.addr_type = U32;
-        }
-#else
-        value_init_u32(&address, 0x12345678);
-        parser.addr_type = U32;
+        } else
 #endif
-        symbol_table_add(symtab, "pointer", U16PTR, &address.data);
+        value_init_u32(&address, 0x12345678);
+        parser.addr_type = address.type;
+        symbol_table_add(symtab, "addr", address.type, &address.data);
+        symbol_table_add(symtab, "ptr", U32, &address.data);
 
         parser.symtab = symtab;
         parser.target = ctx->target;
@@ -645,6 +635,7 @@ static int do_explain(struct ramfuck *ctx, const char *in)
 static int do_filter(struct ramfuck *ctx, const char *in)
 {
     struct hits *hits;
+    const char *fmt;
 
     if (eol(in)) {
         errf("filter: expression expected");
@@ -661,6 +652,8 @@ static int do_filter(struct ramfuck *ctx, const char *in)
         return 3;
 
     ramfuck_set_hits(ctx, hits);
+    fmt = (ctx->config->cli.base == 16) ? "0x%02"PRIxmax"%s" : "%"PRIumax"%s";
+    printf(fmt, hits->size, ctx->config->cli.quiet ? "\n" : " hits left\n");
     return 0;
 }
 
@@ -672,7 +665,7 @@ static int do_list(struct ramfuck *ctx, const char *in)
 {
     size_t i;
     struct target *target;
-
+    enum value_type addr_type;
     if (!eol(in)) {
         errf("list: trailing characters");
         return 1;
@@ -683,35 +676,38 @@ static int do_list(struct ramfuck *ctx, const char *in)
         return 0;
     }
 
-    target = ctx->target;
     ramfuck_break(ctx);
+    target = ctx->target;
+    /*addr_type = HIGHER_TYPE(ctx->addr_type, hits->addr_type);*/
+    addr_type = ctx->hits->addr_type;
     for (i = 0; i < ctx->hits->size; i++) {
+        size_t size;
+        struct value value = {0};
         struct hit *hit = &ctx->hits->items[i];
+        value.type = hit->type;
         if (!ctx->config->cli.quiet) {
-            fprintf(stdout, "%lu. *(%s *)",
-                    (unsigned long)i+1, value_type_to_string(hit->type));
+            fprintf(stdout, "%lu. ", (unsigned long)i + 1);
+            fprintf(stdout, "*(%s *)", value_type_to_string(value.type));
         } else {
-            fprintf(stdout, "%s ", value_type_to_string(hit->type));
+            fprintf(stdout, "%lu ", (unsigned long)i + 1);
+            fprintf(stdout, "%s ", value_type_to_string(value.type));
         }
-        fprintf(stdout, "0x%08" PRIaddr, hit->addr);
+        fprintf(stdout, "0x%08"PRIaddr, hit->addr);
         fputs(ctx->config->cli.quiet ? " " : " = ", stdout);
-        if (target) {
-            size_t size;
-            struct value value;
-            value.type = hit->type;
-            if (hit->type & PTR) {
-                value.data.addr = 0;
-                size = ctx->addr_size;
-            } else {
-                size = value_sizeof(&value);
-            }
-            if (target->read(target, hit->addr, &value.data, size)) {
-                fput_value(ctx, &value, 0, stdout);
-                fputc('\n', stdout);
-                continue;
-            }
+        size = value_type_sizeof((value.type & PTR) ? value.type : addr_type);
+        if (!target) {
+            fprintf(stdout, "??? UNATTACHED");
+        } else if (!target->read(target, hit->addr, &value.data, size)) {
+            fprintf(stdout, "??? UNREADABLE");
+        } else {
+            fput_value(ctx, &value, 0, stdout);
         }
-        fprintf(stdout, "???\n");
+        if (!ctx->config->cli.quiet) {
+            fprintf(stdout, " # prev = ");
+            memcpy(&value.data, &hit->prev, size);
+            fput_value(ctx, &value, 0, stdout);
+        }
+        fputc('\n', stdout);
     }
     ramfuck_continue(ctx);
 
@@ -772,9 +768,10 @@ static int do_maps(struct ramfuck *ctx, const char *in)
  */
 static int do_peek(struct ramfuck *ctx, const char *in)
 {
-    addr_t addr;
     enum value_type type;
-    intmax_t index;
+    addr_t addr;
+    umax_t index;
+    smax_t sindex;
     struct value out;
     size_t size;
 
@@ -783,56 +780,48 @@ static int do_peek(struct ramfuck *ctx, const char *in)
         return 1;
     }
 
-    type = accept_type(&in);
-    if (eol(in)) {
-        errf("peek: %s expression expected", type ? "address" : "hit index");
-        return 2;
-    }
-
-    if (type) {
-        if (!accept_addr(&in, ctx_addr_type(ctx), 0, &addr)) {
-            errf("peek: evaluating address value failed");
+    if ((type = accept_type(&in))) {
+        if (eol(in) || !accept_addr(&in, ctx->addr_type, 0, &addr)) {
+            errf("peek: evaluating address value after type failed");
+            return 2;
+        }
+        index = 0;
+    } else if (!ctx->hits || !ctx->hits->size) {
+        errf("peek: cannot peek by hit index when 0 hits");
+        return 3;
+    } else if (!accept_smax(&in, 0, &sindex)) {
+        errf("peek: evaluating hit index failed");
+        return 3;
+    } else {
+        index = (sindex < 0) ? sindex + ctx->hits->size + 1 : sindex;
+        if (!index || index > ctx->hits->size) {
+            errf("peek: bad hit index %"PRIsmax" not in 1..%"PRIumax,
+                 sindex, ctx->hits->size);
             return 3;
         }
-        index = -1;
-    } else {
-        intmax_t index0;
-        if (!accept_sint(&in, 0, &index0)) {
-            errf("peek: evaluating hit index failed");
-            return 4;
-        }
-        if (!ctx->hits || !ctx->hits->size) {
-            errf("peek: bad index %" PRIdMAX " (0 hits)", index0);
-            return 5;
-        }
-        index = (index0 < 0) ? index0 + ctx->hits->size : index0 - 1;
-        if (!(0 <= index && index < ctx->hits->size)) {
-            errf("peek: bad index %" PRIdMAX " not in 1..%lu",
-                 index0, (unsigned long)ctx->hits->size);
-            return 6;
-        }
-        addr = ctx->hits->items[index].addr;
-        type = ctx->hits->items[index].type;
+        addr = ctx->hits->items[index-1].addr;
+        type = ctx->hits->items[index-1].type;
     }
-
     if (!eol(in)) {
         errf("peek: trailing characters after %s",
-            (index == -1) ? "type & address" : "hit index");
-        return 7;
+             type ? "type & address" : "hit index");
+        errf("in=%s", in);
+        return 4;
+    }
+
+    if (!ctx->config->cli.quiet) {
+        if (index > 0) fprintf(stdout, "%"PRIumax". ", index);
+        fprintf(stdout, "*(%s *)", value_type_to_string(type));
+        fprintf(stdout, "0x%08"PRIaddr" = ", addr);
     }
 
     out.type = type;
-    size = value_type_sizeof((type & PTR) ? ctx_addr_type(ctx) : type);
-
-    if (index != -1)
-        fprintf(stdout, "%" PRIdMAX ". ", index + 1);
-    fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
-            value_type_to_string(type), addr);
-    if (ramfuck_read(ctx, addr, &out.data, size)) {
-        fput_value(ctx, &out, 0, stdout);
-    } else {
-        fprintf(stdout, "%s", "???");
+    size = value_type_sizeof((type & PTR) ? ctx->addr_type : type);
+    if (!ramfuck_read(ctx, addr, &out.data, size)) {
+        fputs("??? UNREADABLE\n", stdout);
+        return 5;
     }
+    fput_value(ctx, &out, 0, stdout);
     fputc('\n', stdout);
     return 0;
 }
@@ -845,130 +834,123 @@ static int do_peek(struct ramfuck *ctx, const char *in)
 static int do_poke(struct ramfuck *ctx, const char *in)
 {
     enum value_type type;
-    intmax_t index;
     addr_t addr;
-    struct symbol_table *symtab;
+    umax_t index;
+    smax_t sindex;
     struct parser parser;
     struct ast *ast, *cast;
-    struct value value, out;
+    struct value value, address, idx, out;
     size_t size;
-    int ok;
+    int cont, ok;
 
     if (eol(in)) {
         errf("poke: type & addr & value or index & value expected");
         return 1;
     }
-
     if (!ctx->target) {
         errf("poke: attach to target first");
-        return 2;
+        return 1;
     }
 
     if ((type = accept_type(&in))) {
-        if (eol(in)) {
-            errf("poke: address expected after type");
+        if (eol(in) || !accept_addr(&in, ctx->addr_type, 1, &addr)) {
+            errf("poke: evaluating address after type failed");
+            return 2;
+        }
+        index = 0;
+    } else if (!ctx->hits || !ctx->hits->size) {
+        errf("poke: cannot poke by index when 0 hits");
+        return 3;
+    } else if (!accept_smax(&in, 1, &sindex)) {
+        errf("poke: evaluating hit index failed");
+        return 3;
+    } else {
+        index = (sindex < 0) ? sindex + ctx->hits->size + 1 : sindex;
+        if (!index || index > ctx->hits->size) {
+            errf("poke: bad hit index %"PRIsmax" not in 1..%"PRIumax,
+                 sindex, ctx->hits->size);
             return 3;
         }
-        if (!accept_addr(&in, ctx_addr_type(ctx), 1, &addr)) {
-            errf("poke: evaluating address value failed");
-            return 4;
-        }
-        index = -1;
-    } else {
-        intmax_t index0;
-        if (!accept_sint(&in, 1, &index0)) {
-            errf("poke: evaluating hit index failed");
-            return 5;
-        }
-        if (!ctx->hits || !ctx->hits->size) {
-            errf("poke: bad index %" PRIdMAX " (0 hits)", index0);
-            return 6;
-        }
-        index = (index0 < 0) ? index0 + ctx->hits->size : index0 - 1;
-        if (!(0 <= index && index < ctx->hits->size)) {
-            errf("poke: bad index %" PRIdMAX " not in 1..%lu",
-                 index0, (unsigned long)ctx->hits->size);
-            return 7;
-        }
-        addr = ctx->hits->items[index].addr;
-        type = ctx->hits->items[index].type;
+        addr = ctx->hits->items[index-1].addr;
+        type = ctx->hits->items[index-1].type;
     }
-
     if (eol(in)) {
         errf("poke: value expression expected after %s",
-             (index == -1) ? "type & address" : "hit index");
-        return 8;
+             type ? "type & address" : "hit index");
+        return 4;
     }
 
     parser_init(&parser);
-    parser.addr_type = ctx_addr_type(ctx);
+    parser.addr_type = ctx->addr_type;
     parser.target = ctx->target;
-    size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
-    if (strstr(in, "addr") || strstr(in, "value") /* hack ... */) {
-        if (!(symtab = symbol_table_new(ctx))) {
+    if (strstr(in, "addr") || strstr(in, "value") || strstr(in, "idx")) {
+        if (!(parser.symtab = symbol_table_new(ctx))) {
             errf("poke: out-of-memory for symbol table");
-            return 9;
+            return 5;
         }
-        if (strstr(in, "addr")) {
-            union value_data *data = (union value_data *)&addr;
 #if ADDR_BITS == 64
-            if (parser.addr_type == U32) {
-                addr = (uint32_t)addr;
-                data->u32 = (uint32_t)addr;
-            }
+        if (parser.addr_type == U32) {
+            value_init_u32(&address, (uint32_t)addr);
+        } else
 #endif
-            symbol_table_add(symtab, "addr", parser.addr_type, data);
-        }
+        value_init_addr(&address, addr);
+        symbol_table_add(parser.symtab, "addr", address.type, &address.data);
         if (strstr(in, "value")) {
-            value.type = type;
-            if (ramfuck_read(ctx, addr, &value.data, size)) {
-                symbol_table_add(symtab, "value", value.type, &value.data);
-            } else {
-                errf("poke: error reading %lu bytes from address 0x%08" PRIaddr,
-                     (unsigned long)size, addr);
-                symbol_table_delete(symtab);
-                return 10;
-            }
+            value_init_zero(&value, type);
+            symbol_table_add(parser.symtab, "value", value.type, &value.data);
         }
-        parser.symtab = symtab;
-    } else {
-        symtab = NULL;
+        value_init_umax(&idx, (umax_t)index);
+        symbol_table_add(parser.symtab, "idx", idx.type, &idx.data);
     }
 
     if (!(ast = parse_expression(&parser, in))) {
         errf("poke: %d parse errors", parser.errors);
-        if (symtab) symbol_table_delete(symtab);
-        return 11;
+        symbol_table_delete(parser.symtab);
+        return 6;
     }
     if (!(cast = ast_cast_new((type & PTR) ? parser.addr_type : type, ast))) {
-        errf("poke: out-of-memory for typecast AST");
-        if (symtab) symbol_table_delete(symtab);
+        errf("poke: error allocating and initializing typecast AST node");
         ast_delete(ast);
-        return 12;
+        symbol_table_delete(parser.symtab);
+        return 6;
     }
     ast = cast;
 
-    if (parser.has_deref) ramfuck_break(ctx);
+    size = value_type_sizeof((type & PTR) ? parser.addr_type : type);
+    if (parser.symtab && symbol_table_lookup(parser.symtab, "value", 0)) {
+        ramfuck_break(ctx);
+        if (!ramfuck_read(ctx, addr, &value.data, size)) {
+            errf("poke: error reading %lu bytes from address 0x%08"PRIaddr,
+                 (unsigned long)size, addr);
+            ast_delete(ast);
+            symbol_table_delete(parser.symtab);
+            ramfuck_continue(ctx);
+            return 7;
+        }
+        cont = 1;
+    } else if ((cont = parser.has_deref)) {
+        ramfuck_break(ctx);
+    }
     ok = ast_evaluate(ast, &out);
-    if (parser.has_deref) ramfuck_continue(ctx);
-    if (symtab) symbol_table_delete(symtab);
+    if (cont) ramfuck_continue(ctx);
     ast_delete(ast);
+    symbol_table_delete(parser.symtab);
     if (!ok) {
         errf("poke: evaluating value expression failed");
-        return 13;
+        return 8;
     }
 
     if (!ramfuck_write(ctx, addr, &out.data, size)) {
-        errf("poke: error writing %lu bytes to address 0x%08" PRIaddr,
+        errf("poke: error writing %lu bytes to address 0x%08"PRIaddr,
              (unsigned long)size, addr);
-        return 14;
+        return 9;
     }
 
-    out.type = type;
-    if (index != -1)
-        fprintf(stdout, "%" PRIdMAX ". ", index + 1);
-    fprintf(stdout, "*(%s *)0x%08" PRIaddr " = ",
-            value_type_to_string(type), addr);
+    if (!ctx->config->cli.quiet) {
+        if (index > 0) fprintf(stdout, "%"PRIumax". ", index);
+        fprintf(stdout, "*(%s *)", value_type_to_string(type));
+        fprintf(stdout, "0x%08"PRIaddr" = ", addr);
+    }
     fput_value(ctx, &out, 0, stdout);
     fputc('\n', stdout);
     return 0;
@@ -1006,7 +988,6 @@ static int do_quit(struct ramfuck *ctx, const char *in) {
  */
 static int do_read(struct ramfuck *ctx, const char *in)
 {
-    enum value_type addr_type;
     addr_t addr, len;
     const char *path;
     FILE *file;
@@ -1024,8 +1005,7 @@ static int do_read(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    addr_type = ctx_addr_type(ctx);
-    if (!accept_addr(&in, addr_type, 1, &addr)) {
+    if (!accept_addr(&in, ctx->addr_type, 1, &addr)) {
         errf("read: invalid address");
         return 3;
     }
@@ -1035,21 +1015,21 @@ static int do_read(struct ramfuck *ctx, const char *in)
         return 4;
     }
 
-    if (!accept_addr(&in, addr_type, 1, &len)) {
+    if (!accept_addr(&in, ctx->addr_type, 1, &len)) {
         errf("read: invalid length");
         return 5;
     }
     human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
-        errf("read: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
+        errf("read: error allocating %"PRIaddru" bytes (%d%c) for a buffer",
              len, size, suffix);
         return 6;
     }
 
     if (!ramfuck_read(ctx, addr, buf, len)) {
-        errf("read: error reading %" PRIaddru " bytes (%d%c) from"
-             " address 0x%08" PRIaddr, len, size, suffix, addr);
+        errf("read: error reading %"PRIaddru" bytes (%d%c) from"
+             " address 0x%08"PRIaddr, len, size, suffix, addr);
         free(buf);
         return 7;
     }
@@ -1082,13 +1062,13 @@ static int do_read(struct ramfuck *ctx, const char *in)
 
     if (path[0] != '-' || path[1] != '\0') {
         human_readable_size((size_t)(p - buf), &size, &suffix);
-        infof("%" PRIaddru " bytes (%d%c) from address 0x%08" PRIaddr
+        infof("%"PRIaddru" bytes (%d%c) from address 0x%08"PRIaddr
               " written to %s", (addr_t)(p - buf), size, suffix, addr, path);
     }
 
     if (len > 0) {
         human_readable_size((size_t)len, &size, &suffix);
-        errf("read: error writing last %" PRIaddru " bytes (%d%c) to file %s",
+        errf("read: error writing last %"PRIaddru" bytes (%d%c) to file %s",
              len, size, suffix, path);
         return 10;
     }
@@ -1125,6 +1105,7 @@ static int do_search(struct ramfuck *ctx, const char *in)
 {
     enum value_type type;
     struct hits *hits;
+    const char *fmt;
 
     if (eol(in)) {
         errf("search: missing type");
@@ -1144,6 +1125,8 @@ static int do_search(struct ramfuck *ctx, const char *in)
         return 3;
 
     ramfuck_set_hits(ctx, hits);
+    fmt = (ctx->config->cli.base == 16) ? "0x%02"PRIxmax"%s" : "%"PRIumax"%s";
+    printf(fmt, hits->size, ctx->config->cli.quiet ? "\n" : " hits\n");
     return 0;
 }
 
@@ -1191,7 +1174,6 @@ static int do_undo(struct ramfuck *ctx, const char *in)
  */
 static int do_write(struct ramfuck *ctx, const char *in)
 {
-    enum value_type addr_type;
     addr_t addr, len, left;
     const char *path;
     FILE *file;
@@ -1209,8 +1191,7 @@ static int do_write(struct ramfuck *ctx, const char *in)
         return 2;
     }
 
-    addr_type = ctx_addr_type(ctx);
-    if (!accept_addr(&in, addr_type, 1, &addr)) {
+    if (!accept_addr(&in, ctx->addr_type, 1, &addr)) {
         errf("write: invalid address");
         return 3;
     }
@@ -1220,14 +1201,14 @@ static int do_write(struct ramfuck *ctx, const char *in)
         return 4;
     }
 
-    if (!accept_addr(&in, addr_type, 1, &len)) {
+    if (!accept_addr(&in, ctx->addr_type, 1, &len)) {
         errf("write: invalid length");
         return 5;
     }
     human_readable_size((size_t)len, &size, &suffix);
 
     if (!(buf = malloc(len))) {
-        errf("write: error allocating %" PRIaddru " bytes (%d%c) for a buffer",
+        errf("write: error allocating %"PRIaddru" bytes (%d%c) for a buffer",
              len, size, suffix);
         return 6;
     }
@@ -1258,7 +1239,7 @@ static int do_write(struct ramfuck *ctx, const char *in)
         return 8;
     } else if (left > 0) {
         human_readable_size((size_t)left, &size, &suffix);
-        errf("write: error reading last %" PRIaddru " bytes (%d%c) of file %s",
+        errf("write: error reading last %"PRIaddru" bytes (%d%c) of file %s",
              left, size, suffix, path);
         free(buf);
         return 9;
@@ -1267,14 +1248,14 @@ static int do_write(struct ramfuck *ctx, const char *in)
     ok = ramfuck_write(ctx, addr, buf, len);
     free(buf);
     if (!ok) {
-        errf("write: error writing %" PRIaddru " bytes (%d%c) from"
-             " address 0x%08" PRIaddr, len, size, suffix, addr);
+        errf("write: error writing %"PRIaddru" bytes (%d%c) from"
+             " address 0x%08"PRIaddr, len, size, suffix, addr);
         return 10;
     }
 
     if (path[0] != '-' || path[1] != '\0') {
-        infof("%" PRIaddru " bytes (%d%c) from file %s written to address"
-              " 0x%08" PRIaddr, len, size, suffix, path, addr);
+        infof("%"PRIaddru" bytes (%d%c) from file %s written to address"
+              " 0x%08"PRIaddr, len, size, suffix, path, addr);
     }
     return 0;
 }

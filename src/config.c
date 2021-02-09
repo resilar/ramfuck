@@ -33,6 +33,7 @@ struct config *config_new()
         cfg->cli.quiet = 0;
         cfg->search.align = 0;
         cfg->search.prot = 6; /* MEM_READ | MEM_WRITE */
+        cfg->search.progress = 1;
     }
     return cfg;
 }
@@ -53,6 +54,7 @@ int config_process_line(struct config *cfg, const char *in)
         fprintf(stdout, "cli.quiet = %d\n", quiet);
         config_process_line(cfg, "search.align");
         config_process_line(cfg, "search.prot");
+        config_process_line(cfg, "search.progress");
         if (quiet)
             cfg->cli.quiet = 1;
         return 1;
@@ -98,7 +100,7 @@ int config_process_line(struct config *cfg, const char *in)
             } else if (quiet && eol(in)) {
                 cfg->cli.quiet = 1;
             } else {
-                errf("config: bad cli.quiet value");
+                errf("config: bad cli.quiet value (expected 0 or 1)");
                 return 0;
             }
             if (cfg->cli.quiet)
@@ -110,10 +112,10 @@ int config_process_line(struct config *cfg, const char *in)
     } else if (accept(&in, "search.align")) {
         if (!eol(in)) {
             char *end;
-            unsigned long value = strtoul(in, &end, 10);
+            unsigned long value = strtoul(in, &end, 0);
             while (isspace(*end)) end++;
-            if (*end || value != (unsigned int)value) {
-                errf("config: bad search.align value");
+            if (*end) {
+                errf("config: bad search.align value (expected integer)");
                 return 0;
             }
             cfg->search.align = value;
@@ -122,7 +124,7 @@ int config_process_line(struct config *cfg, const char *in)
         }
         if (!cfg->cli.quiet)
             fputs("search.align = ", stdout);
-        fprintf(stdout, "%u", cfg->search.align);
+        fprintf(stdout, "%lu", cfg->search.align);
     } else if (accept(&in, "search.prot")) {
         if (!eol(in)) {
             char *end;
@@ -139,6 +141,27 @@ int config_process_line(struct config *cfg, const char *in)
         if (!cfg->cli.quiet)
             fputs("search.prot = ", stdout);
         fprintf(stdout, "%u", cfg->search.prot);
+    } else if (accept(&in, "search.progress")) {
+        if (!eol(in)) {
+            int progress = -1;
+            if (accept(&in, "0")) {
+                progress = 0;
+            } else if (accept(&in, "1")) {
+                progress = 1;
+            } else if (accept(&in, "2")) {
+                progress = 2;
+            }
+            if (progress < 0 || !eol(in)) {
+                errf("config: bad cli.progress value (expected 0, 1 or 2)");
+                return 0;
+            }
+            cfg->search.progress = progress;
+            if (cfg->cli.quiet)
+                return 1;
+        }
+        if (!cfg->cli.quiet)
+            fputs("search.progress = ", stdout);
+        fprintf(stdout, "%d", cfg->search.progress);
     } else {
         size_t i;
         for (i = 0; in[i] && in[i] != '=' && !isspace(in[i]); i++);
