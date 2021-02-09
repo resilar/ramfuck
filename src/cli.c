@@ -564,21 +564,19 @@ static int do_explain(struct ramfuck *ctx, const char *in)
         parser.symtab = symtab;
         parser.target = ctx->target;
         if ((ast = parse_expression(&parser, in))) {
+            struct ast *ast_opt;
             struct value out = {0};
             printf("rpn: ");
             ast_print(ast);
             printf("\n");
-
-            if (parser.has_deref)
-                ramfuck_break(ctx);
-            if (ast_evaluate(ast, &out)) {
-                struct ast *ast_opt;
-                if ((ast_opt = ast_optimize(ast))) {
-                    struct value out_opt;
-                    printf("opt: ");
-                    ast_print(ast_opt);
-                    printf("\n");
-
+            if ((ast_opt = ast_optimize(ast))) {
+                struct value out_opt;
+                printf("opt: ");
+                ast_print(ast_opt);
+                printf("\n");
+                if (parser.has_deref)
+                    ramfuck_break(ctx);
+                if (ast_evaluate(ast, &out)) {
                     if (ast_evaluate(ast_opt, &out_opt)) {
                         struct value *l = &out;
                         struct value *r = &out_opt;
@@ -605,11 +603,11 @@ static int do_explain(struct ramfuck *ctx, const char *in)
                     }
                     ast_delete(ast_opt);
                 } else {
-                    errf("explain: optimization of AST faild");
+                    errf("explain: evaluation of AST failed");
                     rc = 5;
                 }
             } else {
-                errf("explain: evaluation of AST failed");
+                errf("explain: optimization of AST faild");
                 rc = 4;
             }
             if (parser.has_deref)
