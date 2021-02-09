@@ -22,7 +22,7 @@ enum ast_type {
 
     /* Binary operators */
     AST_ADD, AST_SUB, AST_MUL, AST_DIV, AST_MOD,
-    
+
     /* Bitwise operators */
     AST_AND, AST_XOR, AST_OR, AST_SHL, AST_SHR,
 
